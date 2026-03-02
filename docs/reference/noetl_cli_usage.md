@@ -491,7 +491,7 @@ noetl server --help
 
 ## Next Steps
 
-- [Local Execution Guide](/docs/noetlctl/local_execution) - Detailed local runtime documentation
+- [Local Execution Guide](/docs/cli/local_execution) - Detailed local runtime documentation
 - [Infrastructure as Playbook](/docs/features/infrastructure_as_playbook) - Manage cloud infrastructure
 - [Playbook Structure](/docs/features/playbook_structure) - Learn playbook YAML structure
 - [API Usage Guide](/docs/reference/api_usage) - REST API documentation
