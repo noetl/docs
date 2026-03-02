@@ -229,5 +229,5 @@ RUSTFLAGS="-C link-arg=-fuse-ld=mold" cargo install noetl-cli
 ## Next Steps
 
 - [Quick Start Guide](../getting-started/quickstart.md)
-- [Local Playbook Execution](../noetlctl/local_execution.md)
-- [NoETL CLI](../noetlctl/index.md)
+- [Local Playbook Execution](../cli/local_execution.md)
+- [NoETL CLI](../cli/index.md)
