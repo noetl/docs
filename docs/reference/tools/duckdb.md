@@ -1,14 +1,14 @@
 ---
 sidebar_position: 4
-title: DuckDB Tool (Canonical v10)
-description: Execute DuckDB SQL as pipeline tasks with unified auth and reference-first results (Canonical v10)
+title: DuckDB Tool 
+description: Execute DuckDB SQL as pipeline tasks with unified auth and reference-first results 
 ---
 
-# DuckDB Tool (Canonical v10)
+# DuckDB Tool 
 
-The DuckDB tool executes SQL inside a canonical step pipeline (`step.tool`).
+The DuckDB tool executes SQL inside a standard step pipeline (`step.tool`).
 
-Canonical reminders:
+Standard reminders:
 - Use `task.spec.policy.rules` for retry/fail/jump/break (no legacy `eval/expr`).
 - Use unified auth (when needed) for cloud URIs and DB attachments.
 - Prefer reference-first results for large outputs.
@@ -54,5 +54,5 @@ For large exports, consider writing Parquet/CSV directly to object storage and r
 ---
 
 ## See also
-- Result storage (reference-first): `documentation/docs/reference/result_storage_canonical_v10.md`
+- Result storage (reference-first): `documentation/docs/reference/result_storage.md`
 - Unified auth / keychain: `documentation/docs/reference/auth_and_keychain_reference.md`

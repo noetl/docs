@@ -1,13 +1,13 @@
-# Workflow (steps and routing) — Canonical v10
+# Workflow (steps and routing) — current DSL
 
-In Canonical v10, `workflow:` is a list of steps connected by **server-side routing** (`step.next` router + `next.arcs[]`).
+In current DSL, `workflow:` is a list of steps connected by **server-side routing** (`step.next` router + `next.arcs[]`).
 
 A step is composed from:
 - **Admission (server):** `step.spec.policy.admit.rules`
 - **Execution (worker):** `step.tool` (ordered pipeline of labeled tasks)
 - **Routing (server):** `step.next.spec` + `step.next.arcs[]` guarded by `when`
 
-Canonical removals (vs legacy docs):
+Standard removals (vs legacy docs):
 - no step `type:` variants (http/python/iterator/…)
 - no `step.when`
 - no `eval`/`expr`/`case` conditionals (use `when` only)

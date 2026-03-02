@@ -1,6 +1,6 @@
-# DuckDB in steps — Canonical v10
+# DuckDB in steps — current DSL
 
-Canonical v10 has no `tool: duckdb` step type. Use a DuckDB **tool task** (`kind: duckdb`) inside `step.tool`.
+current DSL has no `tool: duckdb` step type. Use a DuckDB **tool task** (`kind: duckdb`) inside `step.tool`.
 
 ## See also
 - DuckDB tool: `documentation/docs/reference/tools/duckdb.md`

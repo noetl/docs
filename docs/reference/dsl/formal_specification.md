@@ -1,12 +1,12 @@
 ---
 sidebar_position: 8
-title: Formal Specification (Canonical)
-description: Normative specification for NoETL DSL v2 (Petri-net canonical execution model)
+title: Formal Specification (standard)
+description: Normative specification for NoETL DSL v2 (Petri-net standard execution model)
 ---
 
-# NoETL Playbook DSL — Formal Specification (Canonical v10)
+# NoETL Playbook DSL — Formal Specification 
 
-> **Normative scope:** This document defines the **normative** semantics of the NoETL Playbook DSL and its **event‑sourced execution model** using the **Petri‑net canonical form**:
+> **Normative scope:** This document defines the **normative** semantics of the NoETL Playbook DSL and its **event‑sourced execution model** using the **Petri‑net standard form**:
 >
 > - **Step** = admission gate (`step.spec.policy.admit`) + ordered pipeline (`step.tool`) + router (`step.next` with Petri‑net **arcs**)
 > - **Task‑level policy** (`task.spec.policy.rules`) maps `outcome → do` (`retry|jump|continue|break|fail`) inside the pipeline
@@ -59,7 +59,7 @@ A playbook is a YAML mapping with (at minimum):
 
 **Root restriction (normative):** A playbook MUST NOT include `vars` at root level.
 
-### 2.2 Step model (canonical)
+### 2.2 Step model (Standard)
 
 A step is a mapping containing:
 
@@ -73,7 +73,7 @@ A step is a mapping containing:
 A step **MUST** have at least one of: `tool` or `next`.
 (If `tool` is absent, the step is a pure routing transition.)
 
-**Canonical restriction:** The step MUST NOT include a top‑level `when` field. Step admission is specified only via `step.spec.policy.admit`.
+**standard restriction:** The step MUST NOT include a top‑level `when` field. Step admission is specified only via `step.spec.policy.admit`.
 
 ### 2.3 Loop model (normative)
 
@@ -323,7 +323,7 @@ Every observable state transition MUST be recorded as an event with:
 - `status`: `in_progress` | `success` | `error` | `paused`
 - `data`: JSON payload (metadata, references, errors)
 
-### 10.2 Canonical event taxonomy (recommended)
+### 10.2 Standard event taxonomy (recommended)
 **Control-plane (server):**
 - `PlaybookExecutionRequested`
 - `PlaybookRequestEvaluated`
@@ -369,7 +369,7 @@ from the event stream plus any optional snapshots.
 
 ## 12. Quantum orchestration profile (informative)
 
-This canonical model maps naturally to quantum orchestration:
+This standard model maps naturally to quantum orchestration:
 - job submission as tools (`kind: quantum`)
 - polling as a pipeline loop via `policy: jump/retry`
 - parameter sweeps via `loop`
@@ -423,7 +423,7 @@ policy_rule     ::= ("when" ":" STRING "then" ":" map) | ("else" ":" map)
 ---
 
 ## Appendix B — Recommended document set
-- `docs/dsl/dsl_specification.md` — user-facing canonical DSL spec
+- `docs/dsl/dsl_specification.md` — user-facing standard DSL spec
 - `docs/dsl/formal_specification.md` — this formal spec (normative)
 - `docs/runtime/events.md` — event envelope and event taxonomy
 - `docs/runtime/control-plane-vs-workers.md` — boundary and scaling model

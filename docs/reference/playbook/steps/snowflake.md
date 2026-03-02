@@ -1,6 +1,6 @@
-# Snowflake in steps — Canonical v10
+# Snowflake in steps — current DSL
 
-Canonical v10 has no `tool: snowflake` step type. Use a Snowflake **tool task** (`kind: snowflake`) inside `step.tool`.
+current DSL has no `tool: snowflake` step type. Use a Snowflake **tool task** (`kind: snowflake`) inside `step.tool`.
 
 ## See also
 - Snowflake tool: `documentation/docs/reference/tools/snowflake.md`

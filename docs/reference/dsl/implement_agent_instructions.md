@@ -1,6 +1,6 @@
-# Implement NoETL Canonical DSL (Agent Instructions) — v6 (Validated)
+# Implement NoETL Standard DSL (Agent Instructions) — v6 (Validated)
 
-This document is a **direct implementation brief** for AI agents (Copilot/Claude/etc.) to implement the **NoETL canonical DSL** end-to-end, aligned with the latest decisions (Canonical v10):
+This document is a **direct implementation brief** for AI agents (Copilot/Claude/etc.) to implement the **NoETL standard DSL** end-to-end, aligned with the latest decisions :
 
 - `when` is the **only** conditional keyword.
 - All knobs live under `spec` (at any level).
@@ -27,7 +27,7 @@ A worker policy MUST NOT start steps. Only server routing (`next.arcs`) starts s
 
 ---
 
-## 1) Canonical DSL rules (MUST)
+## 1) Standard DSL rules (MUST)
 
 ### 1.1 Only one conditional keyword
 - The only conditional keyword is: **`when`**.
@@ -70,7 +70,7 @@ No list form is allowed. No backward compatibility.
 
 ## 2) Root playbook structure (MUST)
 
-Canonical root sections (top-level keys):
+Standard root sections (top-level keys):
 
 - `metadata`
 - `keychain` (optional but recommended; credential declarations)
@@ -141,7 +141,7 @@ Credentials MUST be declared via root `keychain:` (not under `executor`).
 
 ## 3) Normalization (MUST)
 
-### 3.1 Normalize `step.tool` to canonical labeled list
+### 3.1 Normalize `step.tool` to Standard labeled list
 Input forms you MAY accept:
 1) single task object
 2) list of task objects
@@ -163,8 +163,8 @@ Labels are used for:
 - event correlation
 - `_task` runtime variable
 
-### 3.2 Normalize `step.next` to canonical router object
-Canonical `next` form:
+### 3.2 Normalize `step.next` to Standard router object
+Standard `next` form:
 
 ```yaml
 next:
@@ -298,7 +298,7 @@ Optional `then` fields:
 
 ### `do: continue`
 - Proceed to next task in the pipeline.
-- `_prev` becomes the current task’s `outcome.result` (canonical).
+- `_prev` becomes the current task’s `outcome.result` (standard).
 
 ### `do: skip`
 - Do not execute the tool body (treat as a no-op for this task).
@@ -308,7 +308,7 @@ Optional `then` fields:
 ### `do: retry`
 - Re-run the same task.
 - Attempt counter scoped to `(execution_id, step_run_id, iteration_id?, task_label)`.
-- When attempts exhausted: directive becomes `fail` (canonical).
+- When attempts exhausted: directive becomes `fail` (standard).
 - Implement `delay` + `backoff`:
   - `none`: fixed delay
   - `linear`: delay * n
@@ -360,7 +360,7 @@ Implement parent chain addressing:
 - Loop is a step modifier at `step.loop`.
 - Server schedules iterations; workers execute pipelines per iteration.
 
-Canonical loop shape:
+Standard loop shape:
 ```yaml
 loop:
   in: "{{ workload.items }}"
@@ -473,7 +473,7 @@ Warn:
 ### Worker (data plane)
 - Claim step/iteration run lease
 - Execute tasks in order
-- Produce canonical `outcome` envelope (with kind-specific fields)
+- Produce standard `outcome` envelope (with kind-specific fields)
 - Apply `task.spec.policy.rules` to drive retry/jump/break/fail/continue
 - Maintain `_prev`, `_task`, `_attempt`; maintain `iter` (and `iter.parent`)
 - Emit task/step/loop events to server
@@ -481,6 +481,6 @@ Warn:
 ### Shared
 - Spec merge engine (deep merge with precedence)
 - Jinja2 templating for all `when` expressions and templated fields
-- Validator/linter enforcing canonical constraints
+- Validator/linter enforcing standard constraints
 
 ---

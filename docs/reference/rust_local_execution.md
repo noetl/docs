@@ -1,8 +1,8 @@
-# NoETL Rust Local Execution (Canonical v10)
+# NoETL Rust Local Execution 
 
-This document describes the Rust implementation for **local mode** execution of **Canonical v10** playbooks.
+This document describes the Rust implementation for **local mode** execution of **current DSL** playbooks.
 
-Local mode is intended for development, testing, and CI/CD. Conceptually, the control-plane and data-plane run in a single process, but the **canonical semantics remain the same**.
+Local mode is intended for development, testing, and CI/CD. Conceptually, the control-plane and data-plane run in a single process, but the **standard semantics remain the same**.
 
 ## Quick start
 
@@ -20,7 +20,7 @@ noetl exec ./playbook.yaml -r local --target my_step
 noetl exec ./playbook.yaml -r local --dry-run
 ```
 
-## Canonical v10 semantics (what local mode must preserve)
+## current DSL semantics (what local mode must preserve)
 
 - **Step admission (server semantics):** `step.spec.policy.admit.rules`
 - **Task execution (worker semantics):** `step.tool` pipeline; task outcome handling via `task.spec.policy.rules`
@@ -28,12 +28,12 @@ noetl exec ./playbook.yaml -r local --dry-run
 - **Loops:** `step.loop` (not a tool kind); per-iteration state lives in `iter.*`
 - **One conditional keyword:** `when` (no legacy `eval`/`expr`/`case`)
 
-Canonical references:
+Standard references:
 - `documentation/docs/reference/dsl/step_spec.md`
 - `documentation/docs/reference/dsl/playbook_structure.md`
 - `documentation/docs/reference/dsl/implement_agent_instructions.md`
 
-## Deprecated legacy features (not canonical)
+## Deprecated legacy features (not Standard)
 
 Local mode should not depend on legacy constructs such as:
 - playbook-root `vars`
@@ -41,13 +41,13 @@ Local mode should not depend on legacy constructs such as:
 - `step.when`
 - `next: [ ... ]` list routing
 
-Use the canonical equivalents:
+Use the standard equivalents:
 - `ctx` / `iter` via `set_ctx` / `set_iter` in task policy
 - `task.spec.policy.rules`
 - `step.spec.policy.admit.rules`
 - `next.spec` + `next.arcs[]`
 
-## Minimal canonical example
+## Minimal Standard example
 
 ```yaml
 apiVersion: noetl.io/v2
@@ -93,7 +93,7 @@ workflow:
 
 ## Tool support
 
-Tool availability in local mode is runtime-defined. Prefer documenting and validating against the canonical tool docs:
+Tool availability in local mode is runtime-defined. Prefer documenting and validating against the standard tool docs:
 - `documentation/docs/reference/tools/index.md`
 - `documentation/docs/reference/tools/http.md`
 - `documentation/docs/reference/tools/postgres.md`

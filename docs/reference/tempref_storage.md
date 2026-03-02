@@ -1,15 +1,15 @@
 ---
 sidebar_position: 17
-title: ResultRef / TempRef Storage System (Canonical v10)
-description: Reference-first (zero-copy) data passing using ResultRef pointers — aligned with Canonical v10 DSL
+title: ResultRef / TempRef Storage System 
+description: Reference-first (zero-copy) data passing using ResultRef pointers — aligned with current DSL
 ---
 
-# ResultRef / TempRef Storage System (Canonical v10)
+# ResultRef / TempRef Storage System 
 
-Canonical v10 uses **reference-first** results: large tool outputs are stored externally and only lightweight pointers are propagated and persisted.
+current DSL uses **reference-first** results: large tool outputs are stored externally and only lightweight pointers are propagated and persisted.
 
 Terminology:
-- **ResultRef** is the canonical pointer object in v10.
+- **ResultRef** is the standard pointer object in v10.
 - **TempRef** is a legacy name; if it exists in older components, treat it as an alias of ResultRef semantics.
 
 Authoritative reference docs:
@@ -26,13 +26,13 @@ Embedding full tool outputs directly in the event log causes:
 - slower queries and template rendering
 - high memory pressure on server/workers
 
-Canonical solution:
+Standard solution:
 - store large bodies externally (Postgres, NATS KV/Object Store, GCS, etc.)
 - emit/persist only **metadata + references + extracted fields**
 
 ---
 
-## 2) ResultRef structure (canonical)
+## 2) ResultRef structure (Standard)
 
 ```json
 {
@@ -63,7 +63,7 @@ Key idea: downstream steps should rely on `extracted` fields for routing/state w
 
 ---
 
-## 3) DSL configuration (Canonical v10)
+## 3) DSL configuration 
 
 Result externalization is configured **per task** under `task.spec.result`:
 

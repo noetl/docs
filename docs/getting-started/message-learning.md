@@ -170,6 +170,6 @@ See [Observability Services](../reference/observability_services.md) for complet
 
 ## Next Steps
 
-- [Playbook Structure](/docs/features/playbook_structure) - Learn the DSL syntax
+- [Playbook Structure](/docs/reference/dsl/playbook_structure) - Learn the DSL syntax
 - [Observability](../reference/observability_services.md) - Analytics stack setup
 - [AI-Native Features](/docs/getting-started/semantic-pipeline) - Semantic search capabilities

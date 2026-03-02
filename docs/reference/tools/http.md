@@ -1,14 +1,14 @@
 ---
 sidebar_position: 1
-title: HTTP Tool (Canonical v10)
-description: Make HTTP requests as pipeline tasks with policy-driven retry/pagination (Canonical v10)
+title: HTTP Tool 
+description: Make HTTP requests as pipeline tasks with policy-driven retry/pagination 
 ---
 
-# HTTP Tool (Canonical v10)
+# HTTP Tool 
 
-The HTTP tool executes HTTP requests inside a canonical step pipeline (`step.tool`).
+The HTTP tool executes HTTP requests inside a standard step pipeline (`step.tool`).
 
-Canonical reminders:
+Standard reminders:
 - Use `when` in policies/arcs (no legacy `eval`/`expr`, no `case`).
 - Handle retry/pagination via `task.spec.policy.rules` (`do: retry|jump|break|fail|continue`).
 - Prefer reference-first results for large payloads.
@@ -54,7 +54,7 @@ Canonical reminders:
 | `spec.policy.rules` | list | Task outcome handling (retry/jump/break/fail/continue) |
 | `spec.result` | mapping | Reference-first output policy (ResultRef) |
 
-> Canonical field name is `url`. Some runtimes may accept `endpoint` as a legacy alias, but docs and canonical examples use `url`.
+> standard field name is `url`. Some runtimes may accept `endpoint` as a legacy alias, but docs and standard examples use `url`.
 
 ---
 
@@ -104,9 +104,9 @@ Align your templates/policies to the wrapper used by your HTTP executor.
 
 ---
 
-## Pagination (canonical)
+## Pagination (Standard)
 
-Canonical v10 pagination is a streaming pipeline pattern using `jump`/`break` and `iter.*` state.
+current DSL pagination is a streaming pipeline pattern using `jump`/`break` and `iter.*` state.
 See:
 - `documentation/docs/reference/pagination_v2.md`
 - `documentation/docs/reference/dsl/pagination.md`
@@ -130,4 +130,4 @@ For large bodies, configure `spec.result` to externalize payloads and extract sm
             as: has_more
 ```
 
-See `documentation/docs/reference/result_storage_canonical_v10.md`.
+See `documentation/docs/reference/result_storage.md`.

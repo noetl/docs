@@ -1,24 +1,24 @@
 ---
 sidebar_position: 16
-title: Retry Handling (Canonical v10)
-description: Canonical retry model for NoETL DSL using task policy rules (retry/jump/break/fail/continue) — no eval/expr, no step-level retry blocks
+title: Retry Handling 
+description: standard retry model for NoETL DSL using task policy rules (retry/jump/break/fail/continue) — no eval/expr, no step-level retry blocks
 ---
 
-# Retry Handling (Canonical v10)
+# Retry Handling 
 
-Canonical v10 treats retry as **task outcome policy**, not a special step-level feature:
+current DSL treats retry as **task outcome policy**, not a special step-level feature:
 
-- There is **no** step-level `retry:` block in the canonical DSL.
+- There is **no** step-level `retry:` block in the standard DSL.
 - Retry is expressed via **task policy rules**: `task.spec.policy.rules` (`when` → `then.do: retry`).
-- Tool implementations MAY still offer internal retry knobs under `task.spec`, but canonical orchestration retry is policy-driven so it remains deterministic and observable.
+- Tool implementations MAY still offer internal retry knobs under `task.spec`, but standard orchestration retry is policy-driven so it remains deterministic and observable.
 
-Related canonical docs:
+Related standard docs:
 - `documentation/docs/reference/dsl/step_spec.md`
 - `documentation/docs/reference/dsl/spec.md`
 
 ---
 
-## 1) Canonical retry placement
+## 1) Standard retry placement
 
 Retry belongs to **task scope**:
 
@@ -45,7 +45,7 @@ This keeps retry:
 
 ---
 
-## 2) Policy rule schema (canonical)
+## 2) Policy rule schema (Standard)
 
 ```yaml
 spec:
@@ -69,7 +69,7 @@ Defaults:
   - ok → `continue`
   - error → `fail`
 - If policy is present but no rule matches and there is no `else`:
-  - default → `continue` (canonical v10 default)
+  - default → `continue` (current DSL default)
 
 ---
 
@@ -150,7 +150,7 @@ If you need jitter, prefer implementing it in the runtime/tool layer so the orch
 
 ## 5) Retry architecture diagram (worker-owned task policy)
 
-Canonical v10 retry is **worker-owned task control flow** driven by `task.spec.policy.rules`:
+current DSL retry is **worker-owned task control flow** driven by `task.spec.policy.rules`:
 - the worker executes a task attempt
 - the worker evaluates policy rules over the resulting `outcome`
 - the worker may schedule another attempt (`then.do: retry`) with backoff/delay
@@ -228,7 +228,7 @@ Retry is one control action in the same task-policy mechanism used for:
 - **pagination streams**: `do: jump` back to `fetch_page` until `do: break`
 - **polling**: `do: retry` (bounded) or `do: jump` to a poll task with explicit delay handling
 
-See `documentation/docs/reference/dsl/pagination.md` for canonical pagination.
+See `documentation/docs/reference/dsl/pagination.md` for standard pagination.
 
 ---
 
@@ -241,7 +241,7 @@ retry:
   retry_when: "{{ status_code >= 500 }}"
 ```
 
-Canonical v10:
+current DSL:
 ```yaml
 spec:
   policy:

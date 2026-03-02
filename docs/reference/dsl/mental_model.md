@@ -1,6 +1,6 @@
 # NoETL DSL Mental Model (Conceptual “ER”)
 
-This document is a **conceptual model** distilled from the Canonical v10 DSL reference:
+This document is a **conceptual model** distilled from the current DSL reference:
 - https://noetl.dev/docs/reference/dsl/step_spec
 - https://github.com/noetl/noetl/tree/master/documentation/docs/reference/dsl
 

@@ -1,12 +1,12 @@
 ---
 sidebar_position: 13
-title: HTTP Pagination (Canonical v10)
-description: Canonical pagination patterns for NoETL DSL — streaming pagination with task policy (retry/jump/break) and outer-loop fan-out
+title: HTTP Pagination 
+description: standard pagination patterns for NoETL DSL — streaming pagination with task policy (retry/jump/break) and outer-loop fan-out
 ---
 
-# HTTP Pagination (Canonical v10)
+# HTTP Pagination 
 
-Canonical v10 models pagination as a **deterministic streaming state machine inside a step pipeline**:
+current DSL models pagination as a **deterministic streaming state machine inside a step pipeline**:
 
 - **No** `loop.pagination:` block
 - **No** step-level `retry:` wrapper
@@ -20,13 +20,13 @@ If you need high parallelism and ordered paging:
 - **outer loop fan-out** (parallel/distributed) via `step.loop`
 - **inner ordered pagination stream** (sequential per item) inside each iteration lease
 
-For the full canonical walkthrough + example, see:
+For the full standard walkthrough + example, see:
 - `documentation/docs/reference/dsl/pagination.md`
 - `documentation/docs/reference/dsl/step_spec.md`
 
 ---
 
-## Canonical streaming pagination skeleton
+## Standard streaming pagination skeleton
 
 ```yaml
 - step: fetch_all_pages

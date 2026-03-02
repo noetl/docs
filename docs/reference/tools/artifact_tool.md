@@ -1,16 +1,16 @@
 ---
 sidebar_position: 5
-title: Artifact Tool (Canonical v10)
-description: Load/store externally stored results referenced by ResultRef/TempRef (Canonical v10)
+title: Artifact Tool 
+description: Load/store externally stored results referenced by ResultRef/TempRef 
 ---
 
-# Artifact Tool (Canonical v10)
+# Artifact Tool 
 
 The `artifact` tool loads (and optionally stores) externally stored results referenced by **ResultRef/TempRef**.
 
 Use it when a prior step/task externalized a large output and you need the full body in a downstream step.
 
-Canonical reminders:
+Standard reminders:
 - Prefer **reference-first** results for large payloads.
 - Keep secrets out of event logs and out of `ctx`/`iter`.
 - Handle control flow via `task.spec.policy.rules` and server routing via `step.next.arcs[]`.
@@ -90,5 +90,5 @@ Store `data` to a target `uri` and return metadata:
 ---
 
 ## See also
-- Result storage model: `documentation/docs/reference/result_storage_canonical_v10.md`
+- Result storage model: `documentation/docs/reference/result_storage.md`
 - ResultRef / TempRef: `documentation/docs/reference/tempref_storage.md`

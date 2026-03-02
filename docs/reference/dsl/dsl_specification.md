@@ -1,25 +1,25 @@
 ---
 sidebar_position: 4
 title: DSL Specification
-description: Complete technical specification for NoETL DSL v2 — Canonical (Petri Net)
+description: Complete technical specification for NoETL DSL v2 — standard (Petri Net)
 ---
 
-# NoETL DSL v2 Specification (Canonical)
+# NoETL DSL v2 Specification (Standard)
 
-This document defines the **canonical** NoETL DSL v2 model and runtime semantics.
+This document defines the **standard** NoETL DSL v2 model and runtime semantics.
 It is the implementation target for:
 - **Control plane**: `server.py` (orchestrator, router, scheduler, event log)
 - **Data plane**: `worker.py` (tool execution + task policy control inside a step/iteration)
 
-> Canonical intent: **Petri-net token routing on the server** + **deterministic task pipelines on the worker**.
+> standard intent: **Petri-net token routing on the server** + **deterministic task pipelines on the worker**.
 
 ---
 
 ## Status and Scope
 
-Canonical v2 intentionally simplifies earlier designs:
+DSL v2 intentionally simplifies earlier designs:
 
-- **Canonical step = admission policy + tool pipeline + next router**
+- **standard step = admission policy + tool pipeline + next router**
 - **No `pipe:` construct** — `step.tool` is always an ordered pipeline
 - **No step-level `case: when: then:` for baseline execution**
   - `case` may be introduced later only as an advanced multi-listener / multi-body feature
@@ -108,7 +108,7 @@ A **step** is a Petri-net transition with:
 - **Action**: `step.tool` pipeline (worker-side)
 - **Outgoing arcs**: `step.next.arcs[]` (server-side)
 
-There is **no** `step.when` field in canonical v2.
+There is **no** `step.when` field in DSL v2.
 All gating and routing must be expressed via `spec.policy` (step scope) and `next` (routing scope).
 
 ---
@@ -140,12 +140,12 @@ When a step has a `loop`, each iteration has isolated `iter` scope:
 
 ### 3.4 Pipeline locals (within a step/iteration)
 Within a pipeline:
-- `_prev`: previous task output (canonical: previous task’s `outcome.result`)
+- `_prev`: previous task output (standard: previous task’s `outcome.result`)
 - `_task`: current task label
 - `_attempt`: attempt counter for current task
 
 ### 3.5 Nested loops
-Canonical addressing:
+Standard addressing:
 - `iter` is current iteration scope
 - `iter.parent` is outer iteration scope
 - `iter.parent.parent` for deeper nesting
@@ -158,9 +158,9 @@ For reads in templates:
 
 ---
 
-## 4. Canonical Step Specification
+## 4. Standard Step Specification
 
-### 4.1 Step Shape (canonical)
+### 4.1 Step Shape (Standard)
 
 ```yaml
 - step: <name>
@@ -216,10 +216,10 @@ Admission evaluation inputs:
 
 ## 5. Step Body = Ordered Pipeline (`step.tool`)
 
-### 5.1 Pipeline Task (canonical)
+### 5.1 Pipeline Task (Standard)
 Each entry in `step.tool` is a labeled **task** that invokes a tool `kind`.
 
-Canonical task form:
+Standard task form:
 
 ```yaml
 - fetch_page:
@@ -264,7 +264,7 @@ Kind-specific stable fields (examples):
 ### 6.1 Purpose
 `task.spec.policy.rules` maps an outcome to a deterministic directive for the pipeline.
 
-### 6.2 Syntax (canonical)
+### 6.2 Syntax (Standard)
 ```yaml
 spec:
   policy:
@@ -289,21 +289,21 @@ If `task.spec.policy` is omitted:
 - error → fail
 
 If `rules` exist but nothing matches and no `else`:
-- default is **continue** (canonical)
+- default is **continue** (standard)
 
 ### 6.4 Two retry layers (optional)
 1) **Tool-internal retry** (inside `task.spec` knobs; e.g., HTTP client retry)
-2) **Canonical policy retry** (`then.do: retry`)
+2) **standard policy retry** (`then.do: retry`)
 
 Order:
 - Task executes using `task.spec` runtime knobs
 - Task emits a single final `outcome`
 - Policy evaluates that outcome
-- Policy may retry the whole task (canonical)
+- Policy may retry the whole task (standard)
 
 Recommendation:
 - Keep tool-internal retry minimal
-- Prefer canonical policy retry for deterministic event sourcing and observability
+- Prefer standard policy retry for deterministic event sourcing and observability
 
 ### 6.5 Directive semantics
 - `continue`: advance to next task
@@ -358,7 +358,7 @@ Each arc may have a `when` guard (default true). Guards can reference:
 
 ### 8.3 Arc inscription (`next.arcs[].args`)
 `args` is payload placed into the token for the next step.
-This is the canonical way to pass data across steps in Petri-net style.
+This is the standard way to pass data across steps in Petri-net style.
 
 ### 8.4 Fan-out vs exclusive
 Routing fan-out is controlled by `next.spec.mode`:
@@ -367,14 +367,14 @@ Routing fan-out is controlled by `next.spec.mode`:
 
 ---
 
-## 9. Event Sourcing Model (Canonical)
+## 9. Event Sourcing Model (Standard)
 
 ### 9.1 Layers
 - Workflow/Execution layer (server authoritative)
 - Step scheduling + routing layer (server authoritative)
 - Task execution layer (worker authoritative for outcomes)
 
-### 9.2 Ownership (canonical)
+### 9.2 Ownership (Standard)
 | Event Type | Emitted By | Authoritative |
 |-----------|------------|---------------|
 | `playbook.*`, `workflow.*` | Server | Server |
@@ -416,7 +416,7 @@ A “sink” is simply a tool task that writes to storage and returns a referenc
 
 ---
 
-## 11. Canonical Pagination Pattern (Streaming inside an iteration)
+## 11. Standard Pagination Pattern (Streaming inside an iteration)
 
 Pagination is expressed as a state machine inside an iteration using `jump` and `break`:
 
@@ -434,7 +434,7 @@ This supports hierarchical concurrency:
 
 ## 12. Compatibility / Deprecations
 
-The following constructs are **non-canonical** for baseline v2:
+The following constructs are **non-standard** for baseline v2:
 - `pipe:`
 - legacy `eval:` blocks
 - `expr:` condition keyword
@@ -444,7 +444,7 @@ The following constructs are **non-canonical** for baseline v2:
 
 ---
 
-## 13. Appendix: Minimal canonical step example
+## 13. Appendix: Minimal Standard step example
 
 ```yaml
 - step: fetch_transform_store

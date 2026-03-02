@@ -1,4 +1,4 @@
-# Container tool (playbook authoring) — Canonical v10
+# Container tool (playbook authoring) — current DSL
 
 Use `kind: container` tasks inside `step.tool` to run scripts in a Kubernetes Job (runtime-defined).
 

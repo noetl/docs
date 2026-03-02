@@ -1,14 +1,14 @@
 ---
 sidebar_position: 10
-title: Transfer Tool (Canonical v10)
-description: Declarative bulk data transfer between sources and targets (Canonical v10)
+title: Transfer Tool 
+description: Declarative bulk data transfer between sources and targets 
 ---
 
-# Transfer Tool (Canonical v10)
+# Transfer Tool 
 
 The `transfer` tool performs bulk data movement between a **source** and **target** in a single pipeline task.
 
-Canonical reminders:
+Standard reminders:
 - Use `task.spec.policy.rules` for retry/fail.
 - Keep large intermediate data reference-first when possible.
 

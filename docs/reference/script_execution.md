@@ -1,14 +1,14 @@
 ---
 sidebar_position: 14
-title: Script Loading and Script Jobs (Canonical v10)
-description: Unified specification for external script loading (script attribute) and Kubernetes job-based script execution (script tool kind) — Canonical v10
+title: Script Loading and Script Jobs 
+description: Unified specification for external script loading (script attribute) and Kubernetes job-based script execution (script tool kind) — current DSL
 ---
 
-# Script Loading and Script Jobs (Canonical v10)
+# Script Loading and Script Jobs 
 
-This document consolidates and replaces the prior **Script Attribute** and **Script Tool** documents and aligns them to the **Canonical v10** execution model.
+This document consolidates and replaces the prior **Script Attribute** and **Script Tool** documents and aligns them to the **current DSL** execution model.
 
-Canonical alignment:
+Standard alignment:
 - Playbook root sections are `metadata`, `keychain` (optional), `executor` (optional), `workload`, `workflow`, `workbook` (optional)
 - A step is `spec.policy` (admission/lifecycle) + `tool` (ordered pipeline) + `next` (router with arcs)
 - Each pipeline item is a **tool task** with `kind` and optional `spec`
@@ -31,13 +31,13 @@ Many tools accept code-like inputs:
 - request templates
 - transformation logic
 
-Canonical v10 supports providing that code from:
+current DSL supports providing that code from:
 - inline fields (tool-specific)
 - encoded fields (tool-specific)
 - external locations via a common `script` descriptor
 
 ### 1.2 “Script tool” as an execution environment
-Some workloads require isolation, resource control, and dependency packaging. For those, Canonical v10 supports a dedicated tool kind:
+Some workloads require isolation, resource control, and dependency packaging. For those, current DSL supports a dedicated tool kind:
 
 - `kind: script` — runs a script as an isolated Kubernetes Job, with resource policies and controlled environment injection.
 
@@ -47,9 +47,9 @@ These are separate concepts:
 
 ---
 
-## 2) Placement in the canonical step pipeline
+## 2) Placement in the Standard step pipeline
 
-In Canonical v10, steps execute an ordered pipeline:
+In current DSL, steps execute an ordered pipeline:
 
 - `step.tool` is a list of named tasks
 - Each task has `kind` and tool-specific configuration
@@ -75,7 +75,7 @@ A tool kind MAY support `script` if it accepts code-like input. Typical kinds in
 - templated tools (implementation-defined)
 
 ### 3.3 Script resolution precedence
-If a tool supports multiple code sources, the canonical precedence is:
+If a tool supports multiple code sources, the standard precedence is:
 
 1. `script` (external) — highest priority  
 2. encoded fields (tool-specific)  
@@ -145,10 +145,10 @@ Common job policy knobs include:
 - TTL cleanup after completion
 - environment variables (see credential handling below)
 
-These fields may be placed under `spec` (canonical policy container).
+These fields may be placed under `spec` (standard policy container).
 
-### 4.4 Credential injection (canonical)
-Jobs often need cloud/database credentials. Canonical v10 requires:
+### 4.4 Credential injection (Standard)
+Jobs often need cloud/database credentials. current DSL requires:
 - playbooks reference credential names, not secret values
 - workers materialize credentials and inject them into the job environment securely
 - tokens are refreshed according to runtime policy (threshold-based)
@@ -159,7 +159,7 @@ Recommended approach:
 - the event log records only metadata (no secret bytes)
 
 ### 4.5 Outputs and result references
-Job outputs can be large (logs, artifacts, produced datasets). Canonical v10 recommends:
+Job outputs can be large (logs, artifacts, produced datasets). current DSL recommends:
 - store large outputs externally (object store, DB)
 - return a ResultRef describing the stored location
 - include only minimal metadata in events and pipeline outcomes
@@ -179,7 +179,7 @@ There are two retry layers (implementation-defined but recommended):
 - **Job retry** (Kubernetes backoff limit) — retries inside the cluster job controller
 - **Task retry** (NoETL `then.do: retry`) — reruns the task from the worker perspective
 
-Canonical guidance:
+Standard guidance:
 - Use Kubernetes retry for quick transient pod failures.
 - Use NoETL task retry for higher-level policy (backoff, jitter, cross-node rescheduling) and for script download failures.
 - Ensure idempotency when retries can re-run the same script.
@@ -216,7 +216,7 @@ Use object storage paths that incorporate:
 
 ## 8) Migration notes (from legacy docs)
 
-- Replace step-level `tool: python` shorthand with canonical pipeline tasks under `step.tool`.
+- Replace step-level `tool: python` shorthand with standard pipeline tasks under `step.tool`.
 - Treat `script` as a **tool task attribute**, not a separate top-level mechanism.
 - Prefer referencing credentials by name (e.g., `auth: pg_k8s`, root `keychain` declarations) over embedding secret bytes into templated strings. If you template `keychain.*` values into headers, ensure the runtime redacts inputs in events/logs.
 - Keep script content out of events; store references + integrity metadata.
@@ -226,5 +226,5 @@ Use object storage paths that incorporate:
 ## See also
 - Credential caching: `credential_caching_v2.md`
 - Token refresh: `keychain_token_refresh_v2.md`
-- Result storage (reference-first): `result_storage_canonical_v10.md`
+- Result storage (reference-first): `result_storage.md`
 - Pipeline execution: `pipeline_execution_v2.md`

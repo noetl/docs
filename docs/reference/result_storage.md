@@ -1,12 +1,12 @@
 ---
 sidebar_position: 6
-title: Result Storage & References (Canonical)
-description: Reference-first result storage for NoETL DSL (Canonical v10) — NATS KV/ObjectStore, GCS, Postgres, manifests, and event-sourced access
+title: Result Storage & References (standard)
+description: Reference-first result storage for NoETL DSL  — NATS KV/ObjectStore, GCS, Postgres, manifests, and event-sourced access
 ---
 
-# Result Storage & References — Canonical v10
+# Result Storage & References — current DSL
 
-This document **merges and supersedes** the older result/TempRef docs and updates them to the **latest Canonical v10 DSL** rules:
+This document **merges and supersedes** the older result/TempRef docs and updates them to the **latest current DSL** rules:
 
 - No `sink` concept: **“sink” is a pattern**, not a tool kind.
 - No `eval:` / `expr:`. Outcome handling uses **`spec.policy.rules` with `when`**.
@@ -14,7 +14,7 @@ This document **merges and supersedes** the older result/TempRef docs and update
 - Storage backends: **NATS KV**, **NATS Object Store**, **Google Cloud Storage**, **Postgres**.
 
 See also:
-- Canonical v10 runtime results model: `documentation/docs/reference/dsl/runtime_results.md`
+- current DSL runtime results model: `documentation/docs/reference/dsl/runtime_results.md`
 - Legacy v2 doc (pre-policy DSL): `documentation/docs/reference/result_storage_v2.md`
 
 ---
@@ -49,7 +49,7 @@ The event log stores: metadata + ResultRef + extracted fields + preview.
 
 ---
 
-## 2) ResultRef (canonical pointer)
+## 2) ResultRef (Standard pointer)
 
 ### 2.1 Structure
 ```json
@@ -84,7 +84,7 @@ The event log stores: metadata + ResultRef + extracted fields + preview.
 
 ---
 
-## 3) Storage backends (canonical)
+## 3) Storage backends (Standard)
 
 ### 3.1 NATS KV (small)
 Use for:
@@ -118,7 +118,7 @@ Use for:
 Recommended ResultRef meta:
 - `meta.schema`, `meta.table`, `meta.range` (or `meta.pk`)
 
-> Canonical: Postgres is both **event store/projections** and optionally a **result store** (tables).
+> standard: Postgres is both **event store/projections** and optionally a **result store** (tables).
 
 ---
 
@@ -135,7 +135,7 @@ Thresholds are runtime config, but the **tier model** is stable.
 
 ---
 
-## 5) DSL configuration (Canonical v10)
+## 5) DSL configuration 
 
 ### 5.1 Where config lives
 Result storage config is per-task under `task.spec.result`.
@@ -213,7 +213,7 @@ This supports retrieval patterns:
 
 ## 8) Passing results to next steps (reference-only)
 
-Canonical rule: **server binds only extracted + refs**, not full bodies.
+Standard rule: **server binds only extracted + refs**, not full bodies.
 
 Recommended binding for task label `fetch_page`:
 - `fetch_page.<field>` for extracted fields
@@ -243,7 +243,7 @@ Example:
 
 ---
 
-## 10) Canonical pagination + streaming pattern (single worker logical thread)
+## 10) Standard pagination + streaming pattern (single worker logical thread)
 
 Use **loop** for outer fan-out (endpoints/cities/hotels), but inside each iteration run a **sequential stream**:
 - fetch page
@@ -306,7 +306,7 @@ Backend-specific deletes:
 
 Legacy docs used **TempRef** (`kind: temp_ref`) for step-to-step pointers.
 
-Canonical v10 uses **ResultRef** (`kind: result_ref`) everywhere.
+current DSL uses **ResultRef** (`kind: result_ref`) everywhere.
 
 If reading legacy:
 - treat `temp_ref` as alias of `result_ref` at resolution time

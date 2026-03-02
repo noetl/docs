@@ -1,14 +1,14 @@
 ---
 sidebar_position: 7
-title: GCS Tool (Canonical v10)
-description: Upload local files to Google Cloud Storage as pipeline tasks (Canonical v10)
+title: GCS Tool 
+description: Upload local files to Google Cloud Storage as pipeline tasks 
 ---
 
-# GCS Tool (Canonical v10)
+# GCS Tool 
 
 The `gcs` tool uploads a local file to Google Cloud Storage (`gs://...`).
 
-> Note: this tool is for explicit file uploads. For **reference-first** step outputs (ResultRef), see `documentation/docs/reference/result_storage_canonical_v10.md`.
+> Note: this tool is for explicit file uploads. For **reference-first** step outputs (ResultRef), see `documentation/docs/reference/result_storage.md`.
 
 ---
 
@@ -46,5 +46,5 @@ The `gcs` tool uploads a local file to Google Cloud Storage (`gs://...`).
 ---
 
 ## See also
-- Result storage (reference-first): `documentation/docs/reference/result_storage_canonical_v10.md`
+- Result storage (reference-first): `documentation/docs/reference/result_storage.md`
 - Auth & keychain: `documentation/docs/reference/auth_and_keychain_reference.md`

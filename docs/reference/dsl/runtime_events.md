@@ -1,28 +1,28 @@
 ---
 sidebar_position: 3
-title: Runtime Event Model (Canonical v10)
-description: Canonical event taxonomy and event envelope specification for NoETL execution (aligned with step_spec)
+title: Runtime Event Model 
+description: standard event taxonomy and event envelope specification for NoETL execution (aligned with step_spec)
 ---
 
-# NoETL Runtime Event Model — Canonical v10
+# NoETL Runtime Event Model — current DSL
 
-This document defines the **canonical event taxonomy** used by NoETL at runtime and stored in the **append-only event log**.
+This document defines the **standard event taxonomy** used by NoETL at runtime and stored in the **append-only event log**.
 
-It is aligned to **NoETL Canonical Step Spec (v10)**:
+It is aligned to **NoETL standard Step Spec (v10)**:
 - **No `case` entity/events**
 - **No special `retry` entity/events** (retry is represented as multiple task attempts + policy decisions)
 - **No `sink` entity/events** (storage is just tool tasks returning references)
 - **Tools are executed as pipeline `tasks`** (task labels), each producing a single final `outcome`
 - Routing is server-side via **Petri-net arcs**: `step.next.spec` + `step.next.arcs[]`
 
-> Related docs: [NoETL Canonical Step Spec (v10)](./step_spec), [DSL Specification (Canonical)](./spec), [Result Storage (Canonical v10)](../result_storage_canonical_v10).
+> Related docs: [NoETL standard Step Spec (v10)](./step_spec), [DSL Specification (standard)](./spec), [Result Storage ](../result_storage).
 
 ---
 
-## 1) Event naming conventions (canonical)
+## 1) Event naming conventions (Standard)
 
-### 1.1 Canonical name rules
-Canonical event types MUST:
+### 1.1 Standard name rules
+Standard event types MUST:
 - be **lowercase**
 - use **dot-separated** segments
 - follow the pattern: `<entity>.<subentity?>.<verb>`
@@ -37,7 +37,7 @@ Recommended verbs:
 
 ### 1.2 Display alias (optional)
 Implementations MAY attach `event_alias` for UI/CLI:
-- `event_type`: canonical dot name (required)
+- `event_type`: standard dot name (required)
 - `event_alias`: PascalCase alias (optional)
 
 ---
@@ -46,7 +46,7 @@ Implementations MAY attach `event_alias` for UI/CLI:
 
 Every stored event MUST include:
 - `event_id` (string; unique)
-- `event_type` (string; canonical dot name)
+- `event_type` (string; standard dot name)
 - `timestamp` (RFC3339 UTC)
 - `execution_id` (string)
 
@@ -70,7 +70,7 @@ Optional correlation (highly recommended):
 
 Payload fields (recommended):
 - `payload.inputs` (rendered input snapshot; size-capped)
-- `payload.outcome` (canonical outcome envelope; size-capped)
+- `payload.outcome` (standard outcome envelope; size-capped)
 - `payload.result_ref` (ResultRef; preferred for large payloads)
 - `payload.error` (structured error)
 - `payload.meta` (free-form metadata)
@@ -83,10 +83,10 @@ Payload fields (recommended):
 
 ---
 
-## 3) Canonical taxonomy (dot name ↔ PascalCase alias)
+## 3) Standard taxonomy (dot name ↔ PascalCase alias)
 
 ### 3.1 Playbook lifecycle (server)
-| Canonical `event_type` | Alias (display) |
+| standard `event_type` | Alias (display) |
 |---|---|
 | `playbook.execution.requested` | `PlaybookExecutionRequested` |
 | `playbook.request.evaluated` | `PlaybookRequestEvaluated` |
@@ -96,13 +96,13 @@ Payload fields (recommended):
 | `playbook.processed` | `PlaybookProcessed` |
 
 ### 3.2 Workflow lifecycle (server)
-| Canonical `event_type` | Alias (display) |
+| standard `event_type` | Alias (display) |
 |---|---|
 | `workflow.started` | `WorkflowStarted` |
 | `workflow.finished` | `WorkflowFinished` |
 
 ### 3.3 Step lifecycle (worker + server scheduling)
-| Canonical `event_type` | Alias (display) |
+| standard `event_type` | Alias (display) |
 |---|---|
 | `step.scheduled` | `StepScheduled` |
 | `step.started` | `StepStarted` |
@@ -114,7 +114,7 @@ Payload fields (recommended):
 > - `step.started/done/failed` are emitted by the worker and ingested by the server.
 
 ### 3.4 Task lifecycle (worker)
-| Canonical `event_type` | Alias (display) |
+| standard `event_type` | Alias (display) |
 |---|---|
 | `task.started` | `TaskStarted` |
 | `task.attempt.started` | `TaskAttemptStarted` |
@@ -128,7 +128,7 @@ Payload fields (recommended):
 > - The final outcome is `task.done` or `task.failed`.
 
 ### 3.5 Loop lifecycle (server + worker)
-| Canonical `event_type` | Alias (display) |
+| standard `event_type` | Alias (display) |
 |---|---|
 | `loop.started` | `LoopStarted` |
 | `loop.iteration.scheduled` | `LoopIterationScheduled` |
@@ -138,7 +138,7 @@ Payload fields (recommended):
 | `loop.done` | `LoopDone` |
 
 ### 3.6 Policies and decisions (server + worker)
-| Canonical `event_type` | Alias (display) | Emitted by |
+| standard `event_type` | Alias (display) | Emitted by |
 |---|---|---|
 | `policy.admit.evaluated` | `PolicyAdmitEvaluated` | server |
 | `policy.task.evaluated` | `PolicyTaskEvaluated` | worker |
@@ -150,7 +150,7 @@ Payload fields (recommended):
 > - `next.evaluated` records which arcs matched and which were fired.
 
 ### 3.7 Result externalization (optional but recommended)
-| Canonical `event_type` | Alias (display) |
+| standard `event_type` | Alias (display) |
 |---|---|
 | `result.stored` | `ResultStored` |
 | `result.manifest.updated` | `ResultManifestUpdated` |
@@ -161,11 +161,11 @@ Payload fields (recommended):
 
 ---
 
-## 4) Legacy compatibility (non-canonical)
+## 4) Legacy compatibility (non-Standard)
 
-If older executors emit legacy events, the server SHOULD normalize to canonical equivalents.
+If older executors emit legacy events, the server SHOULD normalize to standard equivalents.
 
-| Legacy | Canonical |
+| Legacy | standard |
 |---|---|
 | `tool.started` | `task.started` |
 | `tool.processed` | `task.done` / `task.failed` |
@@ -174,7 +174,7 @@ If older executors emit legacy events, the server SHOULD normalize to canonical 
 | `sink.*` | `task.*` (storage task) |
 | `case.*` | `next.evaluated` + `policy.*` (depending on purpose) |
 
-Canonical v10 validators SHOULD reject new emissions of legacy types from first-party components.
+current DSL validators SHOULD reject new emissions of legacy types from first-party components.
 
 ---
 
@@ -223,7 +223,7 @@ If also published to a broker:
 
 ---
 
-## 7) Example events (canonical v10)
+## 7) Example events 
 
 ### 7.1 Task attempt failed → policy retries
 ```json

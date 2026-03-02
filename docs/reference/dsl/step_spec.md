@@ -1,12 +1,12 @@
 ---
 sidebar_position: 2
 title: Step Specification (v10)
-description: Canonical v10 step specification including policies, routing, loops, and spec layering
+description: current DSL step specification including policies, routing, loops, and spec layering
 ---
 
-# NoETL Canonical Step Spec (v10)
+# NoETL Standard Step Spec (v10)
 
-> **Canonical v10 update (latest decisions):**
+> **current DSL update (latest decisions):**
 > - **One conditional keyword:** `when`
 > - **All behavior knobs live under `spec`**, including policies as `spec.policy`
 > - **No `step.when` field** — step admission is defined via `step.spec.policy.admit.rules`
@@ -112,7 +112,7 @@ Policies live under `spec.policy`. Policy meaning is defined by scope:
 | Step admission | `step.spec.policy.admit.rules[].when` | Server | before scheduling step | `ctx`, `workload`, token `event` |
 | Task outcome policy | `task.spec.policy.rules[].when` | Worker | after task completes | `outcome`, `iter`, `ctx`, `_prev`, `_task` |
 | Transition routing | `step.next.arcs[].when` | Server | on boundary events | `event`, `ctx`, `workload` |
-| Authoring sugar | `choose/while/until.when` | Compiler | rewrite-time | expands into canonical |
+| Authoring sugar | `choose/while/until.when` | Compiler | rewrite-time | expands into standard |
 
 **Rejected:** `expr`, legacy `eval`.
 
@@ -168,7 +168,7 @@ Allowed:
 - placeholders: reducers, backpressure, partitioning
 
 ### 5.4 task.spec.policy (task outcome handling)
-This is the canonical “Ok/Err-style” control.
+This is the standard “Ok/Err-style” control.
 
 **MUST:** `task.spec.policy` is an **object** with a required `rules:` list (no alternative shapes).
 
@@ -208,7 +208,7 @@ spec:
 ### 5.5 step.next router policy (optional)
 `step.next` is a router object. Policy here is non-control (routing hints only).
 
-Canonical `next`:
+Standard `next`:
 ```yaml
 next:
   spec:
@@ -243,7 +243,7 @@ In loops, `iter` is the primary mutable scratchpad.
 - Parallel loops are safe because each iteration gets its own `iter`
 
 ### 6.4 Nested loops (MUST)
-Canonical addressing rule:
+Standard addressing rule:
 - `iter` is the current loop iteration
 - `iter.parent` is the outer iteration
 - `iter.parent.parent` for deeper nesting
@@ -252,11 +252,11 @@ Canonical addressing rule:
 
 ## 7. Tasks and tool list shapes (MUST)
 
-`step.tool` supports two task formats, all normalized to the canonical internal form.
+`step.tool` supports two task formats, all normalized to the standard internal form.
 
-### 7.1 Canonical format (recommended)
+### 7.1 Standard format (recommended)
 
-The canonical format uses explicit `name:` field for task identification:
+The standard format uses explicit `name:` field for task identification:
 
 ```yaml
 tool:
@@ -281,7 +281,7 @@ tool:
               then: { do: continue }
 ```
 
-**Why canonical:**
+**Why standard:**
 - UI/tooling friendly (structured data, no dynamic keys)
 - JSON Schema validation straightforward
 - Consistent with industry patterns (Kubernetes, GitHub Actions)
@@ -313,7 +313,7 @@ tool:
 
 ### 7.4 Normalization (engine internal)
 
-All formats are normalized to the canonical internal representation:
+All formats are normalized to the standard internal representation:
 
 ```yaml
 # Internal normalized form
@@ -324,12 +324,12 @@ tool:
 ```
 
 **Normalization rules:**
-1. `{ name: "X", kind: "Y", ... }` → kept as-is (canonical)
+1. `{ name: "X", kind: "Y", ... }` → kept as-is (standard)
 2. `{ kind: "Y", ... }` (no name) → `{ name: "task_N", kind: "Y", ... }`
 3. Single `{ kind: "Y" }` (not in list) → `[{ name: "<step>_task", kind: "Y", ... }]`
 
 **NOT supported:**
-- Syntactic sugar `{ task_name: { kind: ... } }` format is **removed** — use canonical format with `name:` field instead.
+- Syntactic sugar `{ task_name: { kind: ... } }` format is **removed** — use standard format with `name:` field instead.
 
 ### 7.5 How policy applies across shapes
 - Policy is always applied **per task** (after that task produces `outcome`).
@@ -361,21 +361,21 @@ Task policy controls:
 
 ---
 
-## 9. Retry handling (canonical)
+## 9. Retry handling (Standard)
 
 Retry belongs to **task.spec.policy.rules**.
 
 ### 9.1 Two retry layers (optional)
 1) **Tool-internal retry** (inside `task.spec` knobs; e.g. HTTP client retries)
-2) **Canonical policy retry** (`then.do: retry`)
+2) **standard policy retry** (`then.do: retry`)
 
 **Order**
 - task executes using `task.spec` runtime knobs
 - task yields final `outcome`
 - policy rules evaluate that outcome
-- policy may trigger retry of the whole task (canonical)
+- policy may trigger retry of the whole task (standard)
 
-Recommendation: keep tool-internal retry minimal; prefer canonical policy retry so events are correct and replayable.
+Recommendation: keep tool-internal retry minimal; prefer standard policy retry so events are correct and replayable.
 
 ---
 
@@ -383,7 +383,7 @@ Recommendation: keep tool-internal retry minimal; prefer canonical policy retry 
 
 No special “sink” kind. Storage is **just tools** that write data and return a reference.
 
-Canonical approach:
+Standard approach:
 - large payloads stored externally (Postgres table, object store, NATS object store, etc.)
 - events store metadata + references:
   `{ store, key, checksum, size, schema_hint }`
@@ -411,7 +411,7 @@ This supports:
 
 ---
 
-## 12. Canonical streaming pagination example (NO fall-through)
+## 12. Standard streaming pagination example (NO fall-through)
 
 ```yaml
 - step: fetch_all_endpoints
@@ -546,7 +546,7 @@ This supports:
 
 ## 14. Authoring sugar (optional, future): `choose`, `while`, `until`
 
-These are not required for canonical runtime. If implemented, they compile into canonical jump-based tasks.
+These are not required for standard runtime. If implemented, they compile into standard jump-based tasks.
 
 - `choose`: when/then/else ladder
 - `while`: pre-check loop
@@ -555,7 +555,7 @@ These are not required for canonical runtime. If implemented, they compile into 
 Compiler requirements:
 - stable generated labels
 - enforced merge points to prevent fall-through
-- output must normalize to canonical task list
+- output must normalize to standard task list
 
 ---
 
@@ -565,5 +565,5 @@ Compiler requirements:
 - arc QoS and partitioning (priority/dedupe)
 - ResultRef schema registry and validation
 - Petri-net reachability analysis
-- compiler debug map (author sugar → canonical labels)
+- compiler debug map (author sugar → standard labels)
 - quantum backend placement + execution hints in `executor.spec.policy`

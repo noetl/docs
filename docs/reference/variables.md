@@ -1,14 +1,14 @@
 ---
 sidebar_position: 8
-title: Runtime State and Variables (Canonical v10)
-description: Canonical runtime scopes (workload, keychain, ctx, iter, args) and mutation model for the NoETL DSL (Canonical v10)
+title: Runtime State and Variables 
+description: standard runtime scopes (workload, keychain, ctx, iter, args) and mutation model for the NoETL DSL 
 ---
 
-# Runtime State and Variables (Canonical v10)
+# Runtime State and Variables 
 
-This document defines the canonical runtime scopes and mutation model aligned with **Canonical v10**.
+This document defines the standard runtime scopes and mutation model aligned with **current DSL**.
 
-Canonical principles:
+Standard principles:
 - Playbook root sections are **metadata, keychain (optional), executor (optional), workload, workflow, workbook (optional)** (no playbook-root `vars`).
 - A step is **admission policy + tool pipeline + next router** (Petri-net arcs).
 - Mutation is expressed through **task policy actions** (`task.spec.policy.rules[].then.set_*`):
@@ -75,15 +75,15 @@ Use for:
 In **parallel** loop mode, `iter` is always safe because it is isolated per iteration.
 
 ### 2.5 `args` (token payload)
-`args` is the immutable payload carried by the incoming token (arc inscription). It is the canonical way to pass small inputs across steps:
+`args` is the immutable payload carried by the incoming token (arc inscription). It is the standard way to pass small inputs across steps:
 - authored at `step.next.arcs[].args`
 - consumed as `{{ args.* }}` in the downstream step
 
 ---
 
-## 3) Writing variables (canonical mechanism)
+## 3) Writing variables (Standard mechanism)
 
-In Canonical v10 there is **no `vars:` extraction block** and no legacy `eval`.
+In current DSL there is **no `vars:` extraction block** and no legacy `eval`.
 All updates occur via **task policy rules** after a task produces an `outcome`.
 
 ### 3.1 `set_iter`
@@ -98,7 +98,7 @@ If reducers/atomics are not supported yet, the runtime SHOULD reject or restrict
 
 ## 4) Reading variables in templates
 
-Canonical access patterns:
+Standard access patterns:
 - `{{ workload.api_url }}`
 - `{{ keychain.openai_token }}`
 - `{{ ctx.last_ref }}`
@@ -117,7 +117,7 @@ Pipeline locals:
 
 ## 5) External mutation (API model)
 
-Legacy docs described a “variables API” for external systems. In canonical v2, external mutation should be modeled explicitly as one of:
+Legacy docs described a “variables API” for external systems. In DSL v2, external mutation should be modeled explicitly as one of:
 
 ### 5.1 Workload override (start-time only)
 External systems override `workload` values at execution request time. This is immutable thereafter.
@@ -151,7 +151,7 @@ State changes should be traceable through the event log. For each `ctx` patch, r
 - timestamp
 - correlation id
 
-Reads through an API are not required to increment access counters in the canonical spec (implementation choice). If you keep access counters, store them in projections, not in the authoritative event log.
+Reads through an API are not required to increment access counters in the standard spec (implementation choice). If you keep access counters, store them in projections, not in the authoritative event log.
 
 ---
 
@@ -183,8 +183,8 @@ External system patches `ctx.approved = true`. Next routing uses `next.arcs[].wh
 ---
 
 ## Links
-- DSL Specification (canonical): `dsl/spec.md`
-- Execution Model (canonical): `dsl/execution_model.md`
-- Retry Handling (canonical): `retry_mechanism_v2.md`
-- Result Storage (canonical): `result_storage_canonical_v10.md`
-- Pipeline Execution (canonical): `pipeline_execution_v2.md`
+- DSL Specification (standard): `dsl/spec.md`
+- Execution Model (standard): `dsl/execution_model.md`
+- Retry Handling (standard): `retry_mechanism.md`
+- Result Storage (standard): `result_storage.md`
+- Pipeline Execution (standard): `pipeline_execution_v2.md`

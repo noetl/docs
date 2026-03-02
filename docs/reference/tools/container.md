@@ -1,14 +1,14 @@
 ---
 sidebar_position: 6
-title: Container Tool (Canonical v10)
-description: Run scripts in Kubernetes Jobs as pipeline tasks (Canonical v10)
+title: Container Tool 
+description: Run scripts in Kubernetes Jobs as pipeline tasks 
 ---
 
-# Container Tool (Canonical v10)
+# Container Tool 
 
 The `container` tool runs a script in an isolated Kubernetes Job. Use it as a pipeline task (`kind: container`) inside `step.tool`.
 
-Canonical reminders:
+Standard reminders:
 - Use `when` only (no legacy `eval`/`expr`/`case`).
 - Task control flow belongs to `task.spec.policy.rules` (`retry|jump|break|fail|continue`).
 - Step routing belongs to `step.next` router arcs.
@@ -43,7 +43,7 @@ Canonical reminders:
                   then: { do: break }
 ```
 
-> The container tool uses the canonical `script` descriptor (`uri` + `source`). See `documentation/docs/reference/script_execution_v2.md`.
+> The container tool uses the standard `script` descriptor (`uri` + `source`). See `documentation/docs/reference/script_execution_v2.md`.
 
 ---
 
@@ -65,4 +65,4 @@ Canonical reminders:
 
 ## See also
 - Script loading / script jobs: `documentation/docs/reference/script_execution_v2.md`
-- Result storage (reference-first): `documentation/docs/reference/result_storage_canonical_v10.md`
+- Result storage (reference-first): `documentation/docs/reference/result_storage.md`

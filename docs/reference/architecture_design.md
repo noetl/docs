@@ -1,4 +1,4 @@
-# NoETL Architecture (Canonical v10)
+# NoETL Architecture 
 
 NoETL is an event-sourced orchestration system with a strict control-plane / data-plane split:
 
@@ -6,7 +6,7 @@ NoETL is an event-sourced orchestration system with a strict control-plane / dat
 - **Worker pools (data plane)**: execute step pipelines (tools), apply **task outcome policies**, and emit events back to the server.
 - **CLI**: manages server/worker lifecycle and provides operational commands.
 
-Canonical v10 DSL details live under:
+current DSL details live under:
 - `documentation/docs/reference/dsl/step_spec.md`
 - `documentation/docs/reference/dsl/spec.md`
 - `documentation/docs/reference/dsl/execution_model.md`
@@ -23,11 +23,11 @@ Canonical v10 DSL details live under:
 
 ---
 
-## Canonical DSL execution model (high level)
+## Standard DSL execution model (high level)
 
 ### Step structure (Petri-net transition)
 
-A canonical step is:
+A standard step is:
 - **Admission gate** (server): `step.spec.policy.admit.rules`
 - **Ordered pipeline** (worker): `step.tool` (labeled task list)
 - **Router** (server): `step.next` (`next.spec` + `next.arcs[]`)
@@ -53,7 +53,7 @@ Only the server’s routing creates new tokens/step-runs.
 
 ## Runtime scopes (templates and policies)
 
-Canonical namespaces:
+Standard namespaces:
 - `workload` (immutable merged inputs)
 - `keychain` (resolved credentials; read-only)
 - `ctx` (execution-scoped mutable context; event-sourced patches)
@@ -62,14 +62,14 @@ Canonical namespaces:
 - pipeline locals: `_prev`, `_task`, `_attempt`, `outcome`
 - routing input: `event` (boundary event for `next.arcs[].when`)
 
-Canonical guidance:
+Standard guidance:
 - Use `iter` for pagination cursors and per-item progress.
 - Use `ctx` for cross-step state and references (ResultRefs/ManifestRefs).
 - Avoid conflicting `ctx` writes from parallel iterations until reducers/atomics exist.
 
 ---
 
-## Server–worker lifecycle (canonical)
+## Server–worker lifecycle (Standard)
 
 1) **Request**: client requests execution; server persists request event(s).
 2) **Resolve**: server validates playbook, resolves `keychain`, merges request payload into `workload`, initializes `ctx`.
@@ -83,12 +83,12 @@ Canonical guidance:
 
 ---
 
-## Reference-first results (canonical)
+## Reference-first results (Standard)
 
-Canonical rule: large outputs MUST be externalized and represented by references.
+Standard rule: large outputs MUST be externalized and represented by references.
 - storage tasks are normal tool tasks (no special `sink` kind)
 - pass **ResultRef** objects + extracted fields, not giant inline payloads
 
 See:
-- `documentation/docs/reference/result_storage_canonical_v10.md`
+- `documentation/docs/reference/result_storage.md`
 - `documentation/docs/reference/dsl/runtime_results.md`

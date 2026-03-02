@@ -1,22 +1,22 @@
 ---
 sidebar_position: 3
-title: Playbook Structure (Canonical)
-description: Canonical NoETL playbook structure and section semantics for DSL v2 (Canonical v10)
+title: Playbook Structure (standard)
+description: standard NoETL playbook structure and section semantics for DSL v2 
 ---
 
-# NoETL Playbook Structure Guide (Canonical v10)
+# NoETL Playbook Structure Guide 
 
-This guide defines the **canonical** NoETL playbook document structure and how it maps to the runtime model.
+This guide defines the **standard** NoETL playbook document structure and how it maps to the runtime model.
 
-Canonical runtime principles (v10):
+Standard runtime principles (v10):
 - Step = **admission** (`step.spec.policy.admit`) + **tool pipeline** (`step.tool`) + **router** (`step.next` with Petri-net **arcs**)
 - Retry/pagination/polling/branching inside a step are expressed via **task policy**: `task.spec.policy.rules`
 - Result handling is **reference-first** (no special `sink` tool kind; “sink” is a pattern)
 - Runtime scopes: `workload` (immutable), `ctx` (execution-scoped), `iter` (iteration-scoped), `args` (token payload), plus pipeline locals (`_prev`, `_task`, `_attempt`, `outcome`)
 
-> **Non-canonical removals:** There is **no** playbook-root `vars`, **no** `step.when`, **no** tool-level `eval/expr`, and **no** `step.spec.next_mode`. Use `spec.policy` and `next.spec` instead.
+> **Non-standard removals:** There is **no** playbook-root `vars`, **no** `step.when`, **no** tool-level `eval/expr`, and **no** `step.spec.next_mode`. Use `spec.policy` and `next.spec` instead.
 
-> **Task format:** Tasks use the canonical format with explicit `name:` field (e.g., `{ name: "task_name", kind: "http", ... }`).
+> **Task format:** Tasks use the standard format with explicit `name:` field (e.g., `{ name: "task_name", kind: "http", ... }`).
 > Tasks without names get synthetic labels (`task_0`, `task_1`, ...).
 > See [Step Specification](./step_spec.md#7-tasks-and-tool-list-shapes-must) for details.
 
@@ -36,14 +36,14 @@ A NoETL playbook is a YAML document that defines a workflow as a set of steps an
 - `workflow`
 - `workbook` (optional)
 
-**Root restrictions (canonical):**
+**Root restrictions (standard):**
 - `vars` MUST NOT appear at playbook root level.
 - If credentials are referenced by name (for example `auth: pg_k8s`), they SHOULD be declared under root `keychain`.
 - Any runtime knobs MUST be expressed under `spec` at their respective scope.
 
 ---
 
-## 2) Basic structure (canonical v10)
+## 2) Basic structure 
 
 ```yaml
 apiVersion: noetl.io/v2
@@ -53,7 +53,7 @@ metadata:
   name: example_playbook
   path: workflows/example_playbook
   version: "2.0"
-  description: Example playbook using canonical v10 structure
+  description: Example playbook using current DSL structure
 
 keychain:
   - name: pg_k8s
@@ -189,7 +189,7 @@ This merged workload is immutable and available as `workload.*` in templates.
 `workflow` is a list of steps. Steps form a directed graph using `next.arcs[]`.
 
 ### 6.1 Step = transition (Petri-net)
-In canonical v10 there are no special step “types” like `start`, `end`, `condition`.
+In current DSL there are no special step “types” like `start`, `end`, `condition`.
 Instead, behavior is expressed with:
 - **Admission**: `step.spec.policy.admit.rules` (server-side)
 - **Execution**: `step.tool` ordered pipeline (worker-side)
@@ -217,11 +217,11 @@ If admission policy is omitted, the step defaults to **allow**.
 A step may contain a `tool` list which is an **ordered pipeline** of labeled tasks.
 
 - The worker executes tasks top-to-bottom.
-- `_prev` threads previous task output to the next task (canonical: `_prev = outcome.result`).
+- `_prev` threads previous task output to the next task (standard: `_prev = outcome.result`).
 - Each task may define `task.spec.policy.rules` to control execution flow inside the pipeline:
   - `retry`, `jump`, `continue`, `break`, `fail`
 
-### 6.4 Spec precedence (canonical)
+### 6.4 Spec precedence (Standard)
 `spec` MAY be defined at multiple levels. Inner scopes override outer scopes on overlap.
 
 Recommended precedence for effective task configuration:
@@ -290,7 +290,7 @@ These are **runtime scopes** available during evaluation (NOT playbook root keys
 ## 8) Workbook (optional)
 
 `workbook` is optional and reserved for a catalog of named reusable tasks/templates.
-It is not required for the canonical baseline and may be introduced gradually.
+It is not required for the standard baseline and may be introduced gradually.
 
 Example placeholder:
 
@@ -305,7 +305,7 @@ workbook:
 
 ---
 
-## 9) Common patterns (canonical)
+## 9) Common patterns (Standard)
 
 ### 9.1 Retry (task policy)
 ```yaml
@@ -346,9 +346,9 @@ A sink is a storage-writing task in the pipeline that returns a reference (Resul
 ---
 
 ## Links
-- DSL Specification (canonical): [spec](./spec)
-- Formal Specification (canonical): [formal_specification](./formal_specification)
-- Execution Model (canonical): [execution_model](./execution_model)
-- Retry Handling (canonical): [retry_mechanism_v2](../retry_mechanism_v2)
-- Result Storage (canonical): [result_storage_canonical_v10](../result_storage_canonical_v10)
-- Pagination (canonical): [pagination](./pagination)
+- DSL Specification (standard): [spec](./spec)
+- Formal Specification (standard): [formal_specification](./formal_specification)
+- Execution Model (standard): [execution_model](./execution_model)
+- Retry Handling (standard): [retry_mechanism](../retry_mechanism)
+- Result Storage (standard): [result_storage](../result_storage)
+- Pagination (standard): [pagination](./pagination)
