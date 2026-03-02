@@ -40,7 +40,7 @@ SERVER: evaluates step.next.arcs[] on boundary event → schedules next step(s)
 
 ---
 
-## standard step shape (pipeline + router)
+## Standard step shape (pipeline + router)
 
 ```yaml
 - step: fetch_transform_store
@@ -146,7 +146,7 @@ Tool helpers MAY be present (examples):
 
 ## Task policy rules (control actions)
 
-standard placement: `task.spec.policy.rules`.
+Standard placement: `task.spec.policy.rules`.
 
 Shape:
 ```yaml
@@ -176,7 +176,7 @@ Semantics:
 
 ---
 
-## Streaming pagination inside a pipeline (standard pattern)
+## Streaming pagination inside a pipeline (Standard pattern)
 
 Pagination and polling are modeled as **pipeline control flow**:
 - keep counters/cursors in `iter.*`

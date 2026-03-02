@@ -1,4 +1,4 @@
-# Implement NoETL standard DSL (Agent Instructions) — v6 (Validated)
+# Implement NoETL Standard DSL (Agent Instructions) — v6 (Validated)
 
 This document is a **direct implementation brief** for AI agents (Copilot/Claude/etc.) to implement the **NoETL standard DSL** end-to-end, aligned with the latest decisions :
 
@@ -27,7 +27,7 @@ A worker policy MUST NOT start steps. Only server routing (`next.arcs`) starts s
 
 ---
 
-## 1) standard DSL rules (MUST)
+## 1) Standard DSL rules (MUST)
 
 ### 1.1 Only one conditional keyword
 - The only conditional keyword is: **`when`**.
@@ -70,7 +70,7 @@ No list form is allowed. No backward compatibility.
 
 ## 2) Root playbook structure (MUST)
 
-standard root sections (top-level keys):
+Standard root sections (top-level keys):
 
 - `metadata`
 - `keychain` (optional but recommended; credential declarations)
@@ -141,7 +141,7 @@ Credentials MUST be declared via root `keychain:` (not under `executor`).
 
 ## 3) Normalization (MUST)
 
-### 3.1 Normalize `step.tool` to standard labeled list
+### 3.1 Normalize `step.tool` to Standard labeled list
 Input forms you MAY accept:
 1) single task object
 2) list of task objects
@@ -163,8 +163,8 @@ Labels are used for:
 - event correlation
 - `_task` runtime variable
 
-### 3.2 Normalize `step.next` to standard router object
-standard `next` form:
+### 3.2 Normalize `step.next` to Standard router object
+Standard `next` form:
 
 ```yaml
 next:
@@ -360,7 +360,7 @@ Implement parent chain addressing:
 - Loop is a step modifier at `step.loop`.
 - Server schedules iterations; workers execute pipelines per iteration.
 
-standard loop shape:
+Standard loop shape:
 ```yaml
 loop:
   in: "{{ workload.items }}"

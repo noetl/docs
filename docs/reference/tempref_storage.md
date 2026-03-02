@@ -1,7 +1,7 @@
 ---
 sidebar_position: 17
 title: ResultRef / TempRef Storage System 
-description: Reference-first (zero-copy) data passing using ResultRef pointers — aligned with current DSL DSL
+description: Reference-first (zero-copy) data passing using ResultRef pointers — aligned with current DSL
 ---
 
 # ResultRef / TempRef Storage System 
@@ -26,13 +26,13 @@ Embedding full tool outputs directly in the event log causes:
 - slower queries and template rendering
 - high memory pressure on server/workers
 
-standard solution:
+Standard solution:
 - store large bodies externally (Postgres, NATS KV/Object Store, GCS, etc.)
 - emit/persist only **metadata + references + extracted fields**
 
 ---
 
-## 2) ResultRef structure (standard)
+## 2) ResultRef structure (Standard)
 
 ```json
 {

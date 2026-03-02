@@ -62,7 +62,7 @@ Credential names and provider configuration live in your runtime’s keychain/re
 
 ---
 
-## 4) standard scopes for credential caching
+## 4) Standard scopes for credential caching
 
 Credential caching is not general runtime state (`ctx/vars/iter`). It is a **specialized secure cache** used during tool execution.
 

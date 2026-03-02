@@ -198,7 +198,7 @@ There is **no special `sink` tool kind**. A “sink” is simply a tool task tha
 
 ---
 
-## Nested loops (standard)
+## Nested loops (Standard)
 
 current DSL supports nested loops via a **parent chain**:
 
@@ -215,7 +215,7 @@ This enables patterns like:
 
 ---
 
-## HTTP pagination inside a loop (standard streaming pattern)
+## HTTP pagination inside a loop (Standard streaming pattern)
 
 Pagination is expressed using **task control flow** (`jump` + `break`) and **iteration state** (`set_iter`).
 

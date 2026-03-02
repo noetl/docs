@@ -16,7 +16,7 @@ Prefer `auth:` references so the runtime can inject credentials into tools witho
 
 ---
 
-## standard variable scopes (reminder)
+## Standard variable scopes (reminder)
 
 - `workload.*` — immutable merged input
 - `ctx.*` — mutable execution-scoped state (non-secret)

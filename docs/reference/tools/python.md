@@ -12,7 +12,7 @@ Python task modes (implementation-defined, common in NoETL runtimes):
 - **Pure code mode:** set a top-level `result = ...` in your code
 - **Legacy mode:** define `main(...)` and return a JSON-serializable object
 
-standard reminders:
+Standard reminders:
 - Use `workload` for immutable inputs, `ctx` for execution-scoped state, `iter` for iteration-scoped state.
 - Use `task.spec.policy.rules` for retry/fail/jump/break/continue.
 

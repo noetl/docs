@@ -4,7 +4,7 @@ title: Optional Distributed Fan‑Out Mode (Non‑standard Profile)
 description: An optional execution profile for distributing loop iterations across workers without contradicting DSL v2 semantics
 ---
 
-# Optional Distributed Fan‑Out Mode (Non‑standard Profile)
+# Optional Distributed Fan‑Out Mode (Non‑Standard Profile)
 
 This document defines an **optional** “distributed fan‑out” execution profile for NoETL DSL v2. It is designed to **coexist** with the **DSL v2** model (single-worker step run executing `step.tool` pipelines with tool-level `eval`) without contradicting it.
 

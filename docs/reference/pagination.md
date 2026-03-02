@@ -26,7 +26,7 @@ For the full standard walkthrough + example, see:
 
 ---
 
-## standard streaming pagination skeleton
+## Standard streaming pagination skeleton
 
 ```yaml
 - step: fetch_all_pages

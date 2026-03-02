@@ -59,7 +59,7 @@ A playbook is a YAML mapping with (at minimum):
 
 **Root restriction (normative):** A playbook MUST NOT include `vars` at root level.
 
-### 2.2 Step model (standard)
+### 2.2 Step model (Standard)
 
 A step is a mapping containing:
 
@@ -323,7 +323,7 @@ Every observable state transition MUST be recorded as an event with:
 - `status`: `in_progress` | `success` | `error` | `paused`
 - `data`: JSON payload (metadata, references, errors)
 
-### 10.2 standard event taxonomy (recommended)
+### 10.2 Standard event taxonomy (recommended)
 **Control-plane (server):**
 - `PlaybookExecutionRequested`
 - `PlaybookRequestEvaluated`

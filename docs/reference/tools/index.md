@@ -33,7 +33,7 @@ See `documentation/docs/reference/dsl/step_spec.md` for the full DSL model.
 
 ---
 
-## standard usage pattern
+## Standard usage pattern
 
 ### Basic task in a pipeline
 
@@ -65,7 +65,7 @@ next:
 
 ### With authentication
 
-standard approach:
+Standard approach:
 - declare required credentials under root `keychain`
 - reference credentials by name in tasks (for example `auth: pg_k8s`)
 
@@ -73,7 +73,7 @@ See `documentation/docs/reference/auth_and_keychain_reference.md`.
 
 ---
 
-## Outcome envelope (standard)
+## Outcome envelope (Standard)
 
 Each task produces an `outcome`:
 - `outcome.status`: `"ok"` or `"error"`

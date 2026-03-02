@@ -28,12 +28,12 @@ noetl exec ./playbook.yaml -r local --dry-run
 - **Loops:** `step.loop` (not a tool kind); per-iteration state lives in `iter.*`
 - **One conditional keyword:** `when` (no legacy `eval`/`expr`/`case`)
 
-standard references:
+Standard references:
 - `documentation/docs/reference/dsl/step_spec.md`
 - `documentation/docs/reference/dsl/playbook_structure.md`
 - `documentation/docs/reference/dsl/implement_agent_instructions.md`
 
-## Deprecated legacy features (not standard)
+## Deprecated legacy features (not Standard)
 
 Local mode should not depend on legacy constructs such as:
 - playbook-root `vars`
@@ -47,7 +47,7 @@ Use the standard equivalents:
 - `step.spec.policy.admit.rules`
 - `next.spec` + `next.arcs[]`
 
-## Minimal standard example
+## Minimal Standard example
 
 ```yaml
 apiVersion: noetl.io/v2

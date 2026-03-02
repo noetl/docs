@@ -8,7 +8,7 @@ description: Interact with NATS JetStream, K/V Store, and Object Store as pipeli
 
 The `nats` tool provides access to NATS JetStream, Key/Value store, and Object Store operations for caching, messaging, and lightweight state.
 
-standard reminders:
+Standard reminders:
 - No step-level `case`/`eval`/`expr`. Use `when` in task policy and router arcs.
 - Use `task.spec.policy.rules` for retry/fail/jump/break/continue.
 

@@ -18,7 +18,7 @@ Related standard docs:
 
 ---
 
-## 1) standard retry placement
+## 1) Standard retry placement
 
 Retry belongs to **task scope**:
 
@@ -45,7 +45,7 @@ This keeps retry:
 
 ---
 
-## 2) Policy rule schema (standard)
+## 2) Policy rule schema (Standard)
 
 ```yaml
 spec:

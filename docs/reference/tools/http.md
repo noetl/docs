@@ -8,7 +8,7 @@ description: Make HTTP requests as pipeline tasks with policy-driven retry/pagin
 
 The HTTP tool executes HTTP requests inside a standard step pipeline (`step.tool`).
 
-standard reminders:
+Standard reminders:
 - Use `when` in policies/arcs (no legacy `eval`/`expr`, no `case`).
 - Handle retry/pagination via `task.spec.policy.rules` (`do: retry|jump|break|fail|continue`).
 - Prefer reference-first results for large payloads.
@@ -104,7 +104,7 @@ Align your templates/policies to the wrapper used by your HTTP executor.
 
 ---
 
-## Pagination (standard)
+## Pagination (Standard)
 
 current DSL pagination is a streaming pipeline pattern using `jump`/`break` and `iter.*` state.
 See:

@@ -103,7 +103,7 @@ If admission evaluates to deny:
   - token remains pending until it becomes enabled (default), or
   - token is discarded (optional policy).
 
-standard default:
+Standard default:
 - token remains pending (to support gates/approvals via future `ctx` patches).
 
 ---
@@ -165,7 +165,7 @@ Optional policy (MAY):
 - treat “no match” as an error and fail execution.
 If supported, it MUST be explicitly enabled by policy (e.g., `executor.spec.no_next_is_error: true`).
 
-standard default:
+Standard default:
 - “no match” terminates the branch.
 
 ---
@@ -239,7 +239,7 @@ However:
 
 ---
 
-## 9. Summary (standard defaults)
+## 9. Summary (Standard defaults)
 
 - Entry step is **workflow[0]** unless overridden by `executor.spec.entry_step`.
 - Steps are enabled by admission (`step.spec.policy.admit`; default allow).

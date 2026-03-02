@@ -8,7 +8,7 @@ description: Execute PostgreSQL commands/queries as pipeline tasks with policy-d
 
 The Postgres tool executes SQL commands/queries inside a standard step pipeline (`step.tool`).
 
-standard reminders:
+Standard reminders:
 - Handle errors/retry via `task.spec.policy.rules` (no legacy `eval`/`expr`).
 - Use `auth: <credential_name>` to reference credentials resolved by the runtime/keychain.
 - Store large results reference-first (ResultRef) when needed.
@@ -35,7 +35,7 @@ standard reminders:
 
 ---
 
-## Retry on transient DB errors (standard)
+## Retry on transient DB errors (Standard)
 
 ```yaml
 - store_page:

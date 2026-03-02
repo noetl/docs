@@ -55,7 +55,7 @@ All values may use **Jinja2 templating** to reference `workload`, `keychain`, `a
 
 ---
 
-## 3) Step Behavior (standard)
+## 3) Step Behavior (Standard)
 
 ### 3.1 Steps are transitions (Petri-net)
 Steps live in `workflow` and are uniquely named by `step:`.
@@ -66,7 +66,7 @@ A standard step is:
 - **Router** (server): `step.next` (`next.spec` + `next.arcs[]`)
 
 ### 3.2 `tool` is always an ordered pipeline
-standard pipeline form:
+Standard pipeline form:
 
 ```yaml
 - step: fetch_transform_store

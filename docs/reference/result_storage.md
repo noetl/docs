@@ -6,7 +6,7 @@ description: Reference-first result storage for NoETL DSL  — NATS KV/ObjectSto
 
 # Result Storage & References — current DSL
 
-This document **merges and supersedes** the older result/TempRef docs and updates them to the **latest current DSL DSL** rules:
+This document **merges and supersedes** the older result/TempRef docs and updates them to the **latest current DSL** rules:
 
 - No `sink` concept: **“sink” is a pattern**, not a tool kind.
 - No `eval:` / `expr:`. Outcome handling uses **`spec.policy.rules` with `when`**.
@@ -49,7 +49,7 @@ The event log stores: metadata + ResultRef + extracted fields + preview.
 
 ---
 
-## 2) ResultRef (standard pointer)
+## 2) ResultRef (Standard pointer)
 
 ### 2.1 Structure
 ```json
@@ -84,7 +84,7 @@ The event log stores: metadata + ResultRef + extracted fields + preview.
 
 ---
 
-## 3) Storage backends (standard)
+## 3) Storage backends (Standard)
 
 ### 3.1 NATS KV (small)
 Use for:
@@ -213,7 +213,7 @@ This supports retrieval patterns:
 
 ## 8) Passing results to next steps (reference-only)
 
-standard rule: **server binds only extracted + refs**, not full bodies.
+Standard rule: **server binds only extracted + refs**, not full bodies.
 
 Recommended binding for task label `fetch_page`:
 - `fetch_page.<field>` for extracted fields
@@ -243,7 +243,7 @@ Example:
 
 ---
 
-## 10) standard pagination + streaming pattern (single worker logical thread)
+## 10) Standard pagination + streaming pattern (single worker logical thread)
 
 Use **loop** for outer fan-out (endpoints/cities/hotels), but inside each iteration run a **sequential stream**:
 - fetch page

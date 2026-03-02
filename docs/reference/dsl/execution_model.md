@@ -4,7 +4,7 @@ title: Execution Model (standard)
 description: Event-sourced execution model with control plane and data plane architecture (Petri-net standard runtime)
 ---
 
-# NoETL DSL & Event-Sourced Execution Model (Control Plane / Data Plane) — standard (Updated)
+# NoETL DSL & Event-Sourced Execution Model (Control Plane / Data Plane) — Standard (Updated)
 
 ## Abstract
 NoETL is a declarative orchestration system for APIs, databases, scripts, and agentic workflows, built around **event sourcing**: every meaningful state transition is emitted as an immutable event and persisted for replay, observability, and optimization. The same execution model extends to **quantum computation orchestration** (parameter sweeps, job submission, polling, result capture, provenance).
@@ -51,7 +51,7 @@ NoETL follows an event-driven, distributed worker model where **all execution em
   - Append-only event store used for replay and audit
   - Exportable to analytics/observability stores (ClickHouse, OTEL, etc.)
 
-### 1.2 High-level sequence (standard)
+### 1.2 High-level sequence (Standard)
 
 ```
 Client → Server API: playbook.execution.requested
@@ -146,7 +146,7 @@ If a step has a `loop`, each iteration has isolated `iter` scope:
 - `iter.*` holds pagination/streaming state (page, has_more, status codes, etc.)
 
 ### 3.4 Nested loops
-standard addressing uses a parent chain:
+Standard addressing uses a parent chain:
 - `iter` is current iteration
 - `iter.parent` is outer iteration
 - `iter.parent.parent` for deeper nesting
@@ -157,7 +157,7 @@ Within a step pipeline (or within an iteration pipeline):
 - `_task`: current task label
 - `_attempt`: attempt counter for current task
 
-### 3.6 Read/write guidance (standard)
+### 3.6 Read/write guidance (Standard)
 - Reads commonly use: token `args` → `ctx` → `iter` → `workload`
 - Writes:
   - iteration-local: `set_iter`
@@ -165,9 +165,9 @@ Within a step pipeline (or within an iteration pipeline):
 
 ---
 
-## 4) standard step execution
+## 4) Standard step execution
 
-### 4.1 standard step form
+### 4.1 Standard step form
 A standard step contains:
 - `spec` (step knobs + step policies)
 - optional `loop`
@@ -220,7 +220,7 @@ Task policy supports scoped writes:
 
 ---
 
-## 6) Loop semantics (standard)
+## 6) Loop semantics (Standard)
 
 ### 6.1 Server schedules iterations; worker executes them
 If `step.loop` is present:
@@ -311,7 +311,7 @@ No special DSL keyword is required.
 
 ---
 
-## 10) Quantum computation orchestration (standard fit)
+## 10) Quantum computation orchestration (Standard fit)
 
 Quantum workloads map naturally to:
 - loop-driven parameter sweeps (`loop` with `parallel` bounded by capacity)
@@ -341,7 +341,7 @@ Non-standard constructs in older docs:
 - `step.when`
 - legacy `eval:` / `expr:`
 
-standard replacements:
+Standard replacements:
 - Task-level `task.spec.policy.rules` for retry/jump/break/fail/continue
 - Storage as ordinary tool tasks returning references
 - Step admission via `step.spec.policy.admit.rules`

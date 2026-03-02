@@ -89,9 +89,9 @@ Key property: **no fall-through**. Router and store tasks use `jump` so you neve
 
 ---
 
-## 3) standard variables & wrappers
+## 3) Standard variables & wrappers
 
-### 3.1 standard tool outcome
+### 3.1 Standard tool outcome
 
 Every tool task produces a final `outcome` object:
 
@@ -119,7 +119,7 @@ Then templates can be stable.
 
 ---
 
-## 4) standard pattern: parallel outer loop + sequential stream per iteration
+## 4) Standard pattern: parallel outer loop + sequential stream per iteration
 
 This example:
 - loops over endpoints in parallel
@@ -247,7 +247,7 @@ This example:
         when: "{{ event.name == 'step.failed' }}"
 ```
 
-### Why this is standard
+### Why this is Standard
 - **No fall-through:** router `jump`s to exactly one store task; store tasks `jump` to paginate.
 - **Sequential pages per iteration:** `paginate` loops via `jump` within one iteration lease.
 - **Parallelism only across iterations:** controlled by `loop.spec`.
@@ -294,7 +294,7 @@ If your store is not idempotent, prefer:
 
 ---
 
-## 7) While / Until (standard guidance)
+## 7) While / Until (Standard guidance)
 
 current DSL uses **policy + jump/break** to implement looping.  
 However, you can model a “while/until” concept by convention inside the `paginate` task:
@@ -346,7 +346,7 @@ Inside `task.spec.policy.rules[].when` you can reference:
 
 ---
 
-## 9) Legacy note (non-standard)
+## 9) Legacy note (non-Standard)
 
 Older NoETL docs included a `pagination:` block with `continue_while` and `next_page` and `merge_path`.
 

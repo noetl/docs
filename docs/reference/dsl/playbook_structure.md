@@ -8,7 +8,7 @@ description: standard NoETL playbook structure and section semantics for DSL v2
 
 This guide defines the **standard** NoETL playbook document structure and how it maps to the runtime model.
 
-standard runtime principles (v10):
+Standard runtime principles (v10):
 - Step = **admission** (`step.spec.policy.admit`) + **tool pipeline** (`step.tool`) + **router** (`step.next` with Petri-net **arcs**)
 - Retry/pagination/polling/branching inside a step are expressed via **task policy**: `task.spec.policy.rules`
 - Result handling is **reference-first** (no special `sink` tool kind; “sink” is a pattern)
@@ -221,7 +221,7 @@ A step may contain a `tool` list which is an **ordered pipeline** of labeled tas
 - Each task may define `task.spec.policy.rules` to control execution flow inside the pipeline:
   - `retry`, `jump`, `continue`, `break`, `fail`
 
-### 6.4 Spec precedence (standard)
+### 6.4 Spec precedence (Standard)
 `spec` MAY be defined at multiple levels. Inner scopes override outer scopes on overlap.
 
 Recommended precedence for effective task configuration:
@@ -305,7 +305,7 @@ workbook:
 
 ---
 
-## 9) Common patterns (standard)
+## 9) Common patterns (Standard)
 
 ### 9.1 Retry (task policy)
 ```yaml

@@ -10,7 +10,7 @@ The `artifact` tool loads (and optionally stores) externally stored results refe
 
 Use it when a prior step/task externalized a large output and you need the full body in a downstream step.
 
-standard reminders:
+Standard reminders:
 - Prefer **reference-first** results for large payloads.
 - Keep secrets out of event logs and out of `ctx`/`iter`.
 - Handle control flow via `task.spec.policy.rules` and server routing via `step.next.arcs[]`.

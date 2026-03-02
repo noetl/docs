@@ -8,7 +8,7 @@ description: Execute SQL against Snowflake as pipeline tasks
 
 The `snowflake` tool executes SQL statements against Snowflake.
 
-standard reminders:
+Standard reminders:
 - Use `task.spec.policy.rules` for retry/fail/jump/break.
 - Prefer reference-first results for large outputs.
 

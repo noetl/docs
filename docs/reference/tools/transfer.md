@@ -8,7 +8,7 @@ description: Declarative bulk data transfer between sources and targets
 
 The `transfer` tool performs bulk data movement between a **source** and **target** in a single pipeline task.
 
-standard reminders:
+Standard reminders:
 - Use `task.spec.policy.rules` for retry/fail.
 - Keep large intermediate data reference-first when possible.
 

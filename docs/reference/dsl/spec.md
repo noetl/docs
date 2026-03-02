@@ -129,7 +129,7 @@ A step MUST have at least one of:
 
 **standard restriction:** step MUST NOT contain top-level `when`. Admission is under `step.spec.policy.admit`.
 
-### 6.3 standard step schema
+### 6.3 Standard step schema
 ```yaml
 - step: <name>                       # required
   desc: <string?>                    # optional
@@ -260,7 +260,7 @@ Kind helpers MAY exist:
 
 ## 12) Task policy (worker-side pipeline control) (normative)
 
-### 12.1 One standard shape
+### 12.1 One Standard shape
 `task.spec.policy` MUST be an object with required `rules:`:
 
 ```yaml
@@ -347,7 +347,7 @@ Recommended reference shape:
 
 ---
 
-## 15) Events (standard taxonomy) (normative minimum)
+## 15) Events (Standard taxonomy) (normative minimum)
 
 ### 15.1 Event envelope (minimum)
 A conforming event MUST include:
@@ -378,7 +378,7 @@ A conforming event MUST include:
 
 ---
 
-## 16) Deprecated constructs (rejected by standard validators)
+## 16) Deprecated constructs (rejected by Standard validators)
 
 The following MUST be rejected unless explicitly enabled as legacy extensions:
 
@@ -390,7 +390,7 @@ The following MUST be rejected unless explicitly enabled as legacy extensions:
 
 ---
 
-## Appendix A) Minimal standard example
+## Appendix A) Minimal Standard example
 
 ```yaml
 apiVersion: noetl.io/v2

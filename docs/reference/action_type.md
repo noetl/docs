@@ -11,7 +11,7 @@ In current DSL:
 
 ---
 
-## standard step shape (reminder)
+## Standard step shape (reminder)
 
 ```yaml
 - step: some_step
@@ -92,7 +92,7 @@ See:
 
 ---
 
-## Legacy → standard mapping
+## Legacy → Standard mapping
 
 | Legacy docs | current DSL |
 |---|---|

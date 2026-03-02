@@ -8,7 +8,7 @@ description: How workers refresh expiring tokens during tool auth resolution (cr
 
 This document updates **Keychain Token Refresh** to match the **current DSL** runtime model.
 
-standard intent:
+Standard intent:
 - Playbooks do **not** embed tokens; they reference **auth/credentials by name** (often via `workload`).
 - Workers resolve auth **per tool task execution** (inside the tool runner).
 - Token refresh is part of the **credential materialization + caching** subsystem (see `credential_caching_v2.md`).
@@ -35,7 +35,7 @@ This is executed **automatically** before each tool task that requires auth.
 
 ## 2) What playbooks reference
 
-standard playbooks reference credentials by **name**, typically:
+Standard playbooks reference credentials by **name**, typically:
 
 - `auth: pg_k8s`
 - `auth: "{{ workload.openai_auth }}"`
@@ -84,7 +84,7 @@ Execute tool
 
 ---
 
-## 5) Caching model (standard)
+## 5) Caching model (Standard)
 
 Token refresh integrates with the standard caching scopes:
 

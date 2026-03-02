@@ -8,7 +8,7 @@ description: Run scripts in Kubernetes Jobs as pipeline tasks
 
 The `container` tool runs a script in an isolated Kubernetes Job. Use it as a pipeline task (`kind: container`) inside `step.tool`.
 
-standard reminders:
+Standard reminders:
 - Use `when` only (no legacy `eval`/`expr`/`case`).
 - Task control flow belongs to `task.spec.policy.rules` (`retry|jump|break|fail|continue`).
 - Step routing belongs to `step.next` router arcs.

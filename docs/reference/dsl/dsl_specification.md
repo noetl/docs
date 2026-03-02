@@ -4,7 +4,7 @@ title: DSL Specification
 description: Complete technical specification for NoETL DSL v2 — standard (Petri Net)
 ---
 
-# NoETL DSL v2 Specification (standard)
+# NoETL DSL v2 Specification (Standard)
 
 This document defines the **standard** NoETL DSL v2 model and runtime semantics.
 It is the implementation target for:
@@ -145,7 +145,7 @@ Within a pipeline:
 - `_attempt`: attempt counter for current task
 
 ### 3.5 Nested loops
-standard addressing:
+Standard addressing:
 - `iter` is current iteration scope
 - `iter.parent` is outer iteration scope
 - `iter.parent.parent` for deeper nesting
@@ -158,9 +158,9 @@ For reads in templates:
 
 ---
 
-## 4. standard Step Specification
+## 4. Standard Step Specification
 
-### 4.1 Step Shape (standard)
+### 4.1 Step Shape (Standard)
 
 ```yaml
 - step: <name>
@@ -216,10 +216,10 @@ Admission evaluation inputs:
 
 ## 5. Step Body = Ordered Pipeline (`step.tool`)
 
-### 5.1 Pipeline Task (standard)
+### 5.1 Pipeline Task (Standard)
 Each entry in `step.tool` is a labeled **task** that invokes a tool `kind`.
 
-standard task form:
+Standard task form:
 
 ```yaml
 - fetch_page:
@@ -264,7 +264,7 @@ Kind-specific stable fields (examples):
 ### 6.1 Purpose
 `task.spec.policy.rules` maps an outcome to a deterministic directive for the pipeline.
 
-### 6.2 Syntax (standard)
+### 6.2 Syntax (Standard)
 ```yaml
 spec:
   policy:
@@ -367,14 +367,14 @@ Routing fan-out is controlled by `next.spec.mode`:
 
 ---
 
-## 9. Event Sourcing Model (standard)
+## 9. Event Sourcing Model (Standard)
 
 ### 9.1 Layers
 - Workflow/Execution layer (server authoritative)
 - Step scheduling + routing layer (server authoritative)
 - Task execution layer (worker authoritative for outcomes)
 
-### 9.2 Ownership (standard)
+### 9.2 Ownership (Standard)
 | Event Type | Emitted By | Authoritative |
 |-----------|------------|---------------|
 | `playbook.*`, `workflow.*` | Server | Server |
@@ -416,7 +416,7 @@ A “sink” is simply a tool task that writes to storage and returns a referenc
 
 ---
 
-## 11. standard Pagination Pattern (Streaming inside an iteration)
+## 11. Standard Pagination Pattern (Streaming inside an iteration)
 
 Pagination is expressed as a state machine inside an iteration using `jump` and `break`:
 
@@ -444,7 +444,7 @@ The following constructs are **non-standard** for baseline v2:
 
 ---
 
-## 13. Appendix: Minimal standard step example
+## 13. Appendix: Minimal Standard step example
 
 ```yaml
 - step: fetch_transform_store

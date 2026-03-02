@@ -8,7 +8,7 @@ description: Unified specification for external script loading (script attribute
 
 This document consolidates and replaces the prior **Script Attribute** and **Script Tool** documents and aligns them to the **current DSL** execution model.
 
-standard alignment:
+Standard alignment:
 - Playbook root sections are `metadata`, `keychain` (optional), `executor` (optional), `workload`, `workflow`, `workbook` (optional)
 - A step is `spec.policy` (admission/lifecycle) + `tool` (ordered pipeline) + `next` (router with arcs)
 - Each pipeline item is a **tool task** with `kind` and optional `spec`
@@ -47,7 +47,7 @@ These are separate concepts:
 
 ---
 
-## 2) Placement in the standard step pipeline
+## 2) Placement in the Standard step pipeline
 
 In current DSL, steps execute an ordered pipeline:
 
@@ -147,7 +147,7 @@ Common job policy knobs include:
 
 These fields may be placed under `spec` (standard policy container).
 
-### 4.4 Credential injection (standard)
+### 4.4 Credential injection (Standard)
 Jobs often need cloud/database credentials. current DSL requires:
 - playbooks reference credential names, not secret values
 - workers materialize credentials and inject them into the job environment securely
@@ -179,7 +179,7 @@ There are two retry layers (implementation-defined but recommended):
 - **Job retry** (Kubernetes backoff limit) — retries inside the cluster job controller
 - **Task retry** (NoETL `then.do: retry`) — reruns the task from the worker perspective
 
-standard guidance:
+Standard guidance:
 - Use Kubernetes retry for quick transient pod failures.
 - Use NoETL task retry for higher-level policy (backoff, jitter, cross-node rescheduling) and for script download failures.
 - Ensure idempotency when retries can re-run the same script.

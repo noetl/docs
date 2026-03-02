@@ -19,10 +19,10 @@ It is aligned to **NoETL standard Step Spec (v10)**:
 
 ---
 
-## 1) Event naming conventions (standard)
+## 1) Event naming conventions (Standard)
 
-### 1.1 standard name rules
-standard event types MUST:
+### 1.1 Standard name rules
+Standard event types MUST:
 - be **lowercase**
 - use **dot-separated** segments
 - follow the pattern: `<entity>.<subentity?>.<verb>`
@@ -83,7 +83,7 @@ Payload fields (recommended):
 
 ---
 
-## 3) standard taxonomy (dot name ↔ PascalCase alias)
+## 3) Standard taxonomy (dot name ↔ PascalCase alias)
 
 ### 3.1 Playbook lifecycle (server)
 | standard `event_type` | Alias (display) |
@@ -161,7 +161,7 @@ Payload fields (recommended):
 
 ---
 
-## 4) Legacy compatibility (non-standard)
+## 4) Legacy compatibility (non-Standard)
 
 If older executors emit legacy events, the server SHOULD normalize to standard equivalents.
 

@@ -6,7 +6,7 @@ NoETL is an event-sourced orchestration system with a strict control-plane / dat
 - **Worker pools (data plane)**: execute step pipelines (tools), apply **task outcome policies**, and emit events back to the server.
 - **CLI**: manages server/worker lifecycle and provides operational commands.
 
-current DSL DSL details live under:
+current DSL details live under:
 - `documentation/docs/reference/dsl/step_spec.md`
 - `documentation/docs/reference/dsl/spec.md`
 - `documentation/docs/reference/dsl/execution_model.md`
@@ -23,7 +23,7 @@ current DSL DSL details live under:
 
 ---
 
-## standard DSL execution model (high level)
+## Standard DSL execution model (high level)
 
 ### Step structure (Petri-net transition)
 
@@ -53,7 +53,7 @@ Only the server’s routing creates new tokens/step-runs.
 
 ## Runtime scopes (templates and policies)
 
-standard namespaces:
+Standard namespaces:
 - `workload` (immutable merged inputs)
 - `keychain` (resolved credentials; read-only)
 - `ctx` (execution-scoped mutable context; event-sourced patches)
@@ -62,14 +62,14 @@ standard namespaces:
 - pipeline locals: `_prev`, `_task`, `_attempt`, `outcome`
 - routing input: `event` (boundary event for `next.arcs[].when`)
 
-standard guidance:
+Standard guidance:
 - Use `iter` for pagination cursors and per-item progress.
 - Use `ctx` for cross-step state and references (ResultRefs/ManifestRefs).
 - Avoid conflicting `ctx` writes from parallel iterations until reducers/atomics exist.
 
 ---
 
-## Server–worker lifecycle (standard)
+## Server–worker lifecycle (Standard)
 
 1) **Request**: client requests execution; server persists request event(s).
 2) **Resolve**: server validates playbook, resolves `keychain`, merges request payload into `workload`, initializes `ctx`.
@@ -83,9 +83,9 @@ standard guidance:
 
 ---
 
-## Reference-first results (standard)
+## Reference-first results (Standard)
 
-standard rule: large outputs MUST be externalized and represented by references.
+Standard rule: large outputs MUST be externalized and represented by references.
 - storage tasks are normal tool tasks (no special `sink` kind)
 - pass **ResultRef** objects + extracted fields, not giant inline payloads
 

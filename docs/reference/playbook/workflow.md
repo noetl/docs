@@ -7,7 +7,7 @@ A step is composed from:
 - **Execution (worker):** `step.tool` (ordered pipeline of labeled tasks)
 - **Routing (server):** `step.next.spec` + `step.next.arcs[]` guarded by `when`
 
-standard removals (vs legacy docs):
+Standard removals (vs legacy docs):
 - no step `type:` variants (http/python/iterator/…)
 - no `step.when`
 - no `eval`/`expr`/`case` conditionals (use `when` only)

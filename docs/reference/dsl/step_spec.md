@@ -4,7 +4,7 @@ title: Step Specification (v10)
 description: current DSL step specification including policies, routing, loops, and spec layering
 ---
 
-# NoETL standard Step Spec (v10)
+# NoETL Standard Step Spec (v10)
 
 > **current DSL update (latest decisions):**
 > - **One conditional keyword:** `when`
@@ -208,7 +208,7 @@ spec:
 ### 5.5 step.next router policy (optional)
 `step.next` is a router object. Policy here is non-control (routing hints only).
 
-standard `next`:
+Standard `next`:
 ```yaml
 next:
   spec:
@@ -243,7 +243,7 @@ In loops, `iter` is the primary mutable scratchpad.
 - Parallel loops are safe because each iteration gets its own `iter`
 
 ### 6.4 Nested loops (MUST)
-standard addressing rule:
+Standard addressing rule:
 - `iter` is the current loop iteration
 - `iter.parent` is the outer iteration
 - `iter.parent.parent` for deeper nesting
@@ -254,7 +254,7 @@ standard addressing rule:
 
 `step.tool` supports two task formats, all normalized to the standard internal form.
 
-### 7.1 standard format (recommended)
+### 7.1 Standard format (recommended)
 
 The standard format uses explicit `name:` field for task identification:
 
@@ -361,7 +361,7 @@ Task policy controls:
 
 ---
 
-## 9. Retry handling (standard)
+## 9. Retry handling (Standard)
 
 Retry belongs to **task.spec.policy.rules**.
 
@@ -383,7 +383,7 @@ Recommendation: keep tool-internal retry minimal; prefer standard policy retry s
 
 No special “sink” kind. Storage is **just tools** that write data and return a reference.
 
-standard approach:
+Standard approach:
 - large payloads stored externally (Postgres table, object store, NATS object store, etc.)
 - events store metadata + references:
   `{ store, key, checksum, size, schema_hint }`
@@ -411,7 +411,7 @@ This supports:
 
 ---
 
-## 12. standard streaming pagination example (NO fall-through)
+## 12. Standard streaming pagination example (NO fall-through)
 
 ```yaml
 - step: fetch_all_endpoints

@@ -8,7 +8,7 @@ description: Execute DuckDB SQL as pipeline tasks with unified auth and referenc
 
 The DuckDB tool executes SQL inside a standard step pipeline (`step.tool`).
 
-standard reminders:
+Standard reminders:
 - Use `task.spec.policy.rules` for retry/fail/jump/break (no legacy `eval/expr`).
 - Use unified auth (when needed) for cloud URIs and DB attachments.
 - Prefer reference-first results for large outputs.

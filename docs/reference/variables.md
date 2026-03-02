@@ -8,7 +8,7 @@ description: standard runtime scopes (workload, keychain, ctx, iter, args) and m
 
 This document defines the standard runtime scopes and mutation model aligned with **current DSL**.
 
-standard principles:
+Standard principles:
 - Playbook root sections are **metadata, keychain (optional), executor (optional), workload, workflow, workbook (optional)** (no playbook-root `vars`).
 - A step is **admission policy + tool pipeline + next router** (Petri-net arcs).
 - Mutation is expressed through **task policy actions** (`task.spec.policy.rules[].then.set_*`):
@@ -81,7 +81,7 @@ In **parallel** loop mode, `iter` is always safe because it is isolated per iter
 
 ---
 
-## 3) Writing variables (standard mechanism)
+## 3) Writing variables (Standard mechanism)
 
 In current DSL there is **no `vars:` extraction block** and no legacy `eval`.
 All updates occur via **task policy rules** after a task produces an `outcome`.
@@ -98,7 +98,7 @@ If reducers/atomics are not supported yet, the runtime SHOULD reject or restrict
 
 ## 4) Reading variables in templates
 
-standard access patterns:
+Standard access patterns:
 - `{{ workload.api_url }}`
 - `{{ keychain.openai_token }}`
 - `{{ ctx.last_ref }}`

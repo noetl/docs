@@ -1,7 +1,7 @@
 ---
 sidebar_position: 1
 title: NoETL DSL
-description: current DSL DSL reference for NoETL playbooks (noetl.io/v2)
+description: current DSL reference for NoETL playbooks (noetl.io/v2)
 ---
 
 # NoETL DSL Reference 

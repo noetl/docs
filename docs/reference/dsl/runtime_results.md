@@ -8,7 +8,7 @@ description: How NoETL stores, indexes, and retrieves task outcomes and step res
 
 This document defines how NoETL stores and retrieves **task outcomes** and **step results** in a **reference-first, event-sourced** system.
 
-Aligned with **current DSL DSL**:
+Aligned with **current DSL**:
 - No `sink` tool kind: storage is **just tools** that write data and return references.
 - No `retry`/`pagination`/`case` blocks: retries + pagination are handled by **task policies** (`task.spec.policy.rules`) and **iteration scope** (`iter.*`).
 - No `eval:`/`expr:`: use `when` in policies.
@@ -67,7 +67,7 @@ The event log stores:
 
 A **ResultRef** is a lightweight pointer to externally stored data.
 
-### 3.1 standard shape
+### 3.1 Standard shape
 ```json
 {
   "kind": "result_ref",
@@ -225,7 +225,7 @@ The step boundary event stores only a reference to the manifest.
 
 ## 8) How downstream steps access results (reference-only)
 
-standard rule: downstream steps receive **ResultRef + extracted fields**, not full payload bodies.
+Standard rule: downstream steps receive **ResultRef + extracted fields**, not full payload bodies.
 
 Recommended bindings for a task label `fetch_page`:
 - `fetch_page.__ref__` → ResultRef
@@ -276,7 +276,7 @@ These projections prevent scanning the full event stream for common reads.
 
 ---
 
-## 10) Pagination + retry + loop (standard mental model)
+## 10) Pagination + retry + loop (Standard mental model)
 
 A single step with loop + pagination + retry yields a lattice of pieces indexed by:
 - iteration (outer loop: endpoint/city/hotel)
@@ -290,7 +290,7 @@ Each externally stored page becomes a ResultRef part, and the entire stream is r
 ## 11) Quantum orchestration note
 
 Quantum tools often return large measurement datasets.
-standard pattern:
+Standard pattern:
 - tool returns a ResultRef (NATS Object Store or GCS)
 - extracted fields store small metadata (job id, backend, shots, cost)
 - manifests represent iterative algorithms (VQE/QAOA) or shot batches

@@ -2,7 +2,7 @@
 
 `workbook` is **optional**. In current DSL it is reserved for a catalog of named reusable tasks/templates. It is not required for the standard baseline.
 
-standard placeholder shape:
+Standard placeholder shape:
 
 ```yaml
 workbook:
