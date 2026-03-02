@@ -1,8 +1,8 @@
-# Core Concepts (Canonical v10)
+# Core Concepts 
 
 NoETL is a lightweight, event-driven orchestration engine built on an **event-sourced** execution model. You author playbooks in YAML, the **server (control plane)** schedules step runs, and **workers (data plane)** execute pipelines and report events for persistence and replay.
 
-This document is aligned with the **Canonical v10** DSL model:
+This document is aligned with the **current DSL** DSL model:
 
 - Root playbook sections: **metadata, keychain (optional), executor (optional), workload, workflow, workbook (optional)**
 - Step = **admission policy + tool pipeline + next router (Petri-net arcs)**
@@ -55,18 +55,18 @@ All values may use **Jinja2 templating** to reference `workload`, `keychain`, `a
 
 ---
 
-## 3) Step Behavior (Canonical)
+## 3) Step Behavior (standard)
 
 ### 3.1 Steps are transitions (Petri-net)
 Steps live in `workflow` and are uniquely named by `step:`.
 
-A canonical step is:
+A standard step is:
 - **Admission policy** (server): `step.spec.policy.admit.rules`
 - **Ordered pipeline** (worker): `step.tool` (labeled task list)
 - **Router** (server): `step.next` (`next.spec` + `next.arcs[]`)
 
 ### 3.2 `tool` is always an ordered pipeline
-Canonical pipeline form:
+standard pipeline form:
 
 ```yaml
 - step: fetch_transform_store

@@ -1,17 +1,17 @@
 ---
 sidebar_position: 12
 title: HTTP Action Details
-description: HTTP tool usage and configuration in NoETL Canonical v10 playbooks
+description: HTTP tool usage and configuration in NoETL current DSL playbooks
 ---
 
-# HTTP in NoETL (Canonical v10)
+# HTTP in NoETL 
 
 This page previously documented legacy HTTP shapes such as:
 - `tool: http` (scalar tool)
 - `endpoint:` (instead of `url:`)
 - workbook-style `type: http` tasks with `return:` templates
 
-Canonical v10 uses HTTP as a **tool task** (`kind: http`) inside `step.tool`, with:
+current DSL uses HTTP as a **tool task** (`kind: http`) inside `step.tool`, with:
 - retry/polling/pagination via `task.spec.policy.rules`
 - step routing via `step.next` router arcs
 
@@ -34,6 +34,6 @@ Canonical v10 uses HTTP as a **tool task** (`kind: http`) inside `step.tool`, wi
 ```
 
 ## See also
-- Canonical HTTP tool: `documentation/docs/reference/tools/http.md`
-- Retry semantics: `documentation/docs/reference/retry_mechanism_v2.md`
+- standard HTTP tool: `documentation/docs/reference/tools/http.md`
+- Retry semantics: `documentation/docs/reference/retry_mechanism.md`
 - Pagination pattern: `documentation/docs/reference/pagination_v2.md`

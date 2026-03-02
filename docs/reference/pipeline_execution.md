@@ -1,14 +1,14 @@
 ---
 sidebar_position: 12
-title: Pipeline Execution (Canonical v10)
+title: Pipeline Execution 
 description: Atomic, ordered task pipelines inside a step using task outcome policy rules (retry/jump/break/fail/continue)
 ---
 
-# Pipeline Execution (Canonical v10)
+# Pipeline Execution 
 
 Pipeline execution in NoETL is an **atomic, ordered sequence of tasks** executed **within a single step-run** on a **single worker lease**.
 
-Canonical v10 properties:
+current DSL properties:
 - **Data threading** via `_prev` (previous task result)
 - **Per-task flow control** via `task.spec.policy.rules` (`when` → `then.do`)
 - **Deterministic replay** via the event log (no hidden control flow)
@@ -40,7 +40,7 @@ SERVER: evaluates step.next.arcs[] on boundary event → schedules next step(s)
 
 ---
 
-## Canonical step shape (pipeline + router)
+## standard step shape (pipeline + router)
 
 ```yaml
 - step: fetch_transform_store
@@ -124,7 +124,7 @@ Available during pipeline execution:
 | `outcome` | pipeline | current task outcome envelope (policy evaluation only) |
 | `event` | routing | boundary event (server-side `next.arcs[].when` evaluation) |
 
-> There is no canonical `vars` scope in v10. Use `iter` (within loops) and `ctx` (cross-step) via policy patches.
+> There is no standard `vars` scope in v10. Use `iter` (within loops) and `ctx` (cross-step) via policy patches.
 
 ---
 
@@ -146,7 +146,7 @@ Tool helpers MAY be present (examples):
 
 ## Task policy rules (control actions)
 
-Canonical placement: `task.spec.policy.rules`.
+standard placement: `task.spec.policy.rules`.
 
 Shape:
 ```yaml
@@ -172,17 +172,17 @@ Semantics:
   - ok → `continue`
   - error → `fail`
 - If policy is present but no rule matches and no `else` is provided:
-  - default → `continue` (canonical v10 default)
+  - default → `continue` (current DSL default)
 
 ---
 
-## Streaming pagination inside a pipeline (canonical pattern)
+## Streaming pagination inside a pipeline (standard pattern)
 
 Pagination and polling are modeled as **pipeline control flow**:
 - keep counters/cursors in `iter.*`
 - use a `paginate` decision task that `jump`s back to `fetch_page` or `break`s
 
-For a full canonical example, see `documentation/docs/reference/dsl/pagination.md`.
+For a full standard example, see `documentation/docs/reference/dsl/pagination.md`.
 
 ---
 

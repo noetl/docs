@@ -1,6 +1,6 @@
-# Python in steps — Canonical v10
+# Python in steps — current DSL
 
-Canonical v10 has no `tool: python` step type. Use a Python **tool task** (`kind: python`) inside `step.tool`.
+current DSL has no `tool: python` step type. Use a Python **tool task** (`kind: python`) inside `step.tool`.
 
 ```yaml
 - step: transform
@@ -21,5 +21,5 @@ Canonical v10 has no `tool: python` step type. Use a Python **tool task** (`kind
 ```
 
 ## See also
-- Canonical Python tool: `documentation/docs/reference/tools/python.md`
+- standard Python tool: `documentation/docs/reference/tools/python.md`
 - Script loading / script jobs: `documentation/docs/reference/script_execution_v2.md`

@@ -1,14 +1,14 @@
 ---
 sidebar_position: 9
-title: NATS Tool (Canonical v10)
-description: Interact with NATS JetStream, K/V Store, and Object Store as pipeline tasks (Canonical v10)
+title: NATS Tool 
+description: Interact with NATS JetStream, K/V Store, and Object Store as pipeline tasks 
 ---
 
-# NATS Tool (Canonical v10)
+# NATS Tool 
 
 The `nats` tool provides access to NATS JetStream, Key/Value store, and Object Store operations for caching, messaging, and lightweight state.
 
-Canonical reminders:
+standard reminders:
 - No step-level `case`/`eval`/`expr`. Use `when` in task policy and router arcs.
 - Use `task.spec.policy.rules` for retry/fail/jump/break/continue.
 

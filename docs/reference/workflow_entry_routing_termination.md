@@ -1,12 +1,12 @@
 ---
 sidebar_position: 6
-title: Workflow Entry, Routing, and Termination (Canonical v10)
-description: Canonical rules for initiating execution, Petri-net routing via next.arcs, admission gating, and workflow termination (quiescence)
+title: Workflow Entry, Routing, and Termination 
+description: standard rules for initiating execution, Petri-net routing via next.arcs, admission gating, and workflow termination (quiescence)
 ---
 
-# Workflow Entry, Routing, and Termination (Canonical v10)
+# Workflow Entry, Routing, and Termination 
 
-This document defines **canonical** semantics for:
+This document defines **standard** semantics for:
 - workflow initiation (entry selection),
 - step routing (Petri-net **arcs**),
 - branch termination,
@@ -76,7 +76,7 @@ At execution start, the server MUST create exactly one initial token targeting `
 ## 3. Step enablement
 
 ### 3.1 Admission policy (server-side)
-Canonical v10 has **no** `step.when` field. Enablement is expressed via **step admission policy**:
+current DSL has **no** `step.when` field. Enablement is expressed via **step admission policy**:
 
 - `step.spec.policy.admit.rules[]`
 
@@ -103,7 +103,7 @@ If admission evaluates to deny:
   - token remains pending until it becomes enabled (default), or
   - token is discarded (optional policy).
 
-Canonical default:
+standard default:
 - token remains pending (to support gates/approvals via future `ctx` patches).
 
 ---
@@ -165,7 +165,7 @@ Optional policy (MAY):
 - treat “no match” as an error and fail execution.
 If supported, it MUST be explicitly enabled by policy (e.g., `executor.spec.no_next_is_error: true`).
 
-Canonical default:
+standard default:
 - “no match” terminates the branch.
 
 ---
@@ -239,7 +239,7 @@ However:
 
 ---
 
-## 9. Summary (canonical defaults)
+## 9. Summary (standard defaults)
 
 - Entry step is **workflow[0]** unless overridden by `executor.spec.entry_step`.
 - Steps are enabled by admission (`step.spec.policy.admit`; default allow).

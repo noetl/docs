@@ -1,12 +1,12 @@
 ---
 sidebar_position: 32
-title: Credential Caching (Canonical v10)
-description: Secure, reference-first credential materialization and caching for NoETL runtime (execution + global token caches) — aligned with Canonical v10
+title: Credential Caching 
+description: Secure, reference-first credential materialization and caching for NoETL runtime (execution + global token caches) — aligned with current DSL
 ---
 
-# Credential Caching (Canonical v10)
+# Credential Caching 
 
-This document updates `credential_caching.md` to align with the **Canonical v10** execution model:
+This document updates `credential_caching.md` to align with the **current DSL** execution model:
 
 - Root playbook sections: `metadata`, `keychain` (optional), `executor` (optional), `workload`, `workflow`, `workbook` (optional)
 - Step executes `tool` pipelines; control flow uses task policy rules (`task.spec.policy.rules`)
@@ -62,7 +62,7 @@ Credential names and provider configuration live in your runtime’s keychain/re
 
 ---
 
-## 4) Canonical scopes for credential caching
+## 4) standard scopes for credential caching
 
 Credential caching is not general runtime state (`ctx/vars/iter`). It is a **specialized secure cache** used during tool execution.
 
@@ -219,7 +219,7 @@ Where `usage_policy` / `token_policy` include:
 
 ## 12) Summary
 
-Canonical v2 credential caching is a secure runtime system:
+DSL v2 credential caching is a secure runtime system:
 - Playbooks reference credential names only
 - Workers materialize creds and cache encrypted artifacts
 - Postgres is the recommended durable cache store

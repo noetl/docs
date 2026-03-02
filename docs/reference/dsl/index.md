@@ -1,24 +1,24 @@
 ---
 sidebar_position: 1
 title: NoETL DSL
-description: Canonical v10 DSL reference for NoETL playbooks (noetl.io/v2)
+description: current DSL DSL reference for NoETL playbooks (noetl.io/v2)
 ---
 
-# NoETL DSL Reference (Canonical v10)
+# NoETL DSL Reference 
 
-The NoETL Domain-Specific Language (DSL) defines how playbooks are structured and executed under the **Canonical v10** model.
+The NoETL Domain-Specific Language (DSL) defines how playbooks are structured and executed under the **current DSL** model.
 
 ## Start Here
 
-- [NoETL Canonical Step Spec (v10)](./step_spec) - Latest decisions (policies, routing, loops, spec layering)
-- [DSL Specification (Canonical)](./spec) - Normative playbook/step schema + semantics
+- [NoETL standard Step Spec (v10)](./step_spec) - Latest decisions (policies, routing, loops, spec layering)
+- [DSL Specification (standard)](./spec) - Normative playbook/step schema + semantics
 - [DSL Specification (Detailed)](./dsl_specification) - Full technical walkthrough
-- [Formal Specification (Canonical)](./formal_specification) - Normative execution model and grammar notes
+- [Formal Specification (standard)](./formal_specification) - Normative execution model and grammar notes
 
 ## Runtime
 
 - [Execution Model](./execution_model) - Control plane vs data plane responsibilities
-- [Runtime Event Model](./runtime_events) - Canonical event taxonomy and envelope
+- [Runtime Event Model](./runtime_events) - standard event taxonomy and envelope
 - [Runtime Results](./runtime_results) - Reference-first storage (ResultRef/Manifest patterns)
 - [Pagination](./pagination) - Streaming pagination with `jump`/`break` inside iterations
 
@@ -31,7 +31,7 @@ The NoETL Domain-Specific Language (DSL) defines how playbooks are structured an
 
 ## DSL Overview
 
-### Minimal playbook (canonical v10)
+### Minimal playbook 
 
 ```yaml
 apiVersion: noetl.io/v2
@@ -135,7 +135,7 @@ Access data in templates using these namespaces:
 "{{ event.name }}"
 ```
 
-### Step Routing (canonical v10)
+### Step Routing 
 
 Routing is expressed as Petri-net arcs on `step.next`:
 

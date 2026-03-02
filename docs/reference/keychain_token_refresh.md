@@ -1,20 +1,20 @@
 ---
 sidebar_position: 15
-title: Token Refresh and Keychain Resolution (Canonical v10)
-description: How workers refresh expiring tokens during tool auth resolution (credential caching + optional keychain registry) — aligned with Canonical v10
+title: Token Refresh and Keychain Resolution 
+description: How workers refresh expiring tokens during tool auth resolution (credential caching + optional keychain registry) — aligned with current DSL
 ---
 
-# Token Refresh and Keychain Resolution (Canonical v10)
+# Token Refresh and Keychain Resolution 
 
-This document updates **Keychain Token Refresh** to match the **Canonical v10** runtime model.
+This document updates **Keychain Token Refresh** to match the **current DSL** runtime model.
 
-Canonical intent:
+standard intent:
 - Playbooks do **not** embed tokens; they reference **auth/credentials by name** (often via `workload`).
 - Workers resolve auth **per tool task execution** (inside the tool runner).
 - Token refresh is part of the **credential materialization + caching** subsystem (see `credential_caching_v2.md`).
 - The event log stores **metadata only** (never decrypted token bytes).
 
-> “Keychain” may exist as an **implementation registry** (catalog of credential definitions), but the canonical behavior is: **tool auth resolution** → **refresh if needed** → **cache encrypted** → **execute tool**.
+> “Keychain” may exist as an **implementation registry** (catalog of credential definitions), but the standard behavior is: **tool auth resolution** → **refresh if needed** → **cache encrypted** → **execute tool**.
 
 ---
 
@@ -35,14 +35,14 @@ This is executed **automatically** before each tool task that requires auth.
 
 ## 2) What playbooks reference
 
-Canonical playbooks reference credentials by **name**, typically:
+standard playbooks reference credentials by **name**, typically:
 
 - `auth: pg_k8s`
 - `auth: "{{ workload.openai_auth }}"`
 - tool-specific fields such as `credential: ...` are allowed but should normalize to a credential reference
 
 Playbooks should **not** reference `{{ keychain.*.token }}` as the primary mechanism.
-If legacy playbooks do so, the runtime may support it for compatibility by treating it as a credential reference resolution step, but it is not the preferred canonical style.
+If legacy playbooks do so, the runtime may support it for compatibility by treating it as a credential reference resolution step, but it is not the preferred standard style.
 
 ---
 
@@ -84,9 +84,9 @@ Execute tool
 
 ---
 
-## 5) Caching model (canonical)
+## 5) Caching model (standard)
 
-Token refresh integrates with the canonical caching scopes:
+Token refresh integrates with the standard caching scopes:
 
 ### 5.1 Execution-scoped cache
 - caches credential material for the current execution
@@ -133,7 +133,7 @@ If your implementation uses a `keychain` section or a keychain service:
 - the worker still resolves auth via the same materialization pipeline
 - token refresh still occurs during tool execution
 
-This preserves the conceptual “keychain” while keeping canonical semantics consistent.
+This preserves the conceptual “keychain” while keeping standard semantics consistent.
 
 ---
 
@@ -163,5 +163,5 @@ Example safe messages:
 
 ## See also
 - `credential_caching_v2.md`
-- `retry_mechanism_v2.md`
+- `retry_mechanism.md`
 - `result_storage_v2.md`

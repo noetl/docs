@@ -1,16 +1,16 @@
 ---
 sidebar_position: 5
-title: Pagination (Canonical)
-description: Canonical pagination patterns for NoETL DSL v2 — streaming pagination with task policy (retry/jump/break) and outer-loop fan-out
+title: Pagination (standard)
+description: standard pagination patterns for NoETL DSL v2 — streaming pagination with task policy (retry/jump/break) and outer-loop fan-out
 ---
 
-# Pagination Handling — Canonical v10
+# Pagination Handling — current DSL
 
-This document describes the **Canonical v10** pagination patterns:
+This document describes the **current DSL** pagination patterns:
 - **Outer fan-out** via `step.loop` (often parallel/distributed)
 - **Inner ordered pagination stream** within one iteration lease using task policy (`jump`/`break`)
 
-> **Task format:** Tasks use the canonical format with explicit `name:` field (e.g., `{ name: "task_name", kind: "http", ... }`).
+> **Task format:** Tasks use the standard format with explicit `name:` field (e.g., `{ name: "task_name", kind: "http", ... }`).
 > See [Step Specification](./step_spec.md#7-tasks-and-tool-list-shapes-must) for details.
 
 - **No** `eval:` blocks
@@ -89,9 +89,9 @@ Key property: **no fall-through**. Router and store tasks use `jump` so you neve
 
 ---
 
-## 3) Canonical variables & wrappers
+## 3) standard variables & wrappers
 
-### 3.1 Canonical tool outcome
+### 3.1 standard tool outcome
 
 Every tool task produces a final `outcome` object:
 
@@ -105,13 +105,13 @@ Task policy rules evaluate **over `outcome`**.
 ### 3.2 HTTP wrapper note (practical)
 Many HTTP executors wrap API payloads (example from older docs): the API body sits under `.data`.
 
-In canonical form, your policy reads are generally:
+In standard form, your policy reads are generally:
 
 - `outcome.http.status`
 - `outcome.result.data` (if your HTTP kind wraps the body under `result.data`)
 - or `outcome.result` (if your HTTP kind returns the body directly)
 
-**Canonical recommendation:** standardize HTTP kind to return:
+**standard recommendation:** standardize HTTP kind to return:
 - `outcome.result.data` = API body (object)
 - `outcome.http.status` = HTTP status code
 
@@ -119,7 +119,7 @@ Then templates can be stable.
 
 ---
 
-## 4) Canonical pattern: parallel outer loop + sequential stream per iteration
+## 4) standard pattern: parallel outer loop + sequential stream per iteration
 
 This example:
 - loops over endpoints in parallel
@@ -247,7 +247,7 @@ This example:
         when: "{{ event.name == 'step.failed' }}"
 ```
 
-### Why this is canonical
+### Why this is standard
 - **No fall-through:** router `jump`s to exactly one store task; store tasks `jump` to paginate.
 - **Sequential pages per iteration:** `paginate` loops via `jump` within one iteration lease.
 - **Parallelism only across iterations:** controlled by `loop.spec`.
@@ -294,9 +294,9 @@ If your store is not idempotent, prefer:
 
 ---
 
-## 7) While / Until (canonical guidance)
+## 7) While / Until (standard guidance)
 
-Canonical v10 uses **policy + jump/break** to implement looping.  
+current DSL uses **policy + jump/break** to implement looping.  
 However, you can model a “while/until” concept by convention inside the `paginate` task:
 
 - `while`: continue jumping while condition is true
@@ -346,15 +346,15 @@ Inside `task.spec.policy.rules[].when` you can reference:
 
 ---
 
-## 9) Legacy note (non-canonical)
+## 9) Legacy note (non-standard)
 
 Older NoETL docs included a `pagination:` block with `continue_while` and `next_page` and `merge_path`.
 
-Canonical v10 replaces that with:
+current DSL replaces that with:
 - iteration state (`iter`) + ordered tasks
 - task policy + `jump/break`
 - explicit storage tasks returning references
 
-If you keep the legacy paginator for backward compatibility, treat it as a **compiler** into the canonical streaming form.
+If you keep the legacy paginator for backward compatibility, treat it as a **compiler** into the standard streaming form.
 
 ---

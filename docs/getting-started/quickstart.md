@@ -235,6 +235,6 @@ noetl run destroy
 ## Next Steps
 
 - [Installation Options](/docs/getting-started/installation) - Detailed setup guide
-- [Playbook Structure](/docs/features/playbook_structure) - Learn the DSL syntax
+- [Playbook Structure](/docs/reference/dsl/playbook_structure) - Learn the DSL syntax
 - [CLI Reference](/docs/reference/noetl_cli_usage) - Full command reference
 - [Examples](/docs/examples/) - Working playbook examples

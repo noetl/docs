@@ -2,6 +2,7 @@
 sidebar_position: 10
 title: Development
 description: Gateway development setup and architecture
+slug: /gateway/development
 ---
 
 # NoETL Gateway
@@ -214,5 +215,4 @@ https://dev.to/behainguyen/rust-sqlx-cli-database-migration-with-mysql-and-postg
 - `sqlx migrate run`
 - `sqlx migrate revert`
 - `cargo sqlx prepare` (run always after query changing) need update cache for query! macros for all functions 
-
 

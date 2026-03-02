@@ -1,15 +1,15 @@
 ---
 sidebar_position: 6
-title: Execution Model (Canonical)
-description: Event-sourced execution model with control plane and data plane architecture (Petri-net canonical runtime)
+title: Execution Model (standard)
+description: Event-sourced execution model with control plane and data plane architecture (Petri-net standard runtime)
 ---
 
-# NoETL DSL & Event-Sourced Execution Model (Control Plane / Data Plane) — Canonical (Updated)
+# NoETL DSL & Event-Sourced Execution Model (Control Plane / Data Plane) — standard (Updated)
 
 ## Abstract
 NoETL is a declarative orchestration system for APIs, databases, scripts, and agentic workflows, built around **event sourcing**: every meaningful state transition is emitted as an immutable event and persisted for replay, observability, and optimization. The same execution model extends to **quantum computation orchestration** (parameter sweeps, job submission, polling, result capture, provenance).
 
-This document specifies the **canonical execution model** aligned with the latest DSL decisions:
+This document specifies the **standard execution model** aligned with the latest DSL decisions:
 - Root playbook sections (`metadata`, `keychain`, `executor`, `workload`, `workflow`, `workbook`)
 - Runtime scopes (`workload`, `ctx`, `iter`, pipeline locals)
 - **Petri-net semantics** (token → step transition → next arcs)
@@ -51,7 +51,7 @@ NoETL follows an event-driven, distributed worker model where **all execution em
   - Append-only event store used for replay and audit
   - Exportable to analytics/observability stores (ClickHouse, OTEL, etc.)
 
-### 1.2 High-level sequence (canonical)
+### 1.2 High-level sequence (standard)
 
 ```
 Client → Server API: playbook.execution.requested
@@ -96,7 +96,7 @@ A **Step** is a Petri-net transition:
 - **Firing**: `step.tool` ordered pipeline (worker-side)
 - **Outgoing arcs**: `step.next.arcs[]` (server-side routing)
 
-There is **no** `step.when` field in the canonical model.
+There is **no** `step.when` field in the standard model.
 
 ### 2.4 Tool / Task
 A **Task** is a labeled tool invocation in the pipeline.
@@ -146,18 +146,18 @@ If a step has a `loop`, each iteration has isolated `iter` scope:
 - `iter.*` holds pagination/streaming state (page, has_more, status codes, etc.)
 
 ### 3.4 Nested loops
-Canonical addressing uses a parent chain:
+standard addressing uses a parent chain:
 - `iter` is current iteration
 - `iter.parent` is outer iteration
 - `iter.parent.parent` for deeper nesting
 
 ### 3.5 Pipeline locals
 Within a step pipeline (or within an iteration pipeline):
-- `_prev`: previous task output (canonical: previous task’s `outcome.result`)
+- `_prev`: previous task output (standard: previous task’s `outcome.result`)
 - `_task`: current task label
 - `_attempt`: attempt counter for current task
 
-### 3.6 Read/write guidance (canonical)
+### 3.6 Read/write guidance (standard)
 - Reads commonly use: token `args` → `ctx` → `iter` → `workload`
 - Writes:
   - iteration-local: `set_iter`
@@ -165,16 +165,16 @@ Within a step pipeline (or within an iteration pipeline):
 
 ---
 
-## 4) Canonical step execution
+## 4) standard step execution
 
-### 4.1 Canonical step form
-A canonical step contains:
+### 4.1 standard step form
+A standard step contains:
 - `spec` (step knobs + step policies)
 - optional `loop`
 - `tool` pipeline (ordered list of labeled tasks)
 - `next` router (arcs)
 
-There is **no canonical need** for special step-level constructs like `case`, `retry`, or `sink`:
+There is **no standard need** for special step-level constructs like `case`, `retry`, or `sink`:
 - retry/pagination/polling = task policy rules
 - sink = just a storage tool task that returns a reference
 
@@ -216,11 +216,11 @@ Task policy supports scoped writes:
 - `set_iter` (iteration-local; preferred in loops)
 - `set_ctx` (execution-scoped patch; restricted in parallel loops)
 
-> Note: any legacy `eval`, `expr`, `set_vars`, or step-local `vars` are non-canonical in this model.
+> Note: any legacy `eval`, `expr`, `set_vars`, or step-local `vars` are non-standard in this model.
 
 ---
 
-## 6) Loop semantics (canonical)
+## 6) Loop semantics (standard)
 
 ### 6.1 Server schedules iterations; worker executes them
 If `step.loop` is present:
@@ -258,7 +258,7 @@ Upon receiving a terminal step event (`step.done`, `step.failed`, or `loop.done`
 4) enqueues zero or more new step-run tokens/commands
 
 ### 7.2 Token payload (`next.arcs[].args`)
-`next.arcs[].args` is the canonical cross-step payload (Petri-net arc inscription).
+`next.arcs[].args` is the standard cross-step payload (Petri-net arc inscription).
 It becomes the input `args` available to the downstream step admission and runtime templates.
 
 ---
@@ -311,7 +311,7 @@ No special DSL keyword is required.
 
 ---
 
-## 10) Quantum computation orchestration (canonical fit)
+## 10) Quantum computation orchestration (standard fit)
 
 Quantum workloads map naturally to:
 - loop-driven parameter sweeps (`loop` with `parallel` bounded by capacity)
@@ -332,7 +332,7 @@ Assumptions used by this documentation:
 
 ## 12) Migration notes (from older docs)
 
-Non-canonical constructs in older docs:
+Non-standard constructs in older docs:
 - step-level `retry:` blocks
 - step-level `case:` used to execute pipelines
 - step-level `sink:` shortcut blocks
@@ -341,7 +341,7 @@ Non-canonical constructs in older docs:
 - `step.when`
 - legacy `eval:` / `expr:`
 
-Canonical replacements:
+standard replacements:
 - Task-level `task.spec.policy.rules` for retry/jump/break/fail/continue
 - Storage as ordinary tool tasks returning references
 - Step admission via `step.spec.policy.admit.rules`

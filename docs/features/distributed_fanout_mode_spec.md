@@ -1,19 +1,19 @@
 ---
 sidebar_position: 30
-title: Optional Distributed Fan‑Out Mode (Non‑Canonical Profile)
-description: An optional execution profile for distributing loop iterations across workers without contradicting canonical v2 semantics
+title: Optional Distributed Fan‑Out Mode (Non‑standard Profile)
+description: An optional execution profile for distributing loop iterations across workers without contradicting DSL v2 semantics
 ---
 
-# Optional Distributed Fan‑Out Mode (Non‑Canonical Profile)
+# Optional Distributed Fan‑Out Mode (Non‑standard Profile)
 
-This document defines an **optional** “distributed fan‑out” execution profile for NoETL DSL v2. It is designed to **coexist** with the **canonical v2** model (single-worker step run executing `step.tool` pipelines with tool-level `eval`) without contradicting it.
+This document defines an **optional** “distributed fan‑out” execution profile for NoETL DSL v2. It is designed to **coexist** with the **DSL v2** model (single-worker step run executing `step.tool` pipelines with tool-level `eval`) without contradicting it.
 
 ## Status and intent
 
-- **Canonical default:** worker-local step pipelines; loops executed within the worker with `iter.*` isolation; routing via step `next[]` evaluated on the server.
+- **standard default:** worker-local step pipelines; loops executed within the worker with `iter.*` isolation; routing via step `next[]` evaluated on the server.
 - **This profile:** enables the server to **split loop iterations** into independent step runs (“shards”) and distribute them across worker pools when scale/out or tail-latency dominates.
 
-> This mode is **not** a change to the core DSL concepts. It is a *profile* selected via `executor.spec` / `step.spec` policies. Playbooks remain valid canonical v2; only execution strategy changes.
+> This mode is **not** a change to the core DSL concepts. It is a *profile* selected via `executor.spec` / `step.spec` policies. Playbooks remain valid DSL v2; only execution strategy changes.
 
 ---
 
@@ -32,7 +32,7 @@ Avoid this profile when:
 
 ---
 
-## 2) Compatibility with canonical v2
+## 2) Compatibility with DSL v2
 
 ### What remains the same (MUST)
 - Step structure remains: `when + tool(pipeline) + next[]`
@@ -50,7 +50,7 @@ Avoid this profile when:
 - **Where loop iteration is executed:** the loop is not executed as a single worker-local iteration program; instead, the loop is **expanded** into many independent step runs.
 - **Iteration identity and fan-in:** the runtime tracks shard/iteration ids and optionally merges/aggregates outputs via reducers or external storage.
 
-> Canonical playbooks remain valid; fan‑out affects runtime scheduling, not playbook syntax.
+> standard playbooks remain valid; fan‑out affects runtime scheduling, not playbook syntax.
 
 ---
 
@@ -63,7 +63,7 @@ Distributed fan‑out is activated by a policy flag. Recommended locations:
 executor:
   kind: distributed
   spec:
-    loop_mode: fanout     # canonical default is "local"
+    loop_mode: fanout     # standard default is "local"
 ```
 
 ### 3.2 Step-level override (preferred granularity)
@@ -73,7 +73,7 @@ executor:
     loop_mode: fanout     # overrides executor default for this step
 ```
 
-If neither is set, the runtime uses canonical loop execution (worker-local).
+If neither is set, the runtime uses standard loop execution (worker-local).
 
 ---
 
@@ -173,7 +173,7 @@ Two recommended reducer approaches:
 
 ## 7) Pagination interaction
 
-Pagination remains canonical and **worker-local** inside a shard when the shard’s job is “fetch pages for one endpoint”.
+Pagination remains standard and **worker-local** inside a shard when the shard’s job is “fetch pages for one endpoint”.
 
 However, fan‑out is typically used for:
 - splitting **endpoints** or **items** across shards
@@ -223,10 +223,10 @@ Define policies at `executor.spec` or `step.spec`:
 ## 10) Summary
 
 Distributed fan‑out is an **optional execution profile** that:
-- keeps the canonical DSL intact
+- keeps the standard DSL intact
 - changes *runtime scheduling* for loop steps to distribute iterations across workers
 - requires careful fan‑in tracking and, when needed, reducer/aggregation steps
 - is best for large-scale independent iteration workloads, including quantum parameter sweeps
 
-Canonical v2 remains the default and simplest model; fan‑out is a scalability mode selected by policy.
+DSL v2 remains the default and simplest model; fan‑out is a scalability mode selected by policy.
 

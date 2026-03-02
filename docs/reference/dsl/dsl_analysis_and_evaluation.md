@@ -1,14 +1,14 @@
 ---
 sidebar_position: 20
-title: DSL Analysis and Evaluation (Canonical v10)
-description: Comprehensive analysis of NoETL DSL under Canonical v10 semantics (policies, tasks pipelines, Petri-net routing, loops, result references)
+title: DSL Analysis and Evaluation 
+description: Comprehensive analysis of NoETL DSL under current DSL semantics (policies, tasks pipelines, Petri-net routing, loops, result references)
 ---
 
-# NoETL DSL Analysis and Evaluation — Canonical v10
+# NoETL DSL Analysis and Evaluation — current DSL
 
-This document updates the prior DSL analysis to match **Canonical v10** semantics:
+This document updates the prior DSL analysis to match **current DSL** semantics:
 
-- **No `case` blocks** (deprecated in Canonical v10).
+- **No `case` blocks** (deprecated in current DSL).
 - **No special `sink`** concept (storage is just normal tool tasks that write data and return references).
 - **No `retry` block** as a DSL construct (retry is implemented via **task policy** decisions over attempts).
 - Step execution is an ordered **task pipeline** (a task is a named tool invocation).
@@ -19,11 +19,11 @@ This is an **analysis/whitepaper-style** document (not the formal grammar).
 
 ---
 
-## 1) DSL Control Flow Model (Canonical v10)
+## 1) DSL Control Flow Model 
 
 ### 1.1 Core execution semantics
 
-In Canonical v10, a workflow is an event-sourced Petri-net-like machine:
+In current DSL, a workflow is an event-sourced Petri-net-like machine:
 
 1. **Server** holds authoritative state (event log + projections).
 2. **Step admission** is evaluated by `step.spec.policy.admit.rules` on the server.
@@ -31,7 +31,7 @@ In Canonical v10, a workflow is an event-sourced Petri-net-like machine:
 4. Each task produces a single final **outcome** (after its internal knobs, and across attempts if policy requests retry).
 5. The server evaluates **routing arcs** (`step.next`) to schedule subsequent steps.
 
-**Canonical step structure (conceptual)**
+**standard step structure (conceptual)**
 ```yaml
 - step: fetch_transform_store
   spec:
@@ -58,7 +58,7 @@ In Canonical v10, a workflow is an event-sourced Petri-net-like machine:
 
 Older DSL versions used `case/when/then` to react to step and tool events.
 
-Canonical v10 replaces that with **policy rules**:
+current DSL replaces that with **policy rules**:
 - Step admission policy: `step.spec.policy.admit.rules`
 - Task outcome policy: `task.spec.policy.rules`
 - Next routing policy: `step.next.spec.mode` + `step.next.arcs[]` conditions
@@ -73,12 +73,12 @@ This avoids mixing “run work” (tools) with “route tokens” (arcs).
 
 A step’s `tool:` value is an ordered sequence of tasks:
 - each task is a **named tool invocation**
-- the output of the previous task is accessible via `_prev` (canonical threading)
+- the output of the previous task is accessible via `_prev` (standard threading)
 - tasks can update `iter` (iteration-local) or `ctx` (execution-local) through policy actions
 
 ### 2.2 Error handling and retry belong to `task.spec.policy`
 
-Canonical v10 models retry as repeated **attempts** of the same task run:
+current DSL models retry as repeated **attempts** of the same task run:
 
 - worker executes attempt #1
 - if the outcome matches a policy rule with `do: retry`, worker schedules attempt #2
@@ -126,7 +126,7 @@ Workers execute the iteration body (the step’s task pipeline) in isolation.
 
 ### 3.2 Nested loops + streaming pipelines
 
-Canonical v10 supports the common pattern:
+current DSL supports the common pattern:
 - outer loops: fan out (cities, hotels) — can be parallel
 - inner “pagination stream”: sequential within one iteration — must stay in one worker logical thread
 
@@ -138,7 +138,7 @@ This is modeled by a **task-level loop** pattern using policy + `jump/break`, or
 
 ### 4.1 Arcs are the routing mechanism
 
-Canonical v10 routing is expressed via `step.next`:
+current DSL routing is expressed via `step.next`:
 
 - `step.next.spec.mode` controls fan-out:
   - `exclusive` (default): first matching arc wins
@@ -179,7 +179,7 @@ This is essential for:
 
 ### 5.2 Manifests for aggregation
 
-Instead of merging large arrays into a single in-memory object, Canonical v10 uses manifests:
+Instead of merging large arrays into a single in-memory object, current DSL uses manifests:
 - a manifest lists part ResultRefs
 - downstream steps can stream-resolve parts
 
@@ -192,7 +192,7 @@ A workflow language is effectively Turing-complete if it supports:
 2. unbounded iteration
 3. unbounded storage
 
-Canonical v10 provides:
+current DSL provides:
 
 - **conditional branching**: `when` guards in policies and arcs
 - **unbounded iteration**:
@@ -208,7 +208,7 @@ Additionally, `python` tools can perform arbitrary computation, making the syste
 
 ## 7) BPMN 2.0 Coverage (updated)
 
-| BPMN 2.0 Feature | Canonical v10 Status | How it maps |
+| BPMN 2.0 Feature | current DSL Status | How it maps |
 |---|---|---|
 | Sequence | ✅ Full | single arc in `next.arcs` |
 | Parallel fork (AND-split) | ✅ Full | `next.spec.mode: inclusive` |
@@ -228,9 +228,9 @@ Additionally, `python` tools can perform arbitrary computation, making the syste
 
 ## 8) Petri Net Coverage (updated mapping)
 
-Canonical v10 is naturally Petri-net-like.
+current DSL is naturally Petri-net-like.
 
-| Petri net element | NoETL Canonical v10 mapping |
+| Petri net element | NoETL current DSL mapping |
 |---|---|
 | Place | step-run state (token position) |
 | Transition | arc firing decision + scheduling |
@@ -244,10 +244,10 @@ Canonical v10 is naturally Petri-net-like.
 
 ---
 
-## 9) Design Recommendations (Canonical v10 forward path)
+## 9) Design Recommendations (current DSL forward path)
 
 ### 9.1 Add native `while` / `until` for streaming loops (future)
-Canonical v10 already supports streaming pagination via policy jump/break patterns. A native clause would reduce errors:
+current DSL already supports streaming pagination via policy jump/break patterns. A native clause would reduce errors:
 
 - `while: "{{ iter.has_more }}"` (pre-check)
 - `until: "{{ iter.has_more == false }}"` (post-check)
@@ -268,9 +268,9 @@ Type hints for extracted fields and ResultRef schema hints to improve tooling an
 
 ---
 
-## 10) Summary (Canonical v10)
+## 10) Summary 
 
-- Canonical v10 is **cleaner and less ambiguous** than earlier versions:
+- current DSL is **cleaner and less ambiguous** than earlier versions:
   - tools run as an ordered task pipeline
   - policies handle outcomes and retries
   - arcs handle routing (exclusive/inclusive)

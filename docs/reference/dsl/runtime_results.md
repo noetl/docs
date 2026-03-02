@@ -1,23 +1,23 @@
 ---
 sidebar_position: 4
-title: Runtime Results (Canonical v10)
+title: Runtime Results 
 description: How NoETL stores, indexes, and retrieves task outcomes and step results using reference-first storage
 ---
 
-# NoETL Runtime Results — Storage & Access (Canonical v10)
+# NoETL Runtime Results — Storage & Access 
 
 This document defines how NoETL stores and retrieves **task outcomes** and **step results** in a **reference-first, event-sourced** system.
 
-Aligned with **Canonical v10 DSL**:
+Aligned with **current DSL DSL**:
 - No `sink` tool kind: storage is **just tools** that write data and return references.
 - No `retry`/`pagination`/`case` blocks: retries + pagination are handled by **task policies** (`task.spec.policy.rules`) and **iteration scope** (`iter.*`).
 - No `eval:`/`expr:`: use `when` in policies.
 - Events and context pass **references only** (inline only for size-capped preview/extracted fields).
 
 See also:
-- [NoETL Canonical Step Spec (v10)](./step_spec)
-- [Runtime Event Model (Canonical v10)](./runtime_events)
-- [Result Storage (Canonical v10)](../result_storage_canonical_v10)
+- [NoETL standard Step Spec (v10)](./step_spec)
+- [Runtime Event Model ](./runtime_events)
+- [Result Storage ](../result_storage)
 
 ---
 
@@ -50,7 +50,7 @@ See also:
   - pagination (multiple pages)
   - loops (multiple iterations)
 
-Canonical v10 produces step boundaries via `step.done` / `step.failed` events.
+current DSL produces step boundaries via `step.done` / `step.failed` events.
 
 ### 2.2 Reference-first output rule
 A task’s output body is either:
@@ -67,7 +67,7 @@ The event log stores:
 
 A **ResultRef** is a lightweight pointer to externally stored data.
 
-### 3.1 Canonical shape
+### 3.1 standard shape
 ```json
 {
   "kind": "result_ref",
@@ -148,7 +148,7 @@ Recommended ResultRef meta:
 
 ---
 
-## 5) DSL controls for result storage (Canonical v10)
+## 5) DSL controls for result storage 
 
 Result storage controls live under **task.spec.result**.
 
@@ -225,7 +225,7 @@ The step boundary event stores only a reference to the manifest.
 
 ## 8) How downstream steps access results (reference-only)
 
-Canonical rule: downstream steps receive **ResultRef + extracted fields**, not full payload bodies.
+standard rule: downstream steps receive **ResultRef + extracted fields**, not full payload bodies.
 
 Recommended bindings for a task label `fetch_page`:
 - `fetch_page.__ref__` → ResultRef
@@ -276,7 +276,7 @@ These projections prevent scanning the full event stream for common reads.
 
 ---
 
-## 10) Pagination + retry + loop (canonical mental model)
+## 10) Pagination + retry + loop (standard mental model)
 
 A single step with loop + pagination + retry yields a lattice of pieces indexed by:
 - iteration (outer loop: endpoint/city/hotel)
@@ -290,7 +290,7 @@ Each externally stored page becomes a ResultRef part, and the entire stream is r
 ## 11) Quantum orchestration note
 
 Quantum tools often return large measurement datasets.
-Canonical pattern:
+standard pattern:
 - tool returns a ResultRef (NATS Object Store or GCS)
 - extracted fields store small metadata (job id, backend, shots, cost)
 - manifests represent iterative algorithms (VQE/QAOA) or shot batches

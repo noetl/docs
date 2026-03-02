@@ -1,6 +1,6 @@
-# Loops/iteration in steps — Canonical v10
+# Loops/iteration in steps — current DSL
 
-Canonical v10 expresses iteration as a **step modifier**, not a step type:
+current DSL expresses iteration as a **step modifier**, not a step type:
 
 - `step.loop` defines fan-out (`in` + `iterator` + `loop.spec`)
 - iteration-local state lives under `iter.*`

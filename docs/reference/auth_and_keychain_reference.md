@@ -57,7 +57,7 @@ Use names that clearly indicate they are references, not actual credentials:
 
 ### Usage in Playbooks
 
-#### Canonical v10 format
+#### current DSL format
 
 ```yaml
 workload:
@@ -1094,7 +1094,7 @@ GET /api/credentials/{identifier}?include_data=true
 
 ---
 
-## Playbook Examples (Canonical v10)
+## Playbook Examples 
 
 These examples:
 - use `url` (HTTP tool) instead of legacy `endpoint`
@@ -1358,7 +1358,7 @@ WHERE expires_at < NOW()
 
 ## See Also
 
-- [Credential Caching](/docs/features/credential_caching)
+- [Credential Caching](/docs/reference/credential_caching)
 - [API Usage - Credentials](/docs/reference/api_usage#credentials-api)
 - [DSL Specification](/docs/reference/dsl/spec)
 - [OAuth Examples](/docs/examples/authentication/)

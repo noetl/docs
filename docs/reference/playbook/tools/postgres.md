@@ -1,6 +1,6 @@
-# Postgres tool (playbook authoring) — Canonical v10
+# Postgres tool (playbook authoring) — current DSL
 
 Use `kind: postgres` tasks inside `step.tool`.
 
 ## See also
-- Canonical Postgres tool: `documentation/docs/reference/tools/postgres.md`
+- standard Postgres tool: `documentation/docs/reference/tools/postgres.md`

@@ -1,4 +1,4 @@
-# Playbook composition in steps — Canonical v10
+# Playbook composition in steps — current DSL
 
 If your runtime supports composition, invoke a nested playbook as a **tool task** (`kind: playbook`) inside a step pipeline.
 

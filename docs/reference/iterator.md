@@ -1,16 +1,16 @@
 ---
 sidebar_position: 2
-title: Loop Iteration (Canonical)
-description: Loop over collections using the step loop attribute (iter-scoped state, sequential/parallel modes) — Canonical v10
+title: Loop Iteration (standard)
+description: Loop over collections using the step loop attribute (iter-scoped state, sequential/parallel modes) — current DSL
 ---
 
-# Loop Iteration (Canonical v10)
+# Loop Iteration 
 
 The `loop:` **step attribute** enables iterating over collections with configurable execution modes.
 
 **Key rules**
 - `loop:` is a **step-level attribute**, **not** a tool kind.
-- A canonical step is: **`spec.policy` (admission/lifecycle) + `tool` (ordered pipeline) + `next` (router with arcs)**.
+- A standard step is: **`spec.policy` (admission/lifecycle) + `tool` (ordered pipeline) + `next` (router with arcs)**.
 - Loop state is held in **iteration scope** (`iter.*`). Each iteration has its own isolated `iter`.
 - **No legacy `eval` / `expr`.** Task outcome handling uses **`task.spec.policy.rules`** with `when`.
 - **No special “sink” kind.** Storage is just a tool task that writes data and returns a reference (ResultRef).
@@ -198,9 +198,9 @@ There is **no special `sink` tool kind**. A “sink” is simply a tool task tha
 
 ---
 
-## Nested loops (canonical)
+## Nested loops (standard)
 
-Canonical v10 supports nested loops via a **parent chain**:
+current DSL supports nested loops via a **parent chain**:
 
 - `iter` is the current iteration
 - `iter.parent` is the outer iteration
@@ -215,7 +215,7 @@ This enables patterns like:
 
 ---
 
-## HTTP pagination inside a loop (canonical streaming pattern)
+## HTTP pagination inside a loop (standard streaming pattern)
 
 Pagination is expressed using **task control flow** (`jump` + `break`) and **iteration state** (`set_iter`).
 

@@ -1,6 +1,6 @@
-# HTTP in steps — Canonical v10
+# HTTP in steps — current DSL
 
-Canonical v10 has no `tool: http` step type. Use an HTTP **tool task** (`kind: http`) inside `step.tool`.
+current DSL has no `tool: http` step type. Use an HTTP **tool task** (`kind: http`) inside `step.tool`.
 
 ```yaml
 - step: call_api
@@ -21,6 +21,6 @@ Canonical v10 has no `tool: http` step type. Use an HTTP **tool task** (`kind: h
 ```
 
 ## See also
-- Canonical HTTP tool: `documentation/docs/reference/tools/http.md`
-- Retry semantics: `documentation/docs/reference/retry_mechanism_v2.md`
+- standard HTTP tool: `documentation/docs/reference/tools/http.md`
+- Retry semantics: `documentation/docs/reference/retry_mechanism.md`
 - Pagination pattern: `documentation/docs/reference/pagination_v2.md`

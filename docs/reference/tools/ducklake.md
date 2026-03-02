@@ -1,10 +1,10 @@
 ---
 sidebar_position: 8
-title: DuckLake Tool (Canonical v10)
-description: Distributed DuckDB with a PostgreSQL metastore for multi-worker concurrency (Canonical v10)
+title: DuckLake Tool 
+description: Distributed DuckDB with a PostgreSQL metastore for multi-worker concurrency 
 ---
 
-# DuckLake Tool (Canonical v10)
+# DuckLake Tool 
 
 The `ducklake` tool executes DuckDB SQL with a **PostgreSQL-backed metastore** so multiple workers can read/write concurrently without DuckDB file locking conflicts.
 
@@ -59,4 +59,4 @@ Use it when you need:
 
 ## See also
 - DuckDB tool: `documentation/docs/reference/tools/duckdb.md`
-- Retry semantics: `documentation/docs/reference/retry_mechanism_v2.md`
+- Retry semantics: `documentation/docs/reference/retry_mechanism.md`

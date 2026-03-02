@@ -319,6 +319,6 @@ This ensures gradual migration without breaking existing executions.
 
 ## See Also
 
-- [Iterator Feature](/docs/features/iterator)
+- [Iterator Feature](/docs/reference/iterator)
 - [NATS JetStream Documentation](https://docs.nats.io/nats-concepts/jetstream)
 - [Observability Services](/docs/reference/observability_services)

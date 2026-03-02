@@ -222,10 +222,10 @@ make test-*-full
 - [CLI Reference](/docs/reference/noetl_cli_usage)
 
 ### Advanced Topics
-- [Features Overview](/docs/features/variables)
-- [Playbook Structure](/docs/features/playbook_structure)
-- [Retry Mechanism](/docs/features/retry_mechanism)
-- [Variables Feature](/docs/features/variables)
+- [Features Overview](/docs/reference/variables)
+- [Playbook Structure](/docs/reference/dsl/playbook_structure)
+- [Retry Mechanism](/docs/reference/retry_mechanism)
+- [Variables Feature](/docs/reference/variables)
 
 ##  Contributing
 

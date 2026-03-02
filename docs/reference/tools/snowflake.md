@@ -1,14 +1,14 @@
 ---
 sidebar_position: 5
-title: Snowflake Tool (Canonical v10)
-description: Execute SQL against Snowflake as pipeline tasks (Canonical v10)
+title: Snowflake Tool 
+description: Execute SQL against Snowflake as pipeline tasks 
 ---
 
-# Snowflake Tool (Canonical v10)
+# Snowflake Tool 
 
 The `snowflake` tool executes SQL statements against Snowflake.
 
-Canonical reminders:
+standard reminders:
 - Use `task.spec.policy.rules` for retry/fail/jump/break.
 - Prefer reference-first results for large outputs.
 
@@ -54,4 +54,4 @@ For bulk movement between Snowflake and Postgres, prefer `kind: transfer`:
 
 ## See also
 - Auth & keychain: `documentation/docs/reference/auth_and_keychain_reference.md`
-- Retry semantics: `documentation/docs/reference/retry_mechanism_v2.md`
+- Retry semantics: `documentation/docs/reference/retry_mechanism.md`

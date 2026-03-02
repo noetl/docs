@@ -1,14 +1,14 @@
 ---
 sidebar_position: 2
-title: Postgres Tool (Canonical v10)
-description: Execute PostgreSQL commands/queries as pipeline tasks with policy-driven retry and reference-first results (Canonical v10)
+title: Postgres Tool 
+description: Execute PostgreSQL commands/queries as pipeline tasks with policy-driven retry and reference-first results 
 ---
 
-# Postgres Tool (Canonical v10)
+# Postgres Tool 
 
-The Postgres tool executes SQL commands/queries inside a canonical step pipeline (`step.tool`).
+The Postgres tool executes SQL commands/queries inside a standard step pipeline (`step.tool`).
 
-Canonical reminders:
+standard reminders:
 - Handle errors/retry via `task.spec.policy.rules` (no legacy `eval`/`expr`).
 - Use `auth: <credential_name>` to reference credentials resolved by the runtime/keychain.
 - Store large results reference-first (ResultRef) when needed.
@@ -35,7 +35,7 @@ Canonical reminders:
 
 ---
 
-## Retry on transient DB errors (canonical)
+## Retry on transient DB errors (standard)
 
 ```yaml
 - store_page:
@@ -69,5 +69,5 @@ Policies can branch on these helpers for retry vs fail-fast decisions.
 
 For large query results, prefer externalization and pass references downstream.
 See:
-- `documentation/docs/reference/result_storage_canonical_v10.md`
+- `documentation/docs/reference/result_storage.md`
 - `documentation/docs/reference/dsl/runtime_results.md`

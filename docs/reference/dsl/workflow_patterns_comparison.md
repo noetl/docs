@@ -6,9 +6,9 @@ description: Analysis of NoETL DSL against Van der Aalst Workflow Patterns with 
 
 # Workflow Patterns Comparison
 
-This document analyzes the NoETL DSL against the canonical Workflow Patterns identified by Van der Aalst et al., comparing implementation approaches across major workflow DSLs: BPMN 2.0, Argo Workflows, GitHub Actions, and AWS Step Functions.
+This document analyzes the NoETL DSL against the standard Workflow Patterns identified by Van der Aalst et al., comparing implementation approaches across major workflow DSLs: BPMN 2.0, Argo Workflows, GitHub Actions, and AWS Step Functions.
 
-**Note:** NoETL examples below use the **Canonical v10** form:
+**Note:** NoETL examples below use the **current DSL** form:
 - Routing uses `step.next` as a router object (`next.spec` + `next.arcs[]`)
 - Step bodies are ordered task pipelines (`step.tool` as a labeled list)
 - Cross-step state uses `ctx` (not legacy `vars`)

@@ -1,6 +1,6 @@
-# Postgres in steps — Canonical v10
+# Postgres in steps — current DSL
 
-Canonical v10 has no `tool: postgres` step type. Use a Postgres **tool task** (`kind: postgres`) inside `step.tool`.
+current DSL has no `tool: postgres` step type. Use a Postgres **tool task** (`kind: postgres`) inside `step.tool`.
 
 ```yaml
 - step: write_rows
@@ -21,5 +21,5 @@ Canonical v10 has no `tool: postgres` step type. Use a Postgres **tool task** (`
 ```
 
 ## See also
-- Canonical Postgres tool: `documentation/docs/reference/tools/postgres.md`
-- Retry semantics: `documentation/docs/reference/retry_mechanism_v2.md`
+- standard Postgres tool: `documentation/docs/reference/tools/postgres.md`
+- Retry semantics: `documentation/docs/reference/retry_mechanism.md`

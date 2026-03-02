@@ -88,7 +88,7 @@ ORDER BY created_at;
 
 ## Ingestion policy (API/gateway → event)
 
-1. On ingress, canonical correlation:
+1. On ingress, standard correlation:
     - `X-Correlation-Id` if valid → else `X-Request-Id` → else generate ULID/UUIDv7.
 2. Echo `X-Correlation-Id` in responses.
 3. Continue `traceparent` if present (fill `trace_component`); otherwise start a new trace.

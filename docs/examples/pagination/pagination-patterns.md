@@ -396,5 +396,5 @@ After pagination completes, the step result contains merged data:
 ## See Also
 
 - [HTTP Tool Reference](/docs/reference/tools/http)
-- [HTTP Pagination Quick Reference](/docs/reference/dsl/http_pagination_quick_reference)
-- [Retry Configuration](/docs/reference/dsl/unified_retry)
+- [HTTP Pagination Quick Reference](/docs/reference/dsl/pagination)
+- [Retry Configuration](/docs/reference/retry_mechanism)

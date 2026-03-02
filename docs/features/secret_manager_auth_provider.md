@@ -580,5 +580,5 @@ FROM noetl.credential_cache;
 
 - [Auth Reference](/docs/reference/auth_and_keychain_reference)
 - [Google Secret Manager API](https://cloud.google.com/secret-manager/docs/reference/rest)
-- [Credential Caching](/docs/features/credential_caching)
+- [Credential Caching](/docs/reference/credential_caching)
 - [API Integration Examples](https://github.com/noetl/noetl/tree/main/tests/fixtures/playbooks/api_integration)

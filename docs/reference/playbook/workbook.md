@@ -1,8 +1,8 @@
-# Workbook (reusable blocks) — Canonical v10
+# Workbook (reusable blocks) — current DSL
 
-`workbook` is **optional**. In Canonical v10 it is reserved for a catalog of named reusable tasks/templates. It is not required for the canonical baseline.
+`workbook` is **optional**. In current DSL it is reserved for a catalog of named reusable tasks/templates. It is not required for the standard baseline.
 
-Canonical placeholder shape:
+standard placeholder shape:
 
 ```yaml
 workbook:

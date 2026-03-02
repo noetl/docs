@@ -1194,7 +1194,7 @@ Complete working examples are available in the `automation/examples/` directory:
 
 ### 1. HTTP API Example
 
-**File**: [`automation/examples/http_example.yaml`](../../../automation/examples/http_example.yaml)
+**File**: [`automation/examples/http_example.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/http_example.yaml)
 
 Demonstrates HTTP GET requests with query parameters and result extraction:
 
@@ -1229,9 +1229,9 @@ noetl run automation/examples/http_example.yaml --verbose
 ### 2. Playbook Composition Example
 
 **Files**: 
-- Parent: [`automation/examples/parent_playbook.yaml`](../../../automation/examples/parent_playbook.yaml)
-- Child 1: [`automation/examples/build_child.yaml`](../../../automation/examples/build_child.yaml)
-- Child 2: [`automation/examples/deploy_child.yaml`](../../../automation/examples/deploy_child.yaml)
+- Parent: [`automation/examples/parent_playbook.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/parent_playbook.yaml)
+- Child 1: [`automation/examples/build_child.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/build_child.yaml)
+- Child 2: [`automation/examples/deploy_child.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/deploy_child.yaml)
 
 Demonstrates calling sub-playbooks with argument passing:
 
@@ -1312,7 +1312,7 @@ cmds:
 
 ### 4. Build Automation Example
 
-**File**: [`automation/test.yaml`](../../../automation/test.yaml)
+**File**: [`automation/test.yaml`](https://github.com/noetl/noetl/blob/master/automation/test.yaml)
 
 Real-world example for NoETL project automation (similar to taskfile):
 
@@ -1341,7 +1341,7 @@ noetl run automation/test.yaml <target_name>
 
 ### 5. Conditional Flow Example
 
-**File**: [`automation/examples/conditional_flow.yaml`](../../../automation/examples/conditional_flow.yaml)
+**File**: [`automation/examples/conditional_flow.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/conditional_flow.yaml)
 
 Demonstrates conditional routing with case/when/then/else:
 
@@ -1388,7 +1388,7 @@ noetl run automation/examples/conditional_flow.yaml \
 
 ### 6. Unsupported Tools Example
 
-**File**: [`automation/examples/unsupported_tools.yaml`](../../../automation/examples/unsupported_tools.yaml)
+**File**: [`automation/examples/unsupported_tools.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/unsupported_tools.yaml)
 
 Demonstrates how noetlctl handles tools not supported in local mode:
 

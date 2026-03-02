@@ -1,6 +1,6 @@
-# Bearer Tokens and Execution Context (Canonical v10)
+# Bearer Tokens and Execution Context 
 
-Canonical v10 separates **secrets/tokens** from general execution state:
+current DSL separates **secrets/tokens** from general execution state:
 
 - **Secrets/tokens:** resolved via root `keychain` and referenced via `auth:` (preferred) or `keychain.*` (read-only templating).
 - **Execution state:** stored in `ctx` (execution scope) and `iter` (iteration scope) via task policy patches (`set_ctx`, `set_iter`).
@@ -16,7 +16,7 @@ Prefer `auth:` references so the runtime can inject credentials into tools witho
 
 ---
 
-## Canonical variable scopes (reminder)
+## standard variable scopes (reminder)
 
 - `workload.*` — immutable merged input
 - `ctx.*` — mutable execution-scoped state (non-secret)
@@ -46,6 +46,6 @@ Older runtimes supported execution-scoped variables and patterns like:
 - `auth.bearer: true`
 - `variable: my_token`
 
-Canonical v10 deprecates this as a user-facing feature:
+current DSL deprecates this as a user-facing feature:
 - for **non-secret** values, treat it as a compatibility layer for `ctx` patches
 - for **secrets/tokens**, do not persist them in variables at all (use keychain/auth)

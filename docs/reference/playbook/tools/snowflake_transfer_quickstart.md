@@ -1,6 +1,6 @@
-# Snowflake ↔ Postgres transfer (quickstart) — Canonical v10
+# Snowflake ↔ Postgres transfer (quickstart) — current DSL
 
-Canonical v10:
+current DSL:
 - Use `kind: transfer` (or tool-specific patterns) inside `step.tool`.
 - Handle retry via `task.spec.policy.rules`.
 - Store large intermediate payloads reference-first (ResultRef) and load with `kind: artifact`.

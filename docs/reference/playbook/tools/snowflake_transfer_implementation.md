@@ -1,6 +1,6 @@
-# Snowflake ↔ Postgres transfer (implementation notes) — Canonical v10
+# Snowflake ↔ Postgres transfer (implementation notes) — current DSL
 
-Prefer the canonical tools pages for up-to-date shapes and examples.
+Prefer the standard tools pages for up-to-date shapes and examples.
 
 ## See also
 - Transfer tool: `documentation/docs/reference/tools/transfer.md`

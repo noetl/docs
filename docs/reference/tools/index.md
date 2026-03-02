@@ -1,14 +1,14 @@
 ---
 sidebar_position: 0
-title: Tools Overview (Canonical v10)
-description: Overview of NoETL tool kinds and how to use them inside canonical v10 step pipelines
+title: Tools Overview 
+description: Overview of NoETL tool kinds and how to use them inside current DSL step pipelines
 ---
 
-# NoETL Tools Reference (Canonical v10)
+# NoETL Tools Reference 
 
-NoETL tools are executed as **tasks** inside a canonical step pipeline (`step.tool`).
+NoETL tools are executed as **tasks** inside a standard step pipeline (`step.tool`).
 
-Canonical v10 reminders:
+current DSL reminders:
 - A step is: admission policy (`step.spec.policy.admit`) + ordered task pipeline (`step.tool`) + router (`step.next` arcs).
 - Task outcome handling is done via `task.spec.policy.rules` (no legacy `eval`/`expr`).
 - Large outputs are reference-first (ResultRef/ManifestRef patterns).
@@ -33,7 +33,7 @@ See `documentation/docs/reference/dsl/step_spec.md` for the full DSL model.
 
 ---
 
-## Canonical usage pattern
+## standard usage pattern
 
 ### Basic task in a pipeline
 
@@ -65,7 +65,7 @@ next:
 
 ### With authentication
 
-Canonical approach:
+standard approach:
 - declare required credentials under root `keychain`
 - reference credentials by name in tasks (for example `auth: pg_k8s`)
 
@@ -73,7 +73,7 @@ See `documentation/docs/reference/auth_and_keychain_reference.md`.
 
 ---
 
-## Outcome envelope (canonical)
+## Outcome envelope (standard)
 
 Each task produces an `outcome`:
 - `outcome.status`: `"ok"` or `"error"`
@@ -103,5 +103,5 @@ Common namespaces available in templates:
 - `documentation/docs/reference/dsl/spec.md`
 - `documentation/docs/reference/dsl/runtime_events.md`
 - `documentation/docs/reference/dsl/runtime_results.md`
-- `documentation/docs/reference/retry_mechanism_v2.md`
+- `documentation/docs/reference/retry_mechanism.md`
 - `documentation/docs/reference/pagination_v2.md`

@@ -562,7 +562,7 @@ kubectl run curl-test --rm -it --restart=Never \
 
 ### Helm Values
 
-See [values.yaml](../../../automation/helm/noetl/values.yaml) for complete configuration options.
+See [values.yaml](https://github.com/noetl/noetl/blob/master/automation/helm/noetl/values.yaml) for complete configuration options.
 
 ---
 

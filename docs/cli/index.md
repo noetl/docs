@@ -430,7 +430,7 @@ Bootstrap builds only the Python server/worker image. Build Rust binaries separa
 
 ### API Testing
 
-**File**: [`automation/examples/http_example.yaml`](../../../automation/examples/http_example.yaml)
+**File**: [`automation/examples/http_example.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/http_example.yaml)
 
 ```yaml
 # automation/api_test.yaml
@@ -463,7 +463,7 @@ noetl run automation/api_test.yaml --verbose
 
 ### Multi-Stage Deployment
 
-**Files**: [`automation/examples/parent_playbook.yaml`](../../../automation/examples/parent_playbook.yaml), [`build_child.yaml`](../../../automation/examples/build_child.yaml), [`deploy_child.yaml`](../../../automation/examples/deploy_child.yaml)
+**Files**: [`automation/examples/parent_playbook.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/parent_playbook.yaml), [`build_child.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/build_child.yaml), [`deploy_child.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/deploy_child.yaml)
 
 ```yaml
 # automation/deploy.yaml
@@ -607,5 +607,5 @@ noetl iap --help
 - [Understand architecture patterns](./architecture.md)
 - [Infrastructure as Playbook guide](../features/infrastructure_as_playbook.md)
 - Try examples in `automation/examples/` directory
-- View example files: [http_example.yaml](../../../automation/examples/http_example.yaml), [parent_playbook.yaml](../../../automation/examples/parent_playbook.yaml)
+- View example files: [http_example.yaml](https://github.com/noetl/noetl/blob/master/automation/examples/http_example.yaml), [parent_playbook.yaml](https://github.com/noetl/noetl/blob/master/automation/examples/parent_playbook.yaml)
 

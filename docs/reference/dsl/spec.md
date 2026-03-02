@@ -1,18 +1,18 @@
 ---
 sidebar_position: 2
-title: DSL Specification (Canonical)
-description: Canonical specification for NoETL DSL v2 syntax, semantics, runtime scopes, and Petri-net workflow model
+title: DSL Specification (standard)
+description: standard specification for NoETL DSL v2 syntax, semantics, runtime scopes, and Petri-net workflow model
 ---
 
-# NoETL Playbook DSL — Specification (Canonical v10)
+# NoETL Playbook DSL — Specification 
 
-**Document type:** Canonical DSL Specification  
+**Document type:** standard DSL Specification  
 **API Version:** `noetl.io/v2`  
 **Status:** Normative for new playbooks
 
-This document **replaces** older v2 drafts that contained `vars`, `case`, `retry`, `sink`, `step.when`, `eval`, or `expr` constructs. Those are **non-canonical** in v10.
+This document **replaces** older v2 drafts that contained `vars`, `case`, `retry`, `sink`, `step.when`, `eval`, or `expr` constructs. Those are **non-standard** in v10.
 
-Canonical v10 principles:
+current DSL principles:
 - **Step = Petri-net transition**: admission gate + ordered pipeline + routing router
 - **Only conditional keyword is `when`**
 - All knobs live under **`spec`** at the appropriate scope
@@ -55,7 +55,7 @@ A playbook is a YAML mapping with exactly these root sections (plus `apiVersion`
 - Playbooks MUST NOT include root `vars`.
 - If `keychain` is present, implementations MUST resolve it before workflow execution and expose it to templates as `keychain.<name>...`.
 - `keychain` values MUST be treated as read-only during execution (refresh/rotation is implemented via tools + policies, not by mutating `keychain`).
-- Any additional root keys MUST be rejected by canonical validators unless explicitly enabled as extensions.
+- Any additional root keys MUST be rejected by standard validators unless explicitly enabled as extensions.
 
 ### 3.1 `keychain` (root) — credential declarations (normative)
 
@@ -104,7 +104,7 @@ keychain:
 - Used for pagination counters, cursors, streaming state, per-item status, etc.
 
 ### 5.4 Pipeline locals
-- `_prev`: previous task output (canonical: previous task’s `outcome.result`)
+- `_prev`: previous task output (standard: previous task’s `outcome.result`)
 - `_task`: current task label
 - `_attempt`: attempt counter for current task
 - `outcome`: tool outcome envelope (available inside task policy evaluation)
@@ -127,9 +127,9 @@ A step MUST have at least one of:
 - `tool`
 - `next`
 
-**Canonical restriction:** step MUST NOT contain top-level `when`. Admission is under `step.spec.policy.admit`.
+**standard restriction:** step MUST NOT contain top-level `when`. Admission is under `step.spec.policy.admit`.
 
-### 6.3 Canonical step schema
+### 6.3 standard step schema
 ```yaml
 - step: <name>                       # required
   desc: <string?>                    # optional
@@ -260,7 +260,7 @@ Kind helpers MAY exist:
 
 ## 12) Task policy (worker-side pipeline control) (normative)
 
-### 12.1 One canonical shape
+### 12.1 One standard shape
 `task.spec.policy` MUST be an object with required `rules:`:
 
 ```yaml
@@ -347,7 +347,7 @@ Recommended reference shape:
 
 ---
 
-## 15) Events (canonical taxonomy) (normative minimum)
+## 15) Events (standard taxonomy) (normative minimum)
 
 ### 15.1 Event envelope (minimum)
 A conforming event MUST include:
@@ -378,7 +378,7 @@ A conforming event MUST include:
 
 ---
 
-## 16) Deprecated constructs (rejected by canonical validators)
+## 16) Deprecated constructs (rejected by standard validators)
 
 The following MUST be rejected unless explicitly enabled as legacy extensions:
 
@@ -390,7 +390,7 @@ The following MUST be rejected unless explicitly enabled as legacy extensions:
 
 ---
 
-## Appendix A) Minimal canonical example
+## Appendix A) Minimal standard example
 
 ```yaml
 apiVersion: noetl.io/v2

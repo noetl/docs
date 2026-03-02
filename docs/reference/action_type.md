@@ -1,8 +1,8 @@
-# NoETL Tool Tasks Guide (Canonical v10)
+# NoETL Tool Tasks Guide 
 
-This page aligns “task/action” documentation to **Canonical v10** (see `documentation/docs/reference/dsl/step_spec.md`).
+This page aligns “task/action” documentation to **current DSL** (see `documentation/docs/reference/dsl/step_spec.md`).
 
-In Canonical v10:
+In current DSL:
 - A step executes an ordered **pipeline** of tool tasks under `step.tool`.
 - Each pipeline item is a tool task with `kind: ...` (http/postgres/python/…).
 - All conditionals use `when` (no legacy `eval`/`expr`/`case`).
@@ -11,7 +11,7 @@ In Canonical v10:
 
 ---
 
-## Canonical step shape (reminder)
+## standard step shape (reminder)
 
 ```yaml
 - step: some_step
@@ -92,9 +92,9 @@ See:
 
 ---
 
-## Legacy → canonical mapping
+## Legacy → standard mapping
 
-| Legacy docs | Canonical v10 |
+| Legacy docs | current DSL |
 |---|---|
 | `call:` / `type:` | tool task `kind:` |
 | `endpoint:` (HTTP) | `url:` |

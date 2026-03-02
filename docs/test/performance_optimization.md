@@ -314,10 +314,10 @@ workload:
 
 ## References
 
-- [NoETL Iterator Documentation](../../features/iterator.md)
-- [Loop Modes: Sequential vs Async](../../reference/playbook/steps/iterator.md)
-- [Performance Best Practices](../../guides/performance.md)
-- [Worker Pool Configuration](../../reference/configuration.md#worker-pool)
+- [NoETL Iterator Documentation](/docs/reference/iterator)
+- [Loop Modes: Sequential vs Async](/docs/reference/playbook/steps/iterator)
+- [Performance Best Practices](/docs/test/test_strategy_overview)
+- [Worker Pool Configuration](/docs/operations/configuration)
 
 ## Migration Guide
 
