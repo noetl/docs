@@ -1,337 +1,183 @@
 ---
 sidebar_position: 10
+title: Multi-Repo Release Process
+description: End-to-end release process for NoETL split repositories, including CLI artifacts, Homebrew tap, and APT repository.
 ---
 
-# Release Process
+# Multi-Repo Release Process
 
-This guide documents the complete release process for publishing NoETL across all distribution channels.
+This guide is for the split repository layout (`cli`, `server`, `worker`, `gateway`, `tools`, `ops`, `docs`, `homebrew-tap`, `apt`).
 
-## Overview
+## 1) Repository ownership
 
-NoETL is distributed through multiple channels:
-- **Homebrew**: macOS/Linux package manager
-- **APT**: Debian/Ubuntu repository at https://noetl.github.io/apt
-- **PyPI**: Python package (noetlctl)
-- **Crates.io**: Rust package (noetl, noetl-gateway)
-- **GitHub Releases**: Binary downloads
+- `noetl/cli`
+  - crate: `noetl`
+  - binaries: `noetl`, `ntl`
+  - owns Homebrew formula content and APT package content
+- `noetl/server`
+  - crate: `noetl-server`
+  - container image release
+- `noetl/worker`
+  - crate: `noetl-worker`
+  - container image release
+- `noetl/gateway`
+  - crate: `noetl-gateway`
+  - container image release
+- `noetl/tools`
+  - crate: `noetl-tools`
+- `noetl/ops`
+  - deployment/release playbooks and operational scripts
+- `noetl/homebrew-tap`
+  - Homebrew formula repository
+- `noetl/apt`
+  - Debian/Ubuntu package repository
 
-## Prerequisites
+## 2) Local workspace layout
 
-- `brew` (for Homebrew testing)
-- `cargo` and `maturin` (for Rust/Python publishing)
-- `dpkg` and `dpkg-dev` (for Debian packages)
-- `gh` CLI (for GitHub releases)
-- `twine` (for PyPI publishing, optional - maturin handles this)
-- Write access to noetl GitHub repositories
-
-## Version Update Process
-
-### 1. Update Version Numbers
-
-Update version in all configuration files:
+Expected layout with `ops` submodules:
 
 ```bash
-# Root workspace Cargo.toml
-version = "2.5.5"
-
-# crates/noetlctl/pyproject.toml
-version = "2.5.5"
-
-# crates/gateway/Cargo.toml
-version = "2.5.5"
-
-# pyproject.toml (root - for noetl Python package)
-version = "2.5.5"
-
-# homebrew/noetl.rb (will be updated with SHA256 later)
-url = "https://github.com/noetl/noetl/archive/refs/tags/v2.5.5.tar.gz"
+/path/to/noetl/ops/
+  vendor/cli
+  vendor/homebrew-tap
+  vendor/apt
+  automation/
+  scripts/
 ```
 
-### 2. Create Release Branch
+Initialize submodules before running release automation:
 
 ```bash
-git checkout -b release/v2.5.5
-git add Cargo.toml crates/*/Cargo.toml crates/*/pyproject.toml pyproject.toml homebrew/noetl.rb
-git commit -m "chore: Bump version to 2.5.5"
-git push -u origin release/v2.5.5
+cd /path/to/noetl/ops
+git submodule sync --recursive
+git submodule update --init --recursive
 ```
 
-Create and merge PR, then pull to master:
+## 3) Versioning rules
+
+- Release tag/version must match `Cargo.toml` in `cli`.
+- Use semantic commits (`feat:`, `fix:`) on main branches to trigger semantic-release workflows.
+- CLI release artifacts must include:
+  - `noetl-v<version>-darwin-arm64.tar.gz`
+  - `noetl-v<version>-darwin-x86_64.tar.gz`
+  - `noetl-v<version>-linux-arm64.tar.gz`
+  - `noetl-v<version>-linux-x86_64.tar.gz`
+  - `noetl_<version>-1_arm64.deb`
+  - `noetl_<version>-1_amd64.deb`
+
+## 4) Required GitHub secrets
+
+Organization/repository secrets used by workflows:
+
+- `CRATES_IO_TOKEN`
+- `HOMEBREW_TAP_PUSH_TOKEN`
+- `APT_REPO_PUSH_TOKEN`
+- `SEMANTIC_RELEASE_APP_ID`
+- `SEMANTIC_RELEASE_PRIVATE_KEY`
+
+## 5) Run release publication from `ops`
+
+The release publication playbook builds/fetches artifacts, updates Homebrew, updates APT metadata, and preserves previously published `.deb` versions.
 
 ```bash
-git checkout master
-git pull
+cd /path/to/noetl/ops
+
+noetl run automation/release/publish_distribution_repos.yaml --runtime local \
+  --set action=publish \
+  --set version=2.8.7 \
+  --set cli_repo_dir=./vendor/cli \
+  --set homebrew_repo=./vendor/homebrew-tap \
+  --set apt_repo=./vendor/apt \
+  --set artifacts_dir=./build/release \
+  --set apt_arches=amd64,arm64 \
+  --set macos_arches=arm64,x86_64 \
+  --set codenames='jammy noble' \
+  --set build_artifacts=true \
+  --set prefer_release_assets=true \
+  --set push_changes=false
 ```
 
-### 3. Create Git Tag
+`prefer_release_assets=true` behavior:
+
+- Downloads already-published assets from `noetl/cli` release when available.
+- Builds only missing artifacts locally (for example Linux arm64 when not present in release assets).
+
+After local validation, publish commits:
 
 ```bash
-git tag -a v2.5.5 -m "Release v2.5.5 - <Brief description>"
-git push origin v2.5.5
+cd /path/to/noetl/ops/vendor/homebrew-tap && git push origin main
+cd /path/to/noetl/ops/vendor/apt && git push origin main
 ```
 
-## Build Artifacts
+## 6) What the playbook updates
 
-### Build Rust Binary
+### Homebrew (`homebrew-tap`)
+
+- Updates `Formula/noetl.rb` to point to `https://github.com/noetl/cli/archive/refs/tags/v<version>.tar.gz`.
+- Recomputes SHA256 from the CLI tag tarball.
+- Installs both binaries (`noetl`, `ntl`) via Cargo.
+
+### APT (`apt`)
+
+- Appends new `.deb` packages into `pool/main/` (does not delete previous versions).
+- Regenerates `Packages`, `Packages.gz`, and `Release` for configured codenames.
+- Publishes both `amd64` and `arm64` indexes when packages exist for each architecture.
+
+## 7) Verification checklist
+
+### Artifacts
 
 ```bash
-cd crates/noetlctl
-cargo build --release
-# Binary at: ../../target/release/noetl
+ls -la /path/to/noetl/ops/build/release/v2.8.7
 ```
 
-### Build Python Wheel
+Expected files include Darwin/Linux tarballs plus `amd64` and `arm64` `.deb`.
+
+### Homebrew formula
 
 ```bash
-cd crates/noetlctl
-maturin build --release
-# Wheel at: ../../target/wheels/noetlctl-2.5.5-py3-none-macosx_11_0_arm64.whl
+ruby -c /path/to/noetl/ops/vendor/homebrew-tap/Formula/noetl.rb
 ```
 
-### Build Debian Package
+### APT metadata
 
 ```bash
-./docker/release/build-deb-docker.sh 2.5.5
-# Package at: build/deb/noetl_2.5.5-1_arm64.deb
+grep -E '^(Package|Version|Architecture):' /path/to/noetl/ops/vendor/apt/dists/jammy/main/binary-amd64/Packages
+grep -E '^(Package|Version|Architecture):' /path/to/noetl/ops/vendor/apt/dists/jammy/main/binary-arm64/Packages
 ```
 
-Test installation:
+### Installation checks
+
+Homebrew:
 
 ```bash
-docker run --rm -v $(pwd)/build/deb:/packages ubuntu:22.04 bash -c \
-  'apt-get update && dpkg -i /packages/noetl_2.5.5-1_*.deb && noetl --version'
-```
-
-## Publishing
-
-### 1. Publish to PyPI (noetlctl)
-
-```bash
-cd crates/noetlctl
-maturin publish
-```
-
-Verify:
-```bash
-pip install --upgrade noetlctl
+brew tap noetl/tap
+brew install noetl
 noetl --version
+ntl --version
 ```
 
-### 2. Publish to Crates.io
-
-**Main CLI:**
-```bash
-cd crates/noetlctl
-cargo publish
-```
-
-**Gateway:**
-```bash
-cd crates/gateway
-cargo publish
-```
-
-Verify:
-```bash
-cargo install noetl
-cargo install noetl-gateway
-```
-
-### 3. Publish APT Repository
-
-**Build and publish:**
-
-```bash
-# Using Docker (recommended)
-./docker/release/publish-apt-docker.sh 2.5.5 arm64
-```
-
-**Upload to GitHub Pages:**
-
-APT repository is hosted at https://github.com/noetl/apt (public repository):
-
-```bash
-# Copy generated repository
-cp -r apt-repo/* /path/to/apt-repo/
-
-cd /path/to/apt-repo
-git add .
-git commit -m "Add NoETL v2.5.5"
-git push origin main
-```
-
-GitHub Pages automatically deploys from the `main` branch. Repository is accessible at:
-```
-https://noetl.github.io/apt
-```
-
-**Verify installation:**
+APT:
 
 ```bash
 echo 'deb [trusted=yes] https://noetl.github.io/apt jammy main' | sudo tee /etc/apt/sources.list.d/noetl.list
 sudo apt-get update
 sudo apt-get install noetl
 noetl --version
+ntl --version
 ```
 
-### 4. Create GitHub Release
+## 8) Component release flow outside CLI
 
-```bash
-# Create release notes file
-cat > release-notes-v2.5.5.md << 'EOF'
-# NoETL v2.5.5
+- `server`, `worker`, `gateway`, `tools` publish crates from their own repositories.
+- `server`, `worker`, `gateway` also publish container images from their own workflows.
+- Keep component versions aligned with CLI when publishing coordinated platform releases.
 
-## What's New
-- Feature highlights
-- Bug fixes
-- Breaking changes (if any)
+## 9) Troubleshooting
 
-## Installation
-See https://noetl.dev/docs/getting-started/installation
-
-## Full Changelog
-https://github.com/noetl/noetl/compare/v2.5.3...v2.5.5
-EOF
-
-# Create release with binary
-gh release create v2.5.5 \
-  --title "v2.5.5 - <Release Name>" \
-  --notes-file release-notes-v2.5.5.md \
-  target/release/noetl#noetl-macos-arm64
-```
-
-### 5. Update Homebrew Formula
-
-**Calculate SHA256:**
-
-```bash
-curl -sL https://github.com/noetl/noetl/archive/refs/tags/v2.5.5.tar.gz | shasum -a 256
-```
-
-**Update formula:**
-
-Edit `homebrew/noetl.rb`:
-
-```ruby
-url "https://github.com/noetl/noetl/archive/refs/tags/v2.5.5.tar.gz"
-sha256 "<calculated_sha256>"
-```
-
-**Publish to tap:**
-
-```bash
-# Copy to homebrew-tap repository
-cp homebrew/noetl.rb /path/to/homebrew-tap/Formula/noetl.rb
-
-cd /path/to/homebrew-tap
-git add Formula/noetl.rb
-git commit -m "Update noetl to v2.5.5"
-git push
-```
-
-**Verify installation:**
-
-```bash
-brew update
-brew upgrade noetl
-noetl --version
-```
-
-## Verification Checklist
-
-After publishing, verify all channels:
-
-- [ ] **PyPI**: `pip install --upgrade noetlctl && noetl --version`
-- [ ] **Crates.io**: `cargo install noetl && noetl --version`
-- [ ] **Homebrew**: `brew upgrade noetl && noetl --version`
-- [ ] **APT**: Visit https://noetl.github.io/apt and check Packages file
-- [ ] **GitHub Release**: Check https://github.com/noetl/noetl/releases/tag/v2.5.5
-- [ ] **Documentation**: Update version references in docs
-
-## Common Issues
-
-### dpkg-scanpackages Not Found
-
-Install dpkg-dev:
-```bash
-brew install dpkg  # macOS
-```
-
-Or use Docker-based publishing:
-```bash
-./docker/release/publish-apt-docker.sh 2.5.5 arm64
-```
-
-### Homebrew Caching Old Version
-
-Clear cache and reinstall:
-```bash
-brew update
-brew upgrade noetl
-# If still showing old version:
-brew uninstall noetl
-brew install noetl
-```
-
-### Version Mismatch in venv
-
-If using Python virtual environment with noetlctl:
-```bash
-pip install --upgrade --force-reinstall noetlctl
-```
-
-### PyPI Upload Credentials
-
-maturin uses credentials from `~/.pypirc`:
-
-```ini
-[pypi]
-username = __token__
-password = pypi-...
-```
-
-## Post-Release
-
-1. Update documentation version references
-2. Announce release on social media/blog
-3. Update CHANGELOG.md
-4. Close milestone (if using GitHub milestones)
-5. Archive release branch (optional)
-
-## Rollback Procedure
-
-If a release has critical issues:
-
-1. **GitHub**: Delete release and tag
-2. **PyPI**: Cannot delete, publish hotfix version (e.g., 2.5.5.post1)
-3. **Crates.io**: Yank version: `cargo yank noetl@2.5.5`
-4. **Homebrew**: Revert commit in homebrew-tap
-5. **APT**: Remove version from apt repository
-
-## Automation
-
-Consider automating the release process with GitHub Actions:
-
-```yaml
-# .github/workflows/release.yml
-name: Release
-on:
-  push:
-    tags:
-      - 'v*'
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Build artifacts
-      - name: Publish to PyPI
-      - name: Publish to Crates.io
-      - name: Create GitHub release
-      - name: Update Homebrew formula
-```
-
-## Related Documentation
-
-- [Installation Guide](../getting-started/installation.md)
-- [APT Installation](../installation/apt.md)
-- [Homebrew Installation](../installation/homebrew.md)
+- `404` downloading release asset:
+  - asset not published for that architecture; run with `build_artifacts=true` so ops builds the missing artifact.
+- slow Linux cross-arch build:
+  - `amd64` on arm hosts can be emulated and slower; keep `prefer_release_assets=true` to skip unnecessary local rebuilds.
+- Homebrew formula points to old monorepo:
+  - ensure formula URL uses `noetl/cli` tag tarball, not `noetl/noetl`.
