@@ -1,3 +1,9 @@
+---
+sidebar_position: 4
+title: Shared Memory for Teams
+description: Using ai-meta as shared memory when multiple engineers and AI agents work concurrently
+---
+
 # Shared Memory for AI Agents in Multi-Engineer Teams
 
 How to use `ai-meta` as a persistent, Git-tracked shared memory layer when multiple engineers and AI agents work across the NoETL ecosystem concurrently.
@@ -24,7 +30,7 @@ Yes. The structure is designed for it and works today. Here is what each agent c
 | **Persist knowledge across sessions** | Run `scripts/memory_add.sh`, commit with `memory(add):` prefix |
 | **Understand ecosystem state** | `git submodule status --recursive` shows exact pinned SHAs |
 | **Track multi-step work** | `sync/issues/YYYY-MM-DD-<repo>-issue-<id>-<topic>.md` captures progression |
-| **Follow project rules** | `AGENTS.md` + `agents/claude.md` / `agents/codex.md` define constraints |
+| **Follow project rules** | `AGENTS.md` + `agents/rules/` + `agents/profiles/claude.md` / `agents/profiles/codex.md` define constraints |
 | **Compact accumulated knowledge** | Run `scripts/memory_compact.sh` to roll inbox into summaries |
 
 ### Session bootstrapping (what an agent should read first)
@@ -33,29 +39,25 @@ When starting a new session in `ai-meta`, an agent should load context in this o
 
 ```
 1. AGENTS.md                           # hard rules, safety constraints
-2. memory/current.md                   # active priorities, recent compactions
-3. memory/inbox/ (latest entries)      # uncompacted recent work
-4. sync/issues/ (active issues)        # in-flight cross-repo changes
-5. agents/<agent-name>.md              # agent-specific execution profile
+2. agents/rules/                       # modular rules (safety, content, commits, memory, etc.)
+3. memory/current.md                   # active priorities, recent compactions
+4. memory/inbox/ (latest entries)      # uncompacted recent work
+5. sync/issues/ (active issues)        # in-flight cross-repo changes
+6. agents/profiles/<agent-name>.md     # agent-specific execution profile
 ```
 
 This gives the agent a complete picture of what matters now, what work is in progress, and what rules to follow, all within a small token budget.
 
 ### Claude Code specifics
 
-Claude Code automatically loads files named `CLAUDE.md` at each directory level. The `ai-meta` root uses `AGENTS.md` instead. To enable automatic bootstrapping, add a root `CLAUDE.md` that references the memory system:
+Claude Code automatically loads files named `CLAUDE.md` at each directory level. The `ai-meta` root includes a `CLAUDE.md` that bootstraps the full agent infrastructure:
 
-```markdown
-# Claude Code Entry Point
+- **`CLAUDE.md`** — auto-loaded at session start, contains bootstrap instructions and project structure
+- **`.claude/rules/`** — symlinked to `agents/rules/`, all rule files auto-loaded
+- **`.claude/skills/`** — symlinked to `agents/skills/`, provides slash commands (`/memory-add`, `/memory-compact`, `/sync-note`, `/bump-pointer`)
+- **`.claude/settings.json`** — permissions and hooks (session start prints memory status, session stop reminds to persist)
 
-Read these files at session start (in order):
-1. AGENTS.md (mandatory rules for this repo)
-2. memory/current.md (active working state)
-3. Latest entries in memory/inbox/ (recent uncompacted work)
-4. agents/claude.md (Claude-specific execution profile)
-```
-
-This single file turns memory loading from a manual step into an automatic one.
+This turns memory loading and rule enforcement from manual steps into automatic ones. See [Agent Setup](agent-setup) for full details.
 
 ---
 
@@ -166,11 +168,9 @@ This eliminates merge conflicts on shared issue tracking docs.
 
 ## Recommended Improvements
 
-### Add an Author field to memory entries
+### Author field in memory entries ✅
 
-The current entry template has `Timestamp` and `Tags` but no author. In a team, knowing who created an entry matters for context and accountability.
-
-Update `scripts/memory_add.sh` to accept an optional author parameter:
+Memory entries now include an `Author` field, auto-detected from `git config user.name`:
 
 ```markdown
 # <title>
@@ -179,11 +179,11 @@ Update `scripts/memory_add.sh` to accept an optional author parameter:
 - Tags: tag1,tag2
 ```
 
-Alternatively, infer authorship from `git log --format='%an' -1` at commit time.
+The `scripts/memory_add.sh` script accepts an optional fourth argument to override the auto-detected author: `./scripts/memory_add.sh "title" "summary" "tags" "author"`.
 
-### Cross-reference memory and sync notes
+### Cross-reference memory and sync notes ✅
 
-Memory entries and sync notes often track the same work but do not link to each other. Adding a `## Related` section helps agents and humans navigate:
+Memory entries now include a `## Related` section, and the sync note template includes a `## Memory Entries` section:
 
 In a memory entry:
 ```markdown
@@ -211,15 +211,15 @@ Schedule a periodic manual curation (monthly or after major milestones):
 
 This keeps the file useful as a session bootstrap document.
 
-### Add a root `CLAUDE.md` for automatic agent bootstrapping
+### Root `CLAUDE.md` for automatic agent bootstrapping ✅
 
-As described in the Claude Code section above, a minimal root `CLAUDE.md` ensures that Claude Code automatically loads the memory context instead of requiring manual instruction.
+A root `CLAUDE.md` is now in place, along with `.github/copilot-instructions.md` for Copilot and `.cursorrules` for Cursor. All agent entry points reference the shared `agents/` infrastructure. See [Agent Setup](agent-setup) for details.
 
 ---
 
 ## How Different Agents Divide the Work
 
-The `agents/` directory defines per-agent profiles. In practice, a team might use agents like this:
+The `agents/profiles/` directory defines per-agent behavioral profiles. In practice, a team might use agents like this:
 
 | Agent | Strengths | Typical ai-meta tasks |
 |---|---|---|
@@ -227,7 +227,7 @@ The `agents/` directory defines per-agent profiles. In practice, a team might us
 | **Codex** | Code edits, test-driven changes, repo navigation | Implement fixes inside `repos/*`, run tests, prepare PR branches |
 | **Copilot** | Inline completions, quick edits within a single file | Fast edits inside submodules during active development |
 
-What matters is that all agents follow the same `AGENTS.md` rules and write to the same memory pipeline. The memory system is agent-agnostic by design: it uses plain markdown files and shell scripts, not any vendor-specific API.
+What matters is that all agents follow the same `AGENTS.md` rules (with detailed rules in `agents/rules/`) and write to the same memory pipeline. The memory system is agent-agnostic by design: it uses plain markdown files and shell scripts, not any vendor-specific API.
 
 ---
 
@@ -302,7 +302,7 @@ Engineer A (Claude Code)          Engineer B (Codex)
 
 - [ ] Every engineer has `ai-meta` cloned with submodules initialized.
 - [ ] `AGENTS.md` is read and understood by all team members.
-- [ ] Each AI agent has its profile in `agents/` and follows the same rules.
+- [ ] Each AI agent has its profile in `agents/profiles/` and follows the same rules.
 - [ ] A compaction schedule is agreed upon (who compacts, how often).
 - [ ] Sync note template (`sync/TEMPLATE.md`) is used for every multi-repo change.
 - [ ] `memory/current.md` is curated at least monthly.

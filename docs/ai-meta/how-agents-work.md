@@ -1,8 +1,14 @@
-# How AI Agents Work (Instructions, Memory, Aggregation) — with the NoETL `ai-meta` Example
+---
+sidebar_position: 5
+title: How Agents Work
+description: How AI agents plan, execute, and remember — with the NoETL ai-meta example
+---
 
-This lesson explains how modern AI “agents” (Codex, Claude, and other LLM-powered assistants) work internally when they **plan and execute chains of tasks** in real engineering projects. We’ll use the **NoETL ecosystem meta-repo** (`noetl/ai-meta`) as a concrete example of how to structure an agent-friendly project.
+# How AI Agents Work (Instructions, Memory, Aggregation)
 
-> Example repo: https://github.com/noetl/ai-meta
+This guide explains how modern AI agents (Codex, Claude, and other LLM-powered assistants) work internally when they **plan and execute chains of tasks** in real engineering projects. We use the **NoETL ecosystem meta-repo** (`noetl/ai-meta`) as a concrete example of how to structure an agent-friendly project.
+
+> Repository: [github.com/noetl/ai-meta](https://github.com/noetl/ai-meta)
 
 ---
 
@@ -97,7 +103,7 @@ Then the controller parses that into executable steps.
 When the controller chooses a branch, it usually uses:
 
 - **Tool results** (tests passed/failed, build errors, API responses)
-- **Repo rules** (AGENTS.md forbids secrets or rewriting history)
+- **Repo rules** (`AGENTS.md` + `agents/rules/` forbid secrets, rewriting history, etc.)
 - **State** (what’s already done in this session)
 - **Memory** (prior decisions, known pitfalls, current priorities)
 - **Cost/time constraints** (limit retries, limit broad searches)
@@ -183,7 +189,7 @@ Below is a practical checklist of mechanisms used by agentic systems in real pro
 4. **Conventions**: style guides, naming, commit format, directory layout  
 5. **Guardrails**: “don’t touch X”, “never store secrets”, “don’t rewrite history”
 
-In `ai-meta`, `AGENTS.md` is the repo-level “constitution” for AI work.
+In `ai-meta`, `AGENTS.md` is the repo-level “constitution” for AI work, with detailed modular rules in `agents/rules/`.
 
 ---
 
@@ -334,7 +340,7 @@ RAG matters because LLMs do **not** reliably “remember” your repo or history
 
 In an `ai-meta`-style workflow, RAG typically pulls from:
 
-- **Repo rules**: `AGENTS.md`, `agents/*.md`
+- **Repo rules**: `AGENTS.md`, `agents/rules/`, `agents/profiles/`
 - **Current state**: `memory/current.md`
 - **Latest compactions**: `memory/compactions/<latest>.md`
 - **Recent sync notes**: `sync/YYYY/MM/*.md`
@@ -435,13 +441,24 @@ Agents do better with:
 
 ```
 ai-meta/
-  AGENTS.md                 # global AI rules (public/safe, no product code)
-  agents/                   # per-agent guidance (Codex, Claude)
-  repos/                    # Git submodules for all NoETL repos (pinned SHAs)
-  sync/                     # cross-repo sync notes (what changed, PR links, SHAs)
-  playbooks/                # repeatable checklists (how to do X)
-  scripts/                  # helpers to manage memory + automation
-  memory/                   # long-memory store (inbox → compactions → current)
+  AGENTS.md                            # global AI rules (public/safe, no product code)
+  CLAUDE.md                            # Claude Code auto-bootstrap entry point
+  .github/copilot-instructions.md      # Copilot entry point
+  .cursorrules                         # Cursor entry point
+  agents/                              # shared agent infrastructure (agent-agnostic)
+    rules/                             #   modular rule files (safety, commits, memory, etc.)
+    skills/                            #   workflow definitions (memory-add, sync-note, etc.)
+    profiles/                          #   per-agent behavioral profiles (claude.md, codex.md)
+  .claude/                             # Claude Code integration
+    settings.json                      #   permissions, hooks
+    rules -> ../agents/rules           #   symlink to shared rules
+    skills -> ../agents/skills         #   symlink to shared skills
+    agents/                            #   subagent definitions (@import from profiles)
+  repos/                               # Git submodules for all NoETL repos (pinned SHAs)
+  sync/                                # cross-repo sync notes (what changed, PR links, SHAs)
+  playbooks/                           # repeatable checklists (how to do X)
+  scripts/                             # helpers to manage memory + automation
+  memory/                              # long-memory store (inbox → compactions → current)
 ```
 
 ### Why git submodules are valuable for agents
@@ -473,6 +490,7 @@ In agent workflows, commit messages become part of the “instruction layer” b
 
 - `memory(add): <title>`
 - `memory(compact): <scope>`
+- `memory(curate): <scope>`
 - `chore(sync): bump <repo1>, <repo2> to merged SHAs`
 - `docs(agents): update cross-repo workflow guidance`
 
@@ -516,15 +534,15 @@ This keeps the “active brain” small while preserving a complete history.
 
 You can use multiple agents/models productively if each has a clear role:
 
-- **Codex-style agent**: strong at code edits, refactors, test-driven changes, repo navigation  
-- **Claude-style agent**: strong at summarization, documentation, reasoning about architecture, writing playbooks
+- **Codex-style agent** (`agents/profiles/codex.md`): strong at code edits, refactors, test-driven changes, repo navigation
+- **Claude-style agent** (`agents/profiles/claude.md`): strong at summarization, documentation, reasoning about architecture, writing playbooks
 
 In `ai-meta`, this division is natural:
 
 - submodule code changes → Codex (in the relevant repo)
 - orchestration docs, memory compaction, sync notes → Claude or Codex (both work)
 
-What matters is that both follow the **same instruction layer** (`AGENTS.md`) and the **same memory pipeline**.
+What matters is that both follow the **same instruction layer** (`AGENTS.md` + `agents/rules/`) and the **same memory pipeline**. Behavioral profiles in `agents/profiles/` define agent-specific strengths, but all agents share the same rules and skills.
 
 ---
 
@@ -611,17 +629,19 @@ This is how you get **repeatable**, **auditable**, **multi-repo** execution driv
 
 ## 12) Quick reference: what to tell contributors
 
-- Start in `AGENTS.md`
+- Start in `AGENTS.md` (rules) + `agents/profiles/<name>.md` (behavioral profile)
 - Work in submodules under `repos/`
 - Record cross-repo outcomes in `sync/`
-- Record decisions in `memory/inbox/`
+- Record decisions in `memory/inbox/` (use `scripts/memory_add.sh` or `/memory-add` skill)
 - Compact regularly into `memory/compactions/` + update `memory/current.md`
+- See [Agent Setup](agent-setup) for per-agent configuration details
 
 ---
 
-### Optional homework (for your team)
+### Next steps for your team
 
-1) Add a `sync/TEMPLATE.md` and enforce it in PR reviews  
-2) Add a weekly “memory compaction” ritual  
-3) Add tags that match your roadmap areas (dsl, gateway, ui, release, runtime, docs)  
-4) Introduce semantic search later (optional) once file naming and templates are stable
+1) Ensure all agents are configured — see [Agent Setup](agent-setup)
+2) Follow the [Quick Start](quickstart) to make your first memory entry
+3) Establish a weekly “memory compaction” ritual (see [Shared Memory for Teams](shared-memory-multi-engineer))
+4) Add tags that match your roadmap areas (dsl, gateway, ui, release, runtime, docs)
+5) Introduce semantic search later (optional) once file naming and templates are stable

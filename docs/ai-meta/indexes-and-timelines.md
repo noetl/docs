@@ -1,6 +1,12 @@
-# Indexes and Timelines in Git-Tracked Long Memory (ai-meta Pattern)
+---
+sidebar_position: 6
+title: Indexes and Timelines
+description: How memory indexes and timelines work for agent retrieval in ai-meta
+---
 
-This short lesson explains what “indexes” and “timelines” look like in a Git-tracked long-memory repo (like `noetl/ai-meta`), why they matter, and how AI agents use them for retrieval (RAG) and context assembly.
+# Indexes and Timelines in Git-Tracked Long Memory
+
+This guide explains what “indexes” and “timelines” look like in a Git-tracked long-memory repo (like `noetl/ai-meta`), why they matter, and how AI agents use them for retrieval (RAG) and context assembly.
 
 ---
 
@@ -90,8 +96,8 @@ It’s optimized for:
 - 2026-02-28 — memory/compactions/20260228-180200.md
 
 ## References (high-signal docs)
-- Repo rules: AGENTS.md
-- Agent profiles: agents/codex.md, agents/claude.md
+- Repo rules: AGENTS.md + agents/rules/
+- Agent profiles: agents/profiles/codex.md, agents/profiles/claude.md
 - Sync notes: sync/2026/03/
 ```
 
@@ -159,10 +165,10 @@ Sync notes are “what changed across repos.” An index helps when there are ma
 
 When a new task begins, a typical agent retrieval strategy is:
 
-1) Read `AGENTS.md` (rules / guardrails)  
-2) Read `memory/current.md` (working snapshot)  
-3) Use `memory/timeline.md` to pick the newest compaction(s)  
-4) Pull a few relevant `sync/YYYY/MM/*.md` notes  
+1) Read `AGENTS.md` + `agents/rules/` (rules and guardrails)
+2) Read `memory/current.md` (working snapshot)
+3) Use `memory/timeline.md` to pick the newest compaction(s)
+4) Pull a few relevant `sync/issues/*.md` notes
 5) Only then read specific code files inside `repos/<target-submodule>/...`
 
 This works because indexes keep the “routing” cheap and deterministic:

@@ -1,6 +1,6 @@
 ---
 sidebar_position: 7
-title: Agent Orchestration
+title: Agent Orchestration with NoETL
 description: Using NoETL as a registry and orchestrator for AI agents
 ---
 
