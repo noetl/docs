@@ -1,5 +1,5 @@
 ---
-sidebar_position: 1
+sidebar_position: 0
 title: AI Meta
 description: Coordination hub, shared memory, and AI agent infrastructure for the NoETL ecosystem
 ---
