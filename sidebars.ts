@@ -25,6 +25,7 @@ const sidebars: SidebarsConfig = {
         'getting-started/message-learning',
         'getting-started/design-philosophy',
         'getting-started/semantic-pipeline',
+        'getting-started/agent-orchestration',
         'architecture/sink_driven_storage',
       ],
     },
