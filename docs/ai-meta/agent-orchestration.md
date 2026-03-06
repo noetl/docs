@@ -184,7 +184,7 @@ The agents do not need to know about each other. The parent playbook handles seq
                     │  (Agent Runtime)         │
                     │                          │
                     │  Execute agent playbooks │
-                    │  Call Claude Agent SDK   │
+                    │  Call ADK/LangChain SDKs │
                     │  Run tools (http, py..)  │
                     └──────────┬──────────────┘
                                │ results via NATS
@@ -216,30 +216,29 @@ The agents do not need to know about each other. The parent playbook handles seq
 | Component | Exists Today | What Is Needed |
 |---|---|---|
 | Playbook execution engine | Yes | No change needed |
-| Agent metadata in playbooks | No | Add `metadata.agent`, `metadata.capabilities` to playbook schema |
-| Discovery by capability | No | Extend server API: "find playbooks where `metadata.capabilities` contains X" |
-| Claude Agent SDK tool | No | New tool type (`tool: claude-agent`) wrapping the SDK `query()` function |
+| Agent metadata in playbooks | Yes | Implemented via `metadata.agent` and `metadata.capabilities` extraction on catalog registration |
+| Discovery by capability | Yes | Implemented via `/catalog/list` filters and `/catalog/agents/list` endpoint |
+| ADK/LangChain bridge tool | Yes (initial) | Implemented as `tool.kind: agent` with `framework: adk|langchain|custom`, entrypoint loading, and runtime invocation |
 | Agent memory read/write | No | Steps that read/write to ai-meta `memory/` or NATS KV store |
 | Inter-agent messaging | Partially (NATS exists) | Standardize a message schema for agent-to-agent results |
 | Agent status in dashboard | Partially (`noetl status`) | Extend to show agent-specific metadata and capabilities |
 
-### The Critical New Piece: `tool: claude-agent`
+### The Critical New Piece: `tool.kind: agent`
 
-The main gap is a first-class NoETL tool type that wraps Claude Agent SDK calls. Instead of writing raw Python to call the SDK, an agent step would look like:
+NoETL now has a first-class agent runtime bridge. Instead of writing raw Python to call SDKs directly, an agent step can be declared like:
 
 ```yaml
-- name: analyze
-  tool: claude-agent
-  model: claude-sonnet-4-20250514
-  system: "You are a senior code reviewer."
-  prompt: "Review this diff: {{ fetch_pr.output.diff }}"
-  tools:
-    - read_file
-    - search_code
-  max_turns: 10
+- step: analyze
+  tool:
+    kind: agent
+    framework: langchain
+    entrypoint: "agents.reviewer:build_chain"
+    entrypoint_mode: factory
+    payload:
+      goal: "Review this diff: {{ fetch_pr.output.diff }}"
 ```
 
-This makes agent reasoning a declarative step like any other NoETL tool, with the execution engine handling retries, timeouts, and credential injection.
+For ADK-style runners, pass keyword payload fields such as `user_id`, `session_id`, and `new_message`; the runtime bridge maps payload keys to the callable signature and materializes async generator event streams into step output.
 
 ---
 
@@ -272,10 +271,10 @@ ai-meta (coordination + memory)
 
 To experiment with the agent-as-playbook pattern today:
 
-1. **Write an agent playbook** with a `python` step that calls the Claude Agent SDK
+1. **Write an agent playbook** with `tool.kind: agent` and `framework: adk|langchain|custom`
 2. **Deploy it** to your NoETL server like any other playbook
 3. **Invoke it** with `noetl exec <agent-playbook> --set goal="..."`
 4. **Orchestrate multiple agents** by writing a parent playbook that calls agent playbooks as nested steps
 5. **Track results** with `noetl status` and persist decisions to `ai-meta/memory/`
 
-The `tool: claude-agent` wrapper and metadata-based discovery are enhancements that formalize what is already possible with the existing engine.
+The remaining gaps are memory/state conventions and a standardized inter-agent message schema; agent execution and discovery primitives are now available in the runtime/server.
