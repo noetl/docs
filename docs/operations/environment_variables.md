@@ -1,69 +1,148 @@
-# NoETL Environment Variables
+---
+sidebar_position: 6
+title: Environment Variables
+---
 
-This document provides a comprehensive list of environment variables supported by NoETL.
+# Environment Variables
 
-## Server Configuration
+This is the dedicated runtime env-var reference for NoETL components:
 
-| Variable | Description | Default Value |
-|----------|-------------|---------------|
-| `NOETL_HOST` | Host address for the NoETL server | `localhost` |
-| `NOETL_PORT` | Port for the NoETL server | `8080` |
-| `NOETL_ENABLE_UI` | Enable or disable the UI components | `true` |
-| `LOG_LEVEL` | Logging level (INFO, DEBUG, WARNING, ERROR) | `INFO` |
-| `NOETL_LOG_FORMAT` | Log output format: `json` for GCP/structured logging, `victorialogs` for VictoriaLogs, or empty for human-readable | (empty) |
-| `NOETL_DATA_DIR` | Directory for NoETL data files | `data` |
+- NoETL Server
+- NoETL Worker
+- Rust Worker Pool
+- Gateway
 
-## Database Configuration
+## Source Of Truth
 
-NoETL supports two sets of database configuration variables. The application will first try to use the NOETL_* variables, and if not available, it will fall back to the POSTGRES_* variables.
+- NoETL Python settings and runtime behavior:
+  - `noetl/core/config.py`
+  - `noetl/core/storage/result_store.py`
+- Ops Helm values used in Kubernetes deployments:
+  - `ops/automation/helm/noetl/values.yaml`
+  - `ops/automation/helm/gateway/values.yaml`
+- Ops playbooks that apply/override values:
+  - `ops/automation/deployment/noetl-stack.yaml`
+  - `ops/automation/gcp_gke/noetl_gke_fresh_stack.yaml`
 
-### NoETL-specific Database Variables
+## NoETL Server
 
-| Variable | Description | Default Value |
-|----------|-------------|---------------|
-| `NOETL_USER` | Username for NoETL database connection | `noetl` |
-| `NOETL_PASSWORD` | Password for NoETL database connection | `noetl` |
-| `NOETL_SCHEMA` | Schema for NoETL database connection | `noetl` |
+Configured in Helm under `config.server`.
 
-### PostgreSQL Database Variables
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `NOETL_RUN_MODE` | `server` | Process mode |
+| `NOETL_HOST` | `0.0.0.0` | API bind host |
+| `NOETL_PORT` | `8082` | API port |
+| `NOETL_SERVER_URL` | `http://noetl.noetl.svc.cluster.local:8082` | Internal server URL |
+| `NOETL_ENABLE_UI` | `true` | Enable API UI routes |
+| `NOETL_DISABLE_METRICS` | `true` | Toggle metrics emission |
+| `NOETL_SERVER_METRICS_INTERVAL` | `60` | Metrics publish interval (seconds) |
+| `NATS_URL` | `nats://noetl:noetl@nats.nats.svc.cluster.local:4222` | NATS connection URL |
+| `NATS_STREAM` | `NOETL_COMMANDS` | JetStream stream name |
+| `NATS_SUBJECT` | `noetl.commands` | JetStream subject |
+| `NATS_CONSUMER` | `noetl_worker_pool` | Durable consumer name |
+| `POSTGRES_HOST` | `postgres.postgres.svc.cluster.local` | PostgreSQL host |
+| `POSTGRES_PORT` | `5432` | PostgreSQL port |
+| `NOETL_POSTGRES_POOL_MIN_SIZE` | `2` | DB pool minimum |
+| `NOETL_POSTGRES_POOL_MAX_SIZE` | `12` | DB pool maximum |
+| `NOETL_POSTGRES_POOL_MAX_WAITING` | `200` | DB acquire queue limit |
+| `NOETL_POSTGRES_POOL_TIMEOUT_SECONDS` | `30` | DB acquire timeout |
+| `NOETL_TEMPSTORE_MAX_REF_CACHE_ENTRIES` | `50000` | Max in-memory TempRef metadata entries |
+| `NOETL_TEMPSTORE_MAX_MEMORY_CACHE_ENTRIES` | `20000` | Max in-memory temp payload entries |
 
-| Variable | Description | Default Value |
-|----------|-------------|---------------|
-| `POSTGRES_USER` | Username for PostgreSQL database connection | `noetl` |
-| `POSTGRES_PASSWORD` | Password for PostgreSQL database connection | `noetl` |
-| `POSTGRES_DB` | Database name for PostgreSQL connection | `noetl` |
-| `POSTGRES_HOST` | Host address for PostgreSQL server | `localhost` |
-| `POSTGRES_PORT` | Port for PostgreSQL server | `5432` |
-| `POSTGRES_SCHEMA` | Schema for PostgreSQL database connection | `public` |
+## NoETL Worker
 
-## Google Cloud Configuration
+Configured in Helm under `config.worker`.
 
-| Variable | Description |
-|----------|-------------|
-| `GOOGLE_CLOUD_PROJECT` | Google Cloud project ID |
-| `SERVICE_ACCOUNT_EMAIL` | Service account email for Google Cloud |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Path to Google Cloud service account credentials file |
-| `GOOGLE_SECRET_POSTGRES_PASSWORD` | Secret Manager path for PostgreSQL password |
-| `GOOGLE_SECRET_API_KEY` | Secret Manager path for API key |
-| `GCS_ENDPOINT` | Google Cloud Storage endpoint |
-| `GCS_REGION` | Google Cloud region |
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `NOETL_RUN_MODE` | `worker` | Process mode |
+| `NOETL_SERVER_URL` | `http://noetl.noetl.svc.cluster.local:8082` | API endpoint for command execution |
+| `NATS_URL` | `nats://noetl:noetl@nats.nats.svc.cluster.local:4222` | NATS connection URL |
+| `NATS_STREAM` | `NOETL_COMMANDS` | JetStream stream name |
+| `NATS_SUBJECT` | `noetl.commands` | JetStream subject |
+| `NATS_CONSUMER` | `noetl_worker_pool` | Durable consumer name |
+| `NOETL_WORKER_NATS_FETCH_TIMEOUT_SECONDS` | `30` | Pull fetch timeout |
+| `NOETL_WORKER_NATS_FETCH_HEARTBEAT_SECONDS` | `5` | Pull fetch heartbeat |
+| `NOETL_WORKER_NATS_MAX_ACK_PENDING` | `64` | Consumer ack-pending limit |
+| `NOETL_WORKER_NATS_MAX_DELIVER` | `1000` | Consumer max delivery retries |
+| `NOETL_WORKER_MAX_INFLIGHT_COMMANDS` | `8` | Inflight command concurrency |
+| `NOETL_WORKER_MAX_INFLIGHT_DB_COMMANDS` | `3` | Inflight DB-heavy command cap |
+| `NOETL_POSTGRES_POOL_MIN_SIZE` | `1` | DB pool minimum |
+| `NOETL_POSTGRES_POOL_MAX_SIZE` | `8` | DB pool maximum |
+| `NOETL_POSTGRES_POOL_MAX_WAITING` | `100` | DB acquire queue limit |
+| `NOETL_POSTGRES_POOL_TIMEOUT_SECONDS` | `30` | DB acquire timeout |
+| `NOETL_INLINE_MAX_BYTES` | `65536` | Inline result payload threshold |
+| `NOETL_PREVIEW_MAX_BYTES` | `1024` | Preview payload size |
+| `NOETL_DEFAULT_STORAGE_TIER` | `kv` | Default result storage tier |
+| `NOETL_TEMPSTORE_MAX_REF_CACHE_ENTRIES` | `50000` | Max in-memory TempRef metadata entries |
+| `NOETL_TEMPSTORE_MAX_MEMORY_CACHE_ENTRIES` | `20000` | Max in-memory temp payload entries |
 
-## Other Configuration
+## Rust Worker Pool
 
-| Variable | Description | Default Value |
-|----------|-------------|---------------|
-| `TZ` | Timezone | `America/Chicago` |
-| `PYTHONPATH` | Python module search path | `/opt/noetl` |
-| `JUPYTER_TOKEN` | Token for Jupyter notebook authentication | `noetl` |
-| `VITE_API_BASE_URL` | Base URL for API calls from the UI | `/api` |
-| `NOETL_RUNTIME_SWEEP_INTERVAL` | Seconds between runtime sweeper iterations | `15` |
-| `NOETL_RUNTIME_OFFLINE_SECONDS` | Seconds after last heartbeat to mark runtime offline | `60` |
+Configured in Helm under `config.workerPool`.
 
-## Usage in Kubernetes
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `WORKER_POOL_NAME` | `worker-rust-pool` | Worker pool identity |
+| `NOETL_SERVER_URL` | `http://noetl.noetl.svc.cluster.local:8082` | API endpoint |
+| `NATS_URL` | `nats://noetl:noetl@nats.nats.svc.cluster.local:4222` | NATS connection URL |
+| `NATS_STREAM` | `NOETL_COMMANDS` | JetStream stream name |
+| `NATS_CONSUMER` | `noetl_worker_pool` | Durable consumer name |
+| `WORKER_HEARTBEAT_INTERVAL` | `15` | Heartbeat interval (seconds) |
+| `WORKER_MAX_CONCURRENT` | `4` | Max concurrent jobs per pool pod |
+| `RUST_LOG` | `info,worker_pool=debug,noetl_tools=debug` | Rust log filter |
 
-In Kubernetes deployments, these environment variables are set in the ConfigMap and Secret resources:
+## Gateway
 
-- `noetl-configmap.yaml`: Contains non-sensitive configuration
-- `noetl-secret.yaml`: Contains sensitive information like passwords
+Configured in Helm under `env` (`ops/automation/helm/gateway/values.yaml`).
 
-The deployment uses these environment variables to configure the NoETL server and its connections to the database.
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ROUTER_PORT` | `8090` | Gateway listen port |
+| `NOETL_BASE_URL` | `http://noetl.noetl.svc.cluster.local:8082` | Upstream NoETL API |
+| `NATS_URL` | `nats://noetl:noetl@nats.nats.svc.cluster.local:4222` | NATS connection URL |
+| `NATS_UPDATES_SUBJECT_PREFIX` | `playbooks.executions.` | Execution updates subject prefix |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3001` | Browser origins allow-list |
+| `AUTH_BYPASS` | `false` | Disable auth checks (dev only) |
+| `PUBLIC_URL` | empty | Public URL used in redirects/callbacks |
+| `RUST_LOG` | `info,gateway=debug` | Rust log filter |
+
+## TempStore Cache Controls
+
+`NOETL_TEMPSTORE_MAX_REF_CACHE_ENTRIES` and `NOETL_TEMPSTORE_MAX_MEMORY_CACHE_ENTRIES` bound TempStore in-memory caches to avoid unbounded growth.
+
+- Larger values improve hot-cache hit rates but increase process memory usage.
+- Smaller values reduce memory footprint but may increase backend reads/deletes.
+
+## Playbook Overrides
+
+### Local kind stack deploy
+
+```bash
+noetl run automation/deployment/noetl-stack.yaml --runtime local \
+  --set action=deploy \
+  --set noetl_tempstore_max_ref_cache_entries=50000 \
+  --set noetl_tempstore_max_memory_cache_entries=20000
+```
+
+### GKE fresh stack deploy
+
+```bash
+noetl run automation/gcp_gke/noetl_gke_fresh_stack.yaml --runtime local \
+  --set action=deploy \
+  --set project_id=<project-id> \
+  --set noetl_tempstore_max_ref_cache_entries=50000 \
+  --set noetl_tempstore_max_memory_cache_entries=20000
+```
+
+### Direct Helm override (any environment)
+
+```bash
+helm upgrade --install noetl automation/helm/noetl \
+  --namespace noetl \
+  --set config.server.NOETL_TEMPSTORE_MAX_REF_CACHE_ENTRIES=50000 \
+  --set config.server.NOETL_TEMPSTORE_MAX_MEMORY_CACHE_ENTRIES=20000 \
+  --set config.worker.NOETL_TEMPSTORE_MAX_REF_CACHE_ENTRIES=50000 \
+  --set config.worker.NOETL_TEMPSTORE_MAX_MEMORY_CACHE_ENTRIES=20000
+```
