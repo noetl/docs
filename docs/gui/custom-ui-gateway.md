@@ -17,6 +17,11 @@ Client UI must call:
 - `GET /events` (SSE stream for async playbook callbacks)
 - `/{gateway}/noetl/*` (authenticated REST proxy to NoETL `/api/*`)
 
+Canonical execution protocol over gateway proxy:
+- Start: `POST /noetl/execute` with `{ path|catalog_id, workload, resource_kind: "playbook" }`
+- Rerun: `POST /noetl/executions/{execution_id}/rerun` with `{ workload, resource_kind: "playbook" }`
+- Status: `GET /noetl/executions/{execution_id}/status`
+
 Client UI must **not** call NoETL server directly (for example `:8082`).
 
 ## Environment Variables
@@ -251,6 +256,8 @@ const gqlRes = await fetch(`${gatewayBase}/graphql`, {
 });
 ```
 
+`variables` in GraphQL are translated by gateway to NoETL `workload` for the canonical `/api/execute` contract.
+
 ## 3) Async Results via SSE (Recommended)
 
 Open SSE first:
@@ -289,6 +296,45 @@ await fetch(`${gatewayBase}/noetl/catalog/list`, {
     Authorization: `Bearer ${sessionToken}`,
   },
   body: JSON.stringify({ resource_type: "Playbook" }),
+});
+```
+
+Canonical execute/rerun/status examples:
+
+```ts
+// Start execution
+await fetch(`${gatewayBase}/noetl/execute`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${sessionToken}`,
+  },
+  body: JSON.stringify({
+    path: "dev/dev_gateway_check",
+    workload: { query: "select 1 as ok" },
+    resource_kind: "playbook",
+  }),
+});
+
+// Rerun execution
+await fetch(`${gatewayBase}/noetl/executions/${executionId}/rerun`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${sessionToken}`,
+  },
+  body: JSON.stringify({
+    workload: { query: "select now() as ts" },
+    resource_kind: "playbook",
+  }),
+});
+
+// Poll status
+await fetch(`${gatewayBase}/noetl/executions/${executionId}/status`, {
+  method: "GET",
+  headers: {
+    Authorization: `Bearer ${sessionToken}`,
+  },
 });
 ```
 

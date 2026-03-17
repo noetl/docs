@@ -146,15 +146,9 @@ curl -X POST https://gateway.mestumre.dev/graphql \
 ### Check Execution Status
 
 ```bash
-curl -X POST https://gateway.mestumre.dev/graphql \
-  -H "Content-Type: application/json" \
+curl -X GET https://gateway.mestumre.dev/noetl/executions/549325390032929117/status \
   -H "Authorization: Bearer YOUR_SESSION_TOKEN" \
-  -d '{
-    "query": "query GetStatus($id: String!) { executionStatus(executionId: $id) { executionId status completed variables } }",
-    "variables": {
-      "id": "549325390032929117"
-    }
-  }'
+  -H "Content-Type: application/json"
 ```
 
 ## JavaScript/TypeScript Example
@@ -222,35 +216,25 @@ class NoETLGatewayClient {
     return result.data.executePlaybook.executionId;
   }
 
-  // Check execution status
+  // Check execution status (canonical status endpoint via gateway proxy)
   async getExecutionStatus(executionId: string): Promise<any> {
     if (!this.sessionToken) {
       throw new Error('Not authenticated. Call login() first.');
     }
 
-    const response = await fetch(`${this.baseUrl}/graphql`, {
-      method: 'POST',
+    const response = await fetch(`${this.baseUrl}/noetl/executions/${executionId}/status`, {
+      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.sessionToken}`
-      },
-      body: JSON.stringify({
-        query: `
-          query GetStatus($id: String!) {
-            executionStatus(executionId: $id) {
-              executionId
-              status
-              completed
-              variables
-            }
-          }
-        `,
-        variables: { id: executionId }
-      })
+      }
     });
 
-    const result = await response.json();
-    return result.data.executionStatus;
+    if (!response.ok) {
+      throw new Error(`Status request failed: ${response.status}`);
+    }
+
+    return response.json();
   }
 
   // Validate current session
@@ -295,9 +279,9 @@ async function main() {
     await new Promise(resolve => setTimeout(resolve, 1000));
     status = await client.getExecutionStatus(executionId);
     console.log('Status:', status.status);
-  } while (!status.completed);
+  } while (!['COMPLETED', 'FAILED', 'CANCELED', 'CANCELLED', 'ERROR'].includes(String(status.status || '').toUpperCase()));
 
-  console.log('Result:', status.variables);
+  console.log('Result status:', status.status);
 }
 ```
 
@@ -363,25 +347,22 @@ class NoETLGatewayClient:
 
     def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
         """Get execution status."""
-        query = """
-            query GetStatus($id: String!) {
-                executionStatus(executionId: $id) {
-                    executionId
-                    status
-                    completed
-                    variables
-                }
-            }
-        """
-        result = self._graphql(query, {"id": execution_id})
-        return result["executionStatus"]
+        if not self.session_token:
+            raise ValueError("Not authenticated. Call login() first.")
+        response = requests.get(
+            f"{self.base_url}/noetl/executions/{execution_id}/status",
+            headers={"Authorization": f"Bearer {self.session_token}"}
+        )
+        response.raise_for_status()
+        return response.json()
 
     def wait_for_completion(self, execution_id: str, poll_interval: float = 1.0) -> Dict[str, Any]:
         """Wait for playbook execution to complete."""
         import time
+        terminal = {"COMPLETED", "FAILED", "CANCELED", "CANCELLED", "ERROR"}
         while True:
             status = self.get_execution_status(execution_id)
-            if status["completed"]:
+            if str(status.get("status", "")).upper() in terminal:
                 return status
             time.sleep(poll_interval)
 
@@ -403,7 +384,7 @@ if __name__ == "__main__":
 
     # Wait for completion
     result = client.wait_for_completion(execution_id)
-    print(f"Result: {result['variables']}")
+    print(f"Result status: {result.get('status')}")
 ```
 
 ## API Reference
@@ -504,28 +485,17 @@ mutation ExecutePlaybook($name: String!, $vars: JSON!) {
   }
 }
 
-# Get execution status
-query GetExecutionStatus($id: String!) {
-  executionStatus(executionId: $id) {
+# Rerun an existing execution
+mutation RerunExecution($id: String!, $vars: JSON) {
+  rerunExecution(executionId: $id, variables: $vars) {
     executionId
     status
-    completed
-    failed
-    currentStep
-    completedSteps
-    variables
-  }
-}
-
-# List playbooks
-query ListPlaybooks {
-  playbooks {
-    name
-    description
-    variables
   }
 }
 ```
+
+Execution status is served via REST proxy:
+- `GET /noetl/executions/{executionId}/status`
 
 ## Error Handling
 

@@ -113,6 +113,7 @@ Integrates with:
 
 **Mutation:**
 - `executePlaybook(name: String!, variables: JSON, clientId: String)`: `Execution` — execute a playbook with optional async callback support
+- `rerunExecution(executionId: String!, variables: JSON, clientId: String)`: `Execution` — rerun an execution with optional workload overrides
 
 Configuration
 -------------
@@ -189,11 +190,15 @@ mutation {
 
 **Getting Results:**
 - **SSE (Real-time)**: Connect to `GET /events?session_token=xxx` to receive results via Server-Sent Events
-- **Polling**: Query `GET /api/executions/{executionId}` until status is `COMPLETED` or `FAILED`
+- **Polling**: Query `GET /noetl/executions/{executionId}/status` until status is `COMPLETED` or `FAILED`
 
 ## Notes
 
 - The gateway proxies `/noetl/*` requests to NoETL server's `/api/*` endpoints
+- Canonical execution protocol through proxy:
+  - Start: `POST /noetl/execute` with `{ path|catalog_id, workload, resource_kind: "playbook" }`
+  - Rerun: `POST /noetl/executions/{executionId}/rerun` with `{ workload, resource_kind: "playbook" }`
+  - Status: `GET /noetl/executions/{executionId}/status`
 - Session caching via NATS K/V provides sub-millisecond lookups
 - SSE callbacks enable real-time playbook result delivery to UI clients
 
@@ -215,4 +220,3 @@ https://dev.to/behainguyen/rust-sqlx-cli-database-migration-with-mysql-and-postg
 - `sqlx migrate run`
 - `sqlx migrate revert`
 - `cargo sqlx prepare` (run always after query changing) need update cache for query! macros for all functions 
-

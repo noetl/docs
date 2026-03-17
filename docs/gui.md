@@ -112,7 +112,11 @@ Current pinned values:
 2. Open browser dev tools and inspect network requests:
    - Auth calls should go to `${VITE_GATEWAY_URL}/api/auth/*`
    - GraphQL calls should go to `${VITE_GATEWAY_URL}/graphql`
-   - API calls should go to `${VITE_GATEWAY_URL}/api/*`
+   - NoETL API calls should go to `${VITE_GATEWAY_URL}/noetl/*`
+   - Canonical execution endpoints:
+     - `POST ${VITE_GATEWAY_URL}/noetl/execute`
+     - `POST ${VITE_GATEWAY_URL}/noetl/executions/{execution_id}/rerun`
+     - `GET ${VITE_GATEWAY_URL}/noetl/executions/{execution_id}/status`
 3. Verify there are no direct calls to legacy NoETL API hosts (for example `localhost:8082`).
 
 ## Basic Smoke Test
