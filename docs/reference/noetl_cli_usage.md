@@ -176,6 +176,33 @@ noetl context set-runtime local
 noetl context delete old-env
 ```
 
+### Gateway Context + Auth0 Login
+
+Use a gateway context when you want authenticated access through `https://gateway.mestumre.dev` and no direct API port-forwarding.
+
+```bash
+# Create or update gateway context
+noetl context add gke-prod \
+  --server-url https://gateway.mestumre.dev \
+  --runtime distributed \
+  --auth0-domain mestumre-development.us.auth0.com \
+  --auth0-client-id '<AUTH0_CLIENT_ID>' \
+  --auth0-redirect-uri 'https://mestumre.dev/login' \
+  --set-current
+
+# Exchange Auth0 callback token for gateway session token (cached in context)
+noetl auth login --auth0-callback-url 'https://mestumre.dev/login#id_token=...'
+```
+
+Then run authenticated commands through gateway:
+
+```bash
+noetl --gateway catalog register tests/fixtures/playbooks/quantum_cudaq/quantum_cudaq.yaml
+noetl --gateway exec tests/quantum/cudaq_ai_pipeline -r distributed
+```
+
+If your context URL is already a gateway URL (`gateway.*`), proxy mode is auto-detected; `--gateway` remains available as an explicit override.
+
 ### Common Context Workflows
 
 **Setup Kind cluster context for registering playbooks/credentials:**
@@ -211,6 +238,29 @@ noetl context add iap-gcp --server-url http://localhost:8082
 noetl context use iap-gcp
 noetl context set-runtime local
 noetl iap apply automation/iap/gcp/gke_autopilot.yaml --auto-approve --var action=create
+```
+
+## Console Mode (REPL)
+
+Start a persistent prompt and run CLI commands without exiting to the OS shell:
+
+```bash
+noetl console
+```
+
+Prompt displays active connection:
+- `noetl(<context>@<server>|api)>` direct API mode
+- `noetl(<context>@<server>|gw)>` gateway proxy mode
+
+Useful console commands:
+
+```bash
+help
+where
+context use gke-prod
+catalog list Playbook --json
+exec tests/quantum/cudaq_ai_pipeline -r distributed
+exit
 ```
 
 ## Playbook Executor Section
