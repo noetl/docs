@@ -192,6 +192,9 @@ noetl context add gke-prod \
 
 # Exchange Auth0 callback token for gateway session token (cached in context)
 noetl auth login --auth0-callback-url 'https://mestumre.dev/login#id_token=...'
+
+# gcloud-style browser/device flow (no callback copy/paste)
+noetl auth login --browser
 ```
 
 Then run authenticated commands through gateway:
@@ -202,6 +205,13 @@ noetl --gateway exec tests/quantum/cudaq_ai_pipeline -r distributed
 ```
 
 If your context URL is already a gateway URL (`gateway.*`), proxy mode is auto-detected; `--gateway` remains available as an explicit override.
+
+For password grant without storing secret in local config, pass it per-command or via ephemeral env var:
+
+```bash
+noetl auth login --auth0 user@example.com --password --auth0-client-secret "$AUTH0_CLIENT_SECRET"
+NOETL_AUTH0_CLIENT_SECRET="$AUTH0_CLIENT_SECRET" noetl auth login --auth0 user@example.com --password
+```
 
 ### Common Context Workflows
 

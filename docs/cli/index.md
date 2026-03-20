@@ -91,6 +91,9 @@ noetl context add gke-prod \
   --set-current
 
 noetl auth login --auth0-callback-url 'https://mestumre.dev/login#id_token=...'
+
+# gcloud-style browser/device login (no token copy)
+noetl auth login --browser
 ```
 
 **Common Context Workflows:**
