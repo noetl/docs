@@ -94,7 +94,17 @@ noetl auth login --auth0-callback-url 'https://mestumre.dev/login#id_token=...'
 
 # gcloud-style browser/device login (no token copy)
 noetl auth login --browser
+
+# gcloud-style browser PKCE login with localhost callback
+noetl auth login --browser-pkce
+# optional login hint and callback port override
+noetl auth login --browser-pkce --auth0 user@example.com --pkce-port 8765
 ```
+
+PKCE notes:
+- Default callback URI is `http://127.0.0.1:8765/callback`.
+- Override callback URI using `--auth0-redirect-uri`; it must use `localhost` or `127.0.0.1`.
+- Auth0 application must allow the callback URI in allowed callback URLs.
 
 **Common Context Workflows:**
 

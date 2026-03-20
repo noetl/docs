@@ -195,6 +195,11 @@ noetl auth login --auth0-callback-url 'https://mestumre.dev/login#id_token=...'
 
 # gcloud-style browser/device flow (no callback copy/paste)
 noetl auth login --browser
+
+# gcloud-style browser PKCE flow with localhost callback
+noetl auth login --browser-pkce
+# optional login hint and callback port override
+noetl auth login --browser-pkce --auth0 user@example.com --pkce-port 8765
 ```
 
 Then run authenticated commands through gateway:
@@ -212,6 +217,11 @@ For password grant without storing secret in local config, pass it per-command o
 noetl auth login --auth0 user@example.com --password --auth0-client-secret "$AUTH0_CLIENT_SECRET"
 NOETL_AUTH0_CLIENT_SECRET="$AUTH0_CLIENT_SECRET" noetl auth login --auth0 user@example.com --password
 ```
+
+PKCE callback details:
+- Default callback URI: `http://127.0.0.1:8765/callback`.
+- Override with `--auth0-redirect-uri` (must be `localhost` or `127.0.0.1`).
+- Ensure the callback URI is configured in your Auth0 application's allowed callback URLs.
 
 ### Common Context Workflows
 
