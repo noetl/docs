@@ -231,6 +231,7 @@ const sidebars: SidebarsConfig = {
         'ai-meta/how-agents-work',
         'ai-meta/indexes-and-timelines',
         'ai-meta/agent-orchestration',
+        'ai-meta/status-transition-matrix',
       ],
     },
     {

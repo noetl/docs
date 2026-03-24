@@ -79,3 +79,4 @@ ai-meta/
 | [How Agents Work](how-agents-work) | Deep dive: agent internals, RAG, context assembly, planning loops |
 | [Indexes and Timelines](indexes-and-timelines) | How timeline.md, current.md, and topic indexes support retrieval |
 | [Agent Orchestration](agent-orchestration) | Using NoETL as an agent registry and orchestrator (agents as playbooks) |
+| [Status Transition Matrix](status-transition-matrix) | Canonical lifecycle ownership, terminal states, and testing rules for execution status |
