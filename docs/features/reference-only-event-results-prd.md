@@ -36,7 +36,7 @@ Make NoETL runtime strictly **reference-only** for the worker/server contract:
   - context fields required for conditional logic
   - reference pointers to full payload
 - Full payload is persisted directly by worker to result storage.
-- Server API handles state transitions and refs, not bulk data transport.
+- Server API handles state transitions and references, not bulk data transport.
 
 ## 4. Non-Goals
 
@@ -49,7 +49,7 @@ Make NoETL runtime strictly **reference-only** for the worker/server contract:
 Functional:
 - No new large payload blobs are written into `event.result`.
 - Conditional expressions continue working using context fields and references.
-- Worker can retrieve prior step outputs by resolving refs (not via embedded payload).
+- Worker can retrieve prior step outputs by resolving references (not via embedded payload).
 
 Performance/SRE:
 - Reduce average `event.result` byte size by >= 90% for heavy executions.
@@ -60,17 +60,19 @@ Performance/SRE:
 
 1. As an operator, I can query execution status quickly without loading large tool bodies.
 2. As a playbook author, I can use `when` expressions with context fields exactly as today.
-3. As a runtime worker, I can persist/reload full result data via refs across retries, loops, and pagination.
-4. As a security reviewer, I can confirm refs contain no raw credentials or secrets.
+3. As a runtime worker, I can persist/reload full result data via references across retries, loops, and pagination.
+4. As a security reviewer, I can confirm references contain no raw credentials or secrets.
 
 ## 7. Requirements
 
 ### 7.1 Control-plane event contract
 
+`event.result` is an object that carries `reference` and `context` attributes for runtime control-plane behavior.
+
 `event.result` must contain:
 - `status`: `ok|error|skipped|break|retry|...`
 - `error`: normalized error envelope (if present)
-- `ref`: `result_ref` object or array of refs (manifest)
+- `reference`: reference object or array of references (manifest)
 - `context`: size-limited scalar/object fields used by routing and templates
 - `meta`: bytes/hash/content-type/store/scope
 
@@ -81,19 +83,19 @@ Performance/SRE:
 Worker must:
 - Serialize and store full task outputs directly to configured backend (`auto|postgres|nats_kv|nats_object|gcs`).
 - Build/update `context` from actual result data on worker side before event emission.
-- Emit only refs + context metadata in completion events.
-- Resolve refs explicitly when downstream task needs full body.
+- Emit only `reference` + `context` metadata in completion events.
+- Resolve references explicitly when downstream task needs full body.
 
 ### 7.3 Server responsibilities
 
 Server must:
 - Accept and persist only reference-only events; reject event payloads that include output data.
 - Use context fields for state transitions and `when` evaluation context.
-- Return only state + refs + context in execution/status APIs; never hydrate output payload bodies on status paths.
+- Return only state + reference + context in execution/status APIs; never hydrate output payload bodies on status paths.
 
 ### 7.4 Reference guarantees
 
-Every stored ref must include:
+Every stored reference must include:
 - canonical `ref_id` (required): immutable storage reference ID, for example  
   `execution/<execution_id>/step/<step_name>/task/<task_name>/run/<task_run_id>/attempt/<attempt>`
 - `ref_uri` (optional): derived display form of `ref_id`, for example `noetl://execution/...`
@@ -104,7 +106,7 @@ Every stored ref must include:
 ### 7.5 Security and compliance
 
 - No credentials/tokens in context fields.
-- Refs may point to credential/keychain records by ID only.
+- References may point to credential/keychain records by ID only.
 - Preserve existing auth controls for resolved data access.
 
 ## 8. Target Architecture
@@ -112,19 +114,19 @@ Every stored ref must include:
 ### 8.1 Data-plane vs control-plane split
 
 - Control-plane: server, execution state machine, event ingestion, routing metadata.
-- Data-plane: worker result storage and retrieval via ref resolver.
+- Data-plane: worker result storage and retrieval via reference resolver.
 
 ### 8.2 Write path (target)
 
 1. Task runs in worker.
 2. Worker writes full body to result store.
-3. Worker emits event with status + `result_ref` + `context`.
+3. Worker emits event with status + `reference` + `context`.
 4. Server persists compact event and updates projections.
 
 ### 8.3 Read path (target)
 
-- Status APIs return compact state + refs/context values.
-- Full payload retrieval requires explicit resolve call/tool using ref.
+- Status APIs return compact state + reference/context values.
+- Full payload retrieval requires explicit resolve call/tool using `reference`.
 
 ## 9. Schema and API Changes
 
@@ -141,13 +143,13 @@ Cutover policy:
 
 For performance and observability, add/confirm indexes on:
 - execution id + step/task keys
-- ref lookup keys (if materialized)
+- reference lookup keys (if materialized)
 - event timestamp + type
 
 ### 9.3 API behavior
 
 - `status`/execution endpoints must not hydrate full data bodies.
-- Add/standardize resolver endpoint/tool contract for `result_ref` retrieval.
+- Add/standardize resolver endpoint/tool contract for `reference` retrieval.
 
 ## 10. Migration Strategy
 
@@ -157,7 +159,7 @@ Phase 0: Prep
 Phase 1: Hard cutover to reference-only v2
 - Deploy worker and server together with v2-only contract.
 - Server status endpoints ignore/avoid full payload fields.
-- Expressions consume context/ref-aware state only.
+- Expressions consume context/reference-aware state only.
 
 Phase 2: Legacy data purge
 - Delete legacy heavy rows from `event` table that contain inline payload bodies not needed for control-plane state.
@@ -170,19 +172,19 @@ Phase 3: Enforcement
 ## 11. Acceptance Criteria
 
 - Heavy playbook run completes with no large payloads in `event.result`.
-- Loop/pagination/retry flows remain correct when only refs are propagated.
+- Loop/pagination/retry flows remain correct when only references are propagated.
 - Execution status latency and memory profile improve versus baseline.
-- No credential leaks detected in event rows or refs.
+- No credential leaks detected in event rows or references.
 
 ## 12. Test Plan
 
 Unit:
-- Ref envelope schema validation.
+- Reference envelope schema validation.
 - Context-field construction and size limits.
 
 Integration:
 - End-to-end heavy playbook with large pages.
-- Retry + pagination + loop with ref-only propagation.
+- Retry + pagination + loop with reference-only propagation.
 - Resolver correctness and auth checks.
 
 Load/soak:
@@ -193,7 +195,7 @@ Load/soak:
 
 - Risk: Broken expressions if context fields are incomplete.
   - Mitigation: context contract tests + migration guardrails.
-- Risk: Ref resolution latency.
+- Risk: Reference resolution latency.
   - Mitigation: store selection tuning, caching, manifest strategy.
 - Risk: Rollout mismatch between worker and server versions.
   - Mitigation: coordinated cutover gate and version precheck before enabling traffic.
@@ -221,7 +223,7 @@ Dashboards/alerts:
 ## 16. Open Questions
 
 1. What default backend policy should `store.kind: auto` use in prod by payload size tier?
-2. Do we require a dedicated ref projection table for faster resolver/index lookups?
+2. Do we require a dedicated reference projection table for faster resolver/index lookups?
 3. What retention/TTL policy should be default per scope (`step|execution|workflow|permanent`)?
 
 Fixed decision:
@@ -230,7 +232,7 @@ Fixed decision:
 ## 17. Implementation Sequencing (Post-PRD)
 
 1. Define and freeze v2 result envelope contract.
-2. Implement worker data-plane writer + ref emitter.
+2. Implement worker data-plane writer + reference emitter.
 3. Implement server compact ingest + status path hardening.
 4. Implement resolver contract.
 5. Execute legacy event-row purge plan and retention guardrails.
