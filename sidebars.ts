@@ -138,6 +138,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'reference/pagination',
         'reference/retry_mechanism',
+        'features/reference-only-event-results-prd',
         'reference/credential_caching',
         'features/nats_kv_distributed_cache',
         'reference/script_execution',
