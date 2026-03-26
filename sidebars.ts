@@ -138,6 +138,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'reference/pagination',
         'reference/retry_mechanism',
+        'features/reference-only-event-results-prd',
         'reference/credential_caching',
         'features/nats_kv_distributed_cache',
         'reference/script_execution',
@@ -231,6 +232,7 @@ const sidebars: SidebarsConfig = {
         'ai-meta/how-agents-work',
         'ai-meta/indexes-and-timelines',
         'ai-meta/agent-orchestration',
+        'ai-meta/status-transition-matrix',
       ],
     },
     {
