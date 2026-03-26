@@ -33,7 +33,7 @@ This coupling causes:
 Make NoETL runtime strictly **reference-only** for the worker/server contract:
 - `event.result` stores control-plane information only:
   - status / error envelope
-  - extracted fields required for conditional logic
+  - context fields required for conditional logic
   - reference pointers to full payload
 - Full payload is persisted directly by worker to result storage.
 - Server API handles state transitions and refs, not bulk data transport.
@@ -48,7 +48,7 @@ Make NoETL runtime strictly **reference-only** for the worker/server contract:
 
 Functional:
 - No new large payload blobs are written into `event.result`.
-- Conditional expressions continue working using extracted fields and references.
+- Conditional expressions continue working using context fields and references.
 - Worker can retrieve prior step outputs by resolving refs (not via embedded payload).
 
 Performance/SRE:
@@ -59,7 +59,7 @@ Performance/SRE:
 ## 6. User Stories
 
 1. As an operator, I can query execution status quickly without loading large tool bodies.
-2. As a playbook author, I can use `when` expressions with extracted fields exactly as today.
+2. As a playbook author, I can use `when` expressions with context fields exactly as today.
 3. As a runtime worker, I can persist/reload full result data via refs across retries, loops, and pagination.
 4. As a security reviewer, I can confirm refs contain no raw credentials or secrets.
 
@@ -71,8 +71,7 @@ Performance/SRE:
 - `status`: `ok|error|skipped|break|retry|...`
 - `error`: normalized error envelope (if present)
 - `ref`: `result_ref` object or array of refs (manifest)
-- `extracted`: size-limited scalar/object fields used by routing and templates
-- `preview`: optional capped sample (small)
+- `context`: size-limited scalar/object fields used by routing and templates
 - `meta`: bytes/hash/content-type/store/scope
 
 `event.result` must **not** contain full raw payload for large outputs.
@@ -81,14 +80,15 @@ Performance/SRE:
 
 Worker must:
 - Serialize and store full task outputs directly to configured backend (`auto|postgres|nats_kv|nats_object|gcs`).
-- Emit only refs + extracted metadata in completion events.
+- Build/update `context` from actual result data on worker side before event emission.
+- Emit only refs + context metadata in completion events.
 - Resolve refs explicitly when downstream task needs full body.
 
 ### 7.3 Server responsibilities
 
 Server must:
 - Accept and persist reference-only events.
-- Use extracted fields for state transitions and `when` evaluation context.
+- Use context fields for state transitions and `when` evaluation context.
 - Avoid loading full payload bodies into execution status response paths.
 
 ### 7.4 Reference guarantees
@@ -101,7 +101,7 @@ Every stored ref must include:
 
 ### 7.5 Security and compliance
 
-- No credentials/tokens in refs or extracted fields.
+- No credentials/tokens in context fields.
 - Refs may point to credential/keychain records by ID only.
 - Preserve existing auth controls for resolved data access.
 
@@ -116,12 +116,12 @@ Every stored ref must include:
 
 1. Task runs in worker.
 2. Worker writes full body to result store.
-3. Worker emits event with status + `result_ref` + extracted fields.
+3. Worker emits event with status + `result_ref` + `context`.
 4. Server persists compact event and updates projections.
 
 ### 8.3 Read path (target)
 
-- Status APIs return compact state + refs/extracted values.
+- Status APIs return compact state + refs/context values.
 - Full payload retrieval requires explicit resolve call/tool using ref.
 
 ## 9. Schema and API Changes
@@ -155,7 +155,7 @@ Phase 0: Prep
 Phase 1: Hard cutover to reference-only v2
 - Deploy worker and server together with v2-only contract.
 - Server status endpoints ignore/avoid full payload fields.
-- Expressions consume extracted/ref-aware context only.
+- Expressions consume context/ref-aware state only.
 
 Phase 2: Legacy data purge
 - Delete legacy heavy rows from `event` table that contain inline payload bodies not needed for control-plane state.
@@ -176,7 +176,7 @@ Phase 3: Enforcement
 
 Unit:
 - Ref envelope schema validation.
-- Extracted-field selection and size limits.
+- Context-field construction and size limits.
 
 Integration:
 - End-to-end heavy playbook with large pages.
@@ -189,8 +189,8 @@ Load/soak:
 
 ## 13. Risks and Mitigations
 
-- Risk: Broken expressions if extracted fields are incomplete.
-  - Mitigation: extraction contract tests + migration guardrails.
+- Risk: Broken expressions if context fields are incomplete.
+  - Mitigation: context contract tests + migration guardrails.
 - Risk: Ref resolution latency.
   - Mitigation: store selection tuning, caching, manifest strategy.
 - Risk: Rollout mismatch between worker and server versions.
