@@ -261,7 +261,6 @@ Dashboards/alerts:
 6. Replay behavior on uncommitted data:
 - If worker restarts before persistence/event emission, data is treated as uncommitted.
 - Consumer-side missing-reference errors use `REFERENCE_NOT_AVAILABLE` and are replayable via task-sequence `jump` (including `to: previous`).
-
 ## 17. Implementation Sequencing (Post-PRD)
 
 1. Define and freeze v2 result envelope contract.

@@ -79,6 +79,33 @@ noetl context current
 noetl context use prod
 ```
 
+Gateway + Auth0 context example:
+
+```bash
+noetl context add gke-prod \
+  --server-url https://gateway.mestumre.dev \
+  --runtime distributed \
+  --auth0-domain mestumre-development.us.auth0.com \
+  --auth0-client-id '<AUTH0_CLIENT_ID>' \
+  --auth0-redirect-uri 'https://mestumre.dev/login' \
+  --set-current
+
+noetl auth login --auth0-callback-url 'https://mestumre.dev/login#id_token=...'
+
+# gcloud-style browser/device login (no token copy)
+noetl auth login --browser
+
+# gcloud-style browser PKCE login with localhost callback
+noetl auth login --browser-pkce
+# optional login hint and callback port override
+noetl auth login --browser-pkce --auth0 user@example.com --pkce-port 8765
+```
+
+PKCE notes:
+- Default callback URI is `http://127.0.0.1:8765/callback`.
+- Override callback URI using `--auth0-redirect-uri`; it must use `localhost` or `127.0.0.1`.
+- Auth0 application must allow the callback URI in allowed callback URLs.
+
 **Common Context Workflows:**
 
 ```bash
@@ -197,6 +224,24 @@ noetl k8s reset
 # Database management
 noetl db init
 noetl db validate
+```
+
+### 9. Console Prompt Mode
+
+Use a built-in command prompt to run multiple CLI commands without leaving the terminal session:
+
+```bash
+noetl console
+```
+
+Inside console:
+
+```bash
+where
+context use gke-prod
+--gateway catalog register tests/fixtures/playbooks/quantum_cudaq/quantum_cudaq.yaml
+exec tests/quantum/cudaq_ai_pipeline -r distributed
+exit
 ```
 
 ## Installation
@@ -608,4 +653,3 @@ noetl iap --help
 - [Infrastructure as Playbook guide](../features/infrastructure_as_playbook.md)
 - Try examples in `automation/examples/` directory
 - View example files: [http_example.yaml](https://github.com/noetl/noetl/blob/master/automation/examples/http_example.yaml), [parent_playbook.yaml](https://github.com/noetl/noetl/blob/master/automation/examples/parent_playbook.yaml)
-
