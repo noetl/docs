@@ -72,8 +72,8 @@ Performance/SRE:
 `event.result` must contain:
 - `status`: `ok|error|skipped|break|retry|...`
 - `error`: normalized error envelope (if present)
-- `reference`: reference object or array of references (manifest)
-- `context`: size-limited scalar/object fields used by routing and templates
+- `reference` (optional): reference object or array of references (manifest), present only when data is persisted by a storage tool
+- `context` (optional): size-limited scalar/object fields used by routing and templates
 - `meta`: bytes/hash/content-type/store/scope
 
 `event.result` must **not** contain output data at all, regardless of size. It is reference-only.
@@ -81,9 +81,11 @@ Performance/SRE:
 ### 7.2 Worker-owned persistence
 
 Worker must:
-- Serialize and store full task outputs directly to configured backend (`auto|postgres|nats_kv|nats_object|gcs`).
+- Pass tool output between tool items inside the same step pipeline.
+- If a downstream storage tool is defined (for example Postgres), persist output there and build `reference` from that storage location.
+- If no storage tool is defined, omit output data entirely and emit execution status only.
 - Build/update `context` from actual result data on worker side before event emission.
-- Emit only `reference` + `context` metadata in completion events.
+- Emit only control-plane metadata in completion events: status + optional `reference` + optional `context`.
 - Resolve references explicitly when downstream task needs full body.
 
 ### 7.3 Server responsibilities
@@ -91,7 +93,7 @@ Worker must:
 Server must:
 - Accept and persist only reference-only events; reject event payloads that include output data.
 - Use context fields for state transitions and `when` evaluation context.
-- Return only state + reference + context in execution/status APIs; never hydrate output payload bodies on status paths.
+- Return only state + optional reference/context in execution/status APIs; never hydrate output payload bodies on status paths.
 
 ### 7.4 Reference guarantees
 
@@ -102,7 +104,7 @@ Every stored reference must include:
 - NATS reference fields when `type=nats`: subject/bucket + key/stream locator, and payload size must be `< 1MB`
 - object store reference fields when `type=object_store`: direct object URL
 - integrity metadata (`bytes`, `sha256`, `content_type`, `compression`)
-- ttl/scope when applicable
+- ttl/scope policy: for `nats` and `object_store`, TTL should be explicitly configurable; if omitted, use storage default/unlimited behavior. No TTL policy is required for relational references.
 
 ### 7.5 Security and compliance
 
@@ -120,9 +122,10 @@ Every stored reference must include:
 ### 8.2 Write path (target)
 
 1. Task runs in worker.
-2. Worker writes full body to result store.
-3. Worker emits event with status + `reference` + `context`.
-4. Server persists compact event and updates projections.
+2. If the step pipeline includes a storage tool (for example Postgres), worker stores output there and constructs `reference` (db/schema/table/record details).
+3. If no storage tool exists in the pipeline, worker omits output payload and keeps only execution status (and optional context).
+4. Worker emits event with status + optional `reference` + optional `context`.
+5. Server persists compact event and updates projections.
 
 ### 8.3 Read path (target)
 
@@ -140,12 +143,11 @@ Cutover policy:
 - No dual-read compatibility mode for legacy large-payload event contracts.
 - Existing legacy heavy rows are removed from the event table during migration.
 
-### 9.2 Optional indexing additions
+### 9.2 Reference indexing policy
 
-For performance and observability, add/confirm indexes on:
-- execution id + step/task keys
-- reference lookup keys (if materialized)
-- event timestamp + type
+- No dedicated reference projection table is required.
+- Event table is the source for reference lookup and resolver/index operations.
+- Add/confirm event-table indexes on execution id + step/task keys + event timestamp/type as needed.
 
 ### 9.3 API behavior
 
@@ -221,14 +223,22 @@ Dashboards/alerts:
   - `docs/reference/result_storage.md`
   - `docs/reference/tempref_storage.md`
 
-## 16. Open Questions
+## 16. Decisions (Resolved)
 
-1. What default backend policy should `store.kind: auto` use in prod by payload size tier?
-2. Do we require a dedicated reference projection table for faster resolver/index lookups?
-3. What retention/TTL policy should be default per scope (`step|execution|workflow|permanent`)?
+1. Step-pipeline storage behavior:
+- In a `tool` list, output from earlier tool items is passed to later tool items.
+- If a storage tool exists (for example Postgres as second item after HTTP), output is stored there and storage location details are sent as `reference` in `event.result`.
+- If no storage tool exists, output data is omitted and only execution status is written to `event.result`.
 
-Fixed decision:
-- Server hard-rejects noncompliant oversized inline payload events (no auto-externalize fallback in server ingest path).
+2. Reference lookup model:
+- No dedicated reference projection table; event table is sufficient.
+
+3. TTL policy:
+- No TTL policy required for relational references.
+- For NATS/object-store references, TTL should be parameterized; if not set, use storage-system default/unlimited behavior.
+
+4. Ingest enforcement:
+- Server hard-rejects noncompliant inline payload events (no auto-externalize fallback in server ingest path).
 
 ## 17. Implementation Sequencing (Post-PRD)
 
