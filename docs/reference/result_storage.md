@@ -10,7 +10,7 @@ This document **merges and supersedes** the older result/TempRef docs and update
 
 - No `sink` concept: **“sink” is a pattern**, not a tool kind.
 - No `eval:` / `expr:`. Outcome handling uses **`spec.policy.rules` with `when`**.
-- Events and step context pass **references only** (inline only for small previews / extracted fields).
+- Events and step context pass **reference envelopes only** (status + optional `reference` + optional bounded `context`), never raw output bodies.
 - Storage backends: **NATS KV**, **NATS Object Store**, **Google Cloud Storage**, **Postgres**.
 
 See also:
@@ -213,16 +213,22 @@ This supports retrieval patterns:
 
 ## 8) Passing results to next steps (reference-only)
 
-Standard rule: **server binds only extracted + refs**, not full bodies.
+Standard rule: **server binds only latest task envelopes**, not full bodies.
 
-Recommended binding for task label `fetch_page`:
-- `fetch_page.<field>` for extracted fields
-- `fetch_page.__ref__` for ResultRef
-- optional `fetch_page.__preview__` for small UI/debug sample
+Recommended runtime binding in `tool: []`:
+- key is task label; if omitted key is `task_<index>`
+- value is latest envelope for that key (`status` + optional `reference` + optional `context`)
+- `goto`/`jump`/retry overwrite the same key with latest result
+- `_prev` points to the latest executed task envelope
+- pointer scope is local to that step pipeline only
 
 Downstream steps:
-- use extracted fields directly
-- explicitly resolve full payload if needed
+- use context fields directly
+- explicitly resolve full payload if needed via reference
+
+Recovery rule:
+- if a reference cannot be resolved (for example worker restarted before persist), runtime returns `outcome.error.code = REFERENCE_NOT_AVAILABLE`
+- policy can replay by `jump` to the producer task, including `to: previous` for immediate predecessor replay inside `tool: []`.
 
 ---
 
