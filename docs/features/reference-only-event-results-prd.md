@@ -96,17 +96,18 @@ Server must:
 ### 7.4 Reference guarantees
 
 Every stored reference must include:
-- canonical `ref_id` (required): immutable storage reference ID, for example  
-  `execution/<execution_id>/step/<step_name>/task/<task_name>/run/<task_run_id>/attempt/<attempt>`
-- `ref_uri` (optional): derived display form of `ref_id`, for example `noetl://execution/...`
-- backend/store descriptor
+- `type` (required): `relational|nats|object_store`
+- `auth_reference` (optional): reference to auth/keychain record ID used to access the data location
+- relational reference fields when `type=relational`: `db_url`, `schema`, `table`, `record_id` (or equivalent key fields)
+- NATS reference fields when `type=nats`: subject/bucket + key/stream locator, and payload size must be `< 1MB`
+- object store reference fields when `type=object_store`: direct object URL
 - integrity metadata (`bytes`, `sha256`, `content_type`, `compression`)
 - ttl/scope when applicable
 
 ### 7.5 Security and compliance
 
 - No credentials/tokens in context fields.
-- References may point to credential/keychain records by ID only.
+- `auth_reference` may point to credential/keychain records by ID only (never inline secrets).
 - Preserve existing auth controls for resolved data access.
 
 ## 8. Target Architecture
