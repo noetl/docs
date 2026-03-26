@@ -30,7 +30,7 @@ This coupling causes:
 
 ## 3. Product Goal
 
-Make NoETL runtime strictly **reference-first**:
+Make NoETL runtime strictly **reference-only** for the worker/server contract:
 - `event.result` stores control-plane information only:
   - status / error envelope
   - extracted fields required for conditional logic
@@ -42,7 +42,6 @@ Make NoETL runtime strictly **reference-first**:
 
 - No redesign of playbook DSL semantics.
 - No change to credential/keychain storage model.
-- No immediate removal of legacy event rows (handled via migration strategy).
 - No change to user-facing success/failure semantics.
 
 ## 5. Success Criteria
@@ -88,7 +87,7 @@ Worker must:
 ### 7.3 Server responsibilities
 
 Server must:
-- Accept and persist reference-first events.
+- Accept and persist reference-only events.
 - Use extracted fields for state transitions and `when` evaluation context.
 - Avoid loading full payload bodies into execution status response paths.
 
@@ -131,9 +130,10 @@ Every stored ref must include:
 
 Introduce `result_schema_version: 2` with strict shape validation.
 
-Legacy compatibility:
-- Server can read v1 and v2 during transition.
-- Writer path migrates to v2 under feature flag.
+Cutover policy:
+- Worker/server communication is v2-only after rollout gate.
+- No dual-read compatibility mode for legacy large-payload event contracts.
+- Existing legacy heavy rows are removed from the event table during migration.
 
 ### 9.2 Optional indexing additions
 
@@ -152,20 +152,18 @@ For performance and observability, add/confirm indexes on:
 Phase 0: Prep
 - Add telemetry for `event.result` byte size distributions and payload-in-event violations.
 
-Phase 1: Dual-mode writer (feature flag)
-- Worker writes payload externally and emits v2 refs.
-- Optional shadow/dual-write for validation window.
-
-Phase 2: Server strict read path
+Phase 1: Hard cutover to reference-only v2
+- Deploy worker and server together with v2-only contract.
 - Server status endpoints ignore/avoid full payload fields.
 - Expressions consume extracted/ref-aware context only.
 
-Phase 3: Enforcement
-- Reject/trim oversized inline payloads in event ingest.
-- Enable alerting on any noncompliant event writes.
+Phase 2: Legacy data purge
+- Delete legacy heavy rows from `event` table that contain inline payload bodies not needed for control-plane state.
+- Keep only compact event rows required for current execution/state tracking and audit policy.
 
-Phase 4: Cleanup
-- Optional backfill/compress legacy heavy rows.
+Phase 3: Enforcement
+- Hard-reject oversized/noncompliant inline payload events at ingest.
+- Enable alerting on any contract violations.
 
 ## 11. Acceptance Criteria
 
@@ -179,7 +177,6 @@ Phase 4: Cleanup
 Unit:
 - Ref envelope schema validation.
 - Extracted-field selection and size limits.
-- Backward compatibility v1/v2 decode.
 
 Integration:
 - End-to-end heavy playbook with large pages.
@@ -196,8 +193,8 @@ Load/soak:
   - Mitigation: extraction contract tests + migration guardrails.
 - Risk: Ref resolution latency.
   - Mitigation: store selection tuning, caching, manifest strategy.
-- Risk: Partial rollout mismatch between worker and server.
-  - Mitigation: versioned schema + feature flags + compatibility readers.
+- Risk: Rollout mismatch between worker and server versions.
+  - Mitigation: coordinated cutover gate and version precheck before enabling traffic.
 
 ## 14. Rollout and Observability
 
@@ -221,15 +218,18 @@ Dashboards/alerts:
 
 ## 16. Open Questions
 
-1. Should server hard-reject noncompliant oversized events or auto-externalize as fallback?
-2. What default backend policy should `store.kind: auto` use in prod by payload size tier?
-3. Do we require a dedicated ref projection table for faster resolver/index lookups?
-4. What retention/TTL policy should be default per scope (`step|execution|workflow|permanent`)?
+1. What default backend policy should `store.kind: auto` use in prod by payload size tier?
+2. Do we require a dedicated ref projection table for faster resolver/index lookups?
+3. What retention/TTL policy should be default per scope (`step|execution|workflow|permanent`)?
+
+Fixed decision:
+- Server hard-rejects noncompliant oversized inline payload events (no auto-externalize fallback in server ingest path).
 
 ## 17. Implementation Sequencing (Post-PRD)
 
 1. Define and freeze v2 result envelope contract.
 2. Implement worker data-plane writer + ref emitter.
 3. Implement server compact ingest + status path hardening.
-4. Implement resolver contract and compatibility layer.
-5. Run heavy-playbook validation and ship progressively.
+4. Implement resolver contract.
+5. Execute legacy event-row purge plan and retention guardrails.
+6. Run heavy-playbook validation and ship progressively.
