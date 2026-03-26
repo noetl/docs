@@ -12,7 +12,7 @@ Aligned with **current DSL**:
 - No `sink` tool kind: storage is **just tools** that write data and return references.
 - No `retry`/`pagination`/`case` blocks: retries + pagination are handled by **task policies** (`task.spec.policy.rules`) and **iteration scope** (`iter.*`).
 - No `eval:`/`expr:`: use `when` in policies.
-- Events and context pass **references only** (inline only for size-capped preview/extracted fields).
+- Events and context pass **reference envelopes only** (status + optional `reference` + optional bounded `context`), never raw output bodies.
 
 See also:
 - [NoETL standard Step Spec (v10)](./step_spec)
@@ -225,12 +225,14 @@ The step boundary event stores only a reference to the manifest.
 
 ## 8) How downstream steps access results (reference-only)
 
-Standard rule: downstream steps receive **ResultRef + extracted fields**, not full payload bodies.
+Standard rule: downstream steps receive the latest task envelope, not full payload bodies.
 
-Recommended bindings for a task label `fetch_page`:
-- `fetch_page.__ref__` → ResultRef
-- `fetch_page.page`, `fetch_page.has_more` → extracted fields
-- `fetch_page.__preview__` → optional preview
+In a `tool: []` pipeline:
+- pointer key is task label; if omitted it is `task_<index>`
+- pointer value is latest envelope for that key (`status` + optional `reference` + optional `context`)
+- `goto`/`jump`/retry overwrites the same key
+- `_prev` always points to the latest executed task envelope
+- scope is local to the current step pipeline only
 
 To read the full body, the playbook MUST explicitly resolve the ref:
 - via server API (resolve endpoint), or

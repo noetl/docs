@@ -87,6 +87,12 @@ Worker must:
 - Build/update `context` from actual result data on worker side before event emission.
 - Emit only control-plane metadata in completion events: status + optional `reference` + optional `context`.
 - Resolve references explicitly when downstream task needs full body.
+- Keep task-result pointers **latest-only** inside `tool: []` execution scope:
+  - key is task label; if omitted, key is positional task index key (`task_<index>`)
+  - value is the latest envelope (`status` + optional `reference` + optional `context`) for that key
+  - repeated execution via `goto`/`jump`/retry overwrites the same key
+  - `_prev` always points to the latest executed task envelope
+  - pointer scope is local to that step pipeline only; cross-step sharing requires explicit context assignment.
 
 ### 7.3 Server responsibilities
 
@@ -124,8 +130,9 @@ Every stored reference must include:
 1. Task runs in worker.
 2. If the step pipeline includes a storage tool (for example Postgres), worker stores output there and constructs `reference` (db/schema/table/record details).
 3. If no storage tool exists in the pipeline, worker omits output payload and keeps only execution status (and optional context).
-4. Worker emits event with status + optional `reference` + optional `context`.
-5. Server persists compact event and updates projections.
+4. Worker updates in-step latest pointer map by task label/index; any repeated task execution replaces prior pointer for that key.
+5. Worker emits event with status + optional `reference` + optional `context`.
+6. Server persists compact event and updates projections.
 
 ### 8.3 Read path (target)
 
@@ -239,6 +246,10 @@ Dashboards/alerts:
 
 4. Ingest enforcement:
 - Server hard-rejects noncompliant inline payload events (no auto-externalize fallback in server ingest path).
+
+5. In-step pointer behavior:
+- `tool: []` result addressing is latest-only per task key (label or `task_<index>`).
+- No historical pointer chain is kept in step context; history is represented by emitted events.
 
 ## 17. Implementation Sequencing (Post-PRD)
 
