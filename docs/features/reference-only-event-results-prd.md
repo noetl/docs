@@ -94,7 +94,9 @@ Server must:
 ### 7.4 Reference guarantees
 
 Every stored ref must include:
-- logical uri (`noetl://...`)
+- canonical `ref_id` (required): immutable storage reference ID, for example  
+  `execution/<execution_id>/step/<step_name>/task/<task_name>/run/<task_run_id>/attempt/<attempt>`
+- `ref_uri` (optional): derived display form of `ref_id`, for example `noetl://execution/...`
 - backend/store descriptor
 - integrity metadata (`bytes`, `sha256`, `content_type`, `compression`)
 - ttl/scope when applicable
