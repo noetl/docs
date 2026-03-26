@@ -74,7 +74,7 @@ Performance/SRE:
 - `context`: size-limited scalar/object fields used by routing and templates
 - `meta`: bytes/hash/content-type/store/scope
 
-`event.result` must **not** contain full raw payload for large outputs.
+`event.result` must **not** contain output data at all, regardless of size. It is reference-only.
 
 ### 7.2 Worker-owned persistence
 
@@ -87,9 +87,9 @@ Worker must:
 ### 7.3 Server responsibilities
 
 Server must:
-- Accept and persist reference-only events.
+- Accept and persist only reference-only events; reject event payloads that include output data.
 - Use context fields for state transitions and `when` evaluation context.
-- Avoid loading full payload bodies into execution status response paths.
+- Return only state + refs + context in execution/status APIs; never hydrate output payload bodies on status paths.
 
 ### 7.4 Reference guarantees
 
