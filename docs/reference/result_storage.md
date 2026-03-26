@@ -226,6 +226,10 @@ Downstream steps:
 - use context fields directly
 - explicitly resolve full payload if needed via reference
 
+Recovery rule:
+- if a reference cannot be resolved (for example worker restarted before persist), runtime returns `outcome.error.code = REFERENCE_NOT_AVAILABLE`
+- policy can replay by `jump` to the producer task, including `to: previous` for immediate predecessor replay inside `tool: []`.
+
 ---
 
 ## 9) Resolving refs (explicit)

@@ -86,6 +86,7 @@ Worker must:
 - If no storage tool is defined, omit output data entirely and emit execution status only.
 - Build/update `context` from actual result data on worker side before event emission.
 - Emit only control-plane metadata in completion events: status + optional `reference` + optional `context`.
+- Persist-before-emit: worker must not emit `reference` until storage write succeeds.
 - Resolve references explicitly when downstream task needs full body.
 - Keep task-result pointers **latest-only** inside `tool: []` execution scope:
   - key is task label; if omitted, key is positional task index key (`task_<index>`)
@@ -93,6 +94,10 @@ Worker must:
   - repeated execution via `goto`/`jump`/retry overwrites the same key
   - `_prev` always points to the latest executed task envelope
   - pointer scope is local to that step pipeline only; cross-step sharing requires explicit context assignment.
+- Recovery contract for restart-before-persist / missing reference:
+  - if data is not persisted yet, runtime treats output as uncommitted
+  - downstream access failure must surface `error.code=REFERENCE_NOT_AVAILABLE`
+  - policy may replay by `jump` back to producer task (including `to: previous` in task sequence scope) to regenerate and persist again.
 
 ### 7.3 Server responsibilities
 
@@ -133,6 +138,7 @@ Every stored reference must include:
 4. Worker updates in-step latest pointer map by task label/index; any repeated task execution replaces prior pointer for that key.
 5. Worker emits event with status + optional `reference` + optional `context`.
 6. Server persists compact event and updates projections.
+7. If worker crashes before step 5, no committed reference is assumed; replay policy jumps back to producer and re-fetches/re-stores data.
 
 ### 8.3 Read path (target)
 
@@ -196,6 +202,7 @@ Integration:
 - End-to-end heavy playbook with large pages.
 - Retry + pagination + loop with reference-only propagation.
 - Resolver correctness and auth checks.
+- Crash/restart between tool completion and persist/emit path: verify missing-reference failure is classified as `REFERENCE_NOT_AVAILABLE` and replay via `jump to previous` succeeds.
 
 Load/soak:
 - Concurrent executions with large payload generation.
@@ -250,6 +257,10 @@ Dashboards/alerts:
 5. In-step pointer behavior:
 - `tool: []` result addressing is latest-only per task key (label or `task_<index>`).
 - No historical pointer chain is kept in step context; history is represented by emitted events.
+
+6. Replay behavior on uncommitted data:
+- If worker restarts before persistence/event emission, data is treated as uncommitted.
+- Consumer-side missing-reference errors use `REFERENCE_NOT_AVAILABLE` and are replayable via task-sequence `jump` (including `to: previous`).
 
 ## 17. Implementation Sequencing (Post-PRD)
 

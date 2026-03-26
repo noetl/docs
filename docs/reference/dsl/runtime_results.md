@@ -239,6 +239,18 @@ To read the full body, the playbook MUST explicitly resolve the ref:
 - via a tool (`kind: artifact/result`, `action: get`), or
 - by scanning the artifact directly (DuckDB, etc.), depending on backend.
 
+### 8.1 Replay when reference is unavailable
+
+If a worker restarts before persisting output, no reference is committed.  
+When a downstream task tries to read that data, runtime surfaces:
+- `outcome.status: error`
+- `outcome.error.code: REFERENCE_NOT_AVAILABLE`
+
+Recommended recovery policy in task sequence:
+- `then: { do: jump, to: previous }` to rerun the producer task and regenerate/persist data.
+
+`previous` is scoped to the current `tool: []` pipeline and resolves to the task immediately before the failing task.
+
 ---
 
 ## 9) Implementation strategy (event-sourced & efficient)
