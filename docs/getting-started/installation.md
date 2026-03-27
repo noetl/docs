@@ -196,4 +196,4 @@ noetl run tests/fixtures/playbooks/hello_world -r distributed
 
 - [Quick Start](/docs/getting-started/quickstart) - Your first playbook
 - [Architecture](/docs/getting-started/architecture) - System components
-- [CLI Reference](/docs/reference/noetl_cli_usage) - Command reference
+- [CLI Reference](/docs/cli/usage) - Command reference

@@ -204,5 +204,5 @@ NoETL uses GitHub Actions for continuous integration. The workflow is defined in
 
 - [Development Guide](development.md) - Learn about setting up a development environment
 - [Installation Guide](/docs/getting-started/installation) - Learn about installing NoETL
-- [CLI Usage Guide](/docs/reference/noetl_cli_usage) - Learn how to use the NoETL command-line interface
+- [CLI Usage Guide](/docs/cli/usage) - Learn how to use the NoETL command-line interface
 - [API Usage Guide](/docs/reference/api_usage) - Learn how to use the NoETL REST API

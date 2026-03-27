@@ -219,7 +219,7 @@ make test-*-full
 - [Introduction](/docs/intro)
 - [DSL Specification](/docs/reference/dsl/spec)
 - [API Usage](/docs/reference/api_usage)
-- [CLI Reference](/docs/reference/noetl_cli_usage)
+- [CLI Reference](/docs/cli/usage)
 
 ### Advanced Topics
 - [Features Overview](/docs/reference/variables)
