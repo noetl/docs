@@ -9,6 +9,8 @@ sidebar_position: 2
 
 Complete reference for all NoETL automation playbooks and CLI commands.
 
+For a full local deployment runbook, see [Local Kind Deployment](./local-kind-ops-deploy).
+
 ## Quick Start
 
 ```bash
