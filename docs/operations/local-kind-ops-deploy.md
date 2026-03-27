@@ -14,13 +14,13 @@ This runbook deploys NoETL locally to a `kind` cluster using the `ops` automatio
 - Docker Desktop is running
 - `kubectl`, `kind`, and `noetl` CLI are installed
 - Repos are present at:
-  - `repos/ai-meta/repos/ops`
-  - `repos/ai-meta/repos/noetl`
+  - `repos/ops`
+  - `repos/noetl`
 
 ## 1. Create or reset local cluster
 
 ```bash
-cd repos/ai-meta/repos/ops
+cd repos/ops
 kind delete cluster --name noetl || true
 noetl run automation/infrastructure/kind.yaml --runtime local --set action=create
 kubectl config use-context kind-noetl
@@ -31,7 +31,7 @@ kubectl config use-context kind-noetl
 Deploy NATS first, then PostgreSQL:
 
 ```bash
-cd repos/ai-meta/repos/ops
+cd repos/ops
 noetl run automation/infrastructure/nats.yaml --runtime local --set action=deploy
 noetl run automation/infrastructure/postgres.yaml --runtime local --set action=deploy
 ```
@@ -58,7 +58,7 @@ kubectl -n noetl create secret generic gcs-credentials \
 ## 3. Build, load, and deploy NoETL
 
 ```bash
-cd repos/ai-meta/repos/ops
+cd repos/ops
 noetl run automation/development/noetl.yaml --runtime local --set action=build --set noetl_repo_dir=../noetl
 noetl run automation/infrastructure/kind.yaml --runtime local --set action=image-load
 noetl run automation/development/noetl.yaml --runtime local --set action=deploy --set noetl_repo_dir=../noetl
