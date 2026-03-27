@@ -197,5 +197,5 @@ Interactive API documentation is available at:
 
 ## See Also
 
-- [CLI Reference](/docs/reference/noetl_cli_usage) - Command-line interface
+- [CLI Reference](/docs/cli/usage) - Command-line interface
 - [Authentication Reference](/docs/reference/auth_and_keychain_reference) - Credential management
