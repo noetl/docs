@@ -6,6 +6,10 @@ description: Phased plan for correctness, storage, fan-out, communication, and o
 
 # NoETL Distributed Processing Enhancement Plan
 
+:::warning Partially superseded
+Phase 1 ("Schema Enhancements") — specifically P1.2 ("`noetl.execution.state` loop progress via trigger") — is **superseded by [noetl_async_sharded_architecture.md](./noetl_async_sharded_architecture.md)**. The `trg_execution_state_upsert` trigger is removed; an async `ProjectionWorker` computes `execution.state` per shard. The unique indexes from P1.1 (`uidx_event_command_issued_command_id`, `uidx_event_loop_done_loop_id`, `idx_event_loop_id_type`) remain authoritative. Phase 0, Phase 2 (storage), Phase 3 (fan-out), Phase 4 (NATS transport), and Phase 5 (observability) remain authoritative; see the async/sharded doc for how they interact with the new projection and shard model.
+:::
+
 ## Context and Motivation
 
 This plan addresses a set of confirmed bugs and architectural gaps in NoETL's distributed server-worker execution model discovered during the `test_pft_flow` regression (10 facilities × 1000 patients × 5 data types). The workload exposed:

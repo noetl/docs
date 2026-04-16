@@ -6,6 +6,12 @@ description: Complete DDL for event table indexes, projection table extensions, 
 
 # NoETL Schema Enhancements — DDL Reference
 
+:::warning Partially superseded
+Section 4 ("`noetl.execution.state` Schema" — trigger-driven) and Section 6 ("Extended Trigger — Full Replacement") are **superseded by [noetl_async_sharded_architecture.md](./noetl_async_sharded_architecture.md)**. The `trg_execution_state_upsert` trigger is **dropped**; `noetl.execution.state` is now written by the async `ProjectionWorker`. The JSON shape shown in §4 is preserved — only the producer changes.
+
+Sections 1 (unique/query indexes), 2 (query-support indexes), 3 (new loop event types), 5 (`result_ref.store_tier` with `minio`/`pvc`), and 7 (reconstruction function) remain authoritative. Additional tables introduced by the async/sharded design — `noetl.projection_checkpoint`, `noetl.execution_shard`, `noetl.checkpoint`, and `noetl.result_ref.parent_ref_id` — are specified in the async/sharded doc.
+:::
+
 This document is the authoritative DDL reference for Phase 1 of the distributed processing enhancement plan. All changes are **additive and idempotent** (`IF NOT EXISTS`, `DO NOTHING`, `ADD COLUMN IF NOT EXISTS`). No existing columns, tables, or indexes are removed.
 
 ---
