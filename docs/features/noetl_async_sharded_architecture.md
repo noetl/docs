@@ -349,20 +349,54 @@ All phases are backwards-compatible via these flags; individual phases are rolle
 - **Compactor throughput.** `noetl_compactor_events_per_second{shard}`.
 - **Status endpoint.** `GET /api/executions/{id}` reads straight from `noetl.execution` — no event scan; p99 < 10 ms.
 
-## 13. Security & Privacy
+## 13. Data Plane Separation (April 17 2026)
+
+Implemented as the definitive fix for the distributed loop collection chain (bugs #1–#9). Inspired by RisingWave's architecture where the control plane orchestrates via references and the data plane stores/serves actual payloads.
+
+### Problem
+
+The Postgres tool returned `{rows: [{...}, ...], row_count, columns}` inline in event results. The worker's `_extract_control_context` either blocked `rows` (breaking downstream loop steps that depend on `{{ claim_patients.rows }}`) or passed them through (bloating events, causing cold-state rebuild failures, synthetic collection races, and violating the reference-only contract from the PRD).
+
+### Solution
+
+```
+Before: Postgres tool → inline {rows, row_count} → event.result → context → template
+After:  Postgres tool → TempStore.put(rows) → {status, reference, context: {row_count}} → event.result
+                         ↓
+         loop.in resolves reference → TempStore.resolve() → real rows → iteration
+```
+
+### Implementation
+
+1. **Postgres tool** (`tools/postgres/executor.py`): `_externalize_rows_to_store()` persists SELECT result rows to TempStore and returns a reference envelope `{status, reference: {kind: "temp_ref", ref: "noetl://...", store: "kv"}, context: {row_count, columns}}`. Falls back to inline if TempStore is unavailable (backward compat for local/test mode).
+
+2. **Loop collection resolver** (`common.py`): `_resolve_collection_if_reference()` detects reference-bearing dicts from rendered `loop.in` templates and resolves via `TempStore.resolve()`. Wired into `transitions.py` (dispatch), `rendering.py` (cold-state hydration), and `commands.py` (fallback re-render).
+
+3. **Transparent `.rows` resolution** (`state.py`): `mark_step_completed` is now async. When a result carries a reference with `kind=temp_ref`, it eagerly resolves and caches `rows` in the step_results dict. Templates like `{{ claim_patients.rows }}` work without playbook changes.
+
+4. **Context extraction** (`nats_worker.py`): `rows` and `columns` re-blocked in `_extract_control_context`. Reference dicts with `kind=temp_ref` pass through for downstream resolution.
+
+### Invariants preserved
+
+- No playbook DSL changes. `{{ step.rows }}` works via transparent resolution.
+- Event payloads are compact: `{status, reference, context}` — no inline row data.
+- Loop collections persist in NATS KV (`save_loop_collection`) for cold-state recovery.
+- The reference-only PRD §7.1–§7.3 contract is now enforced for the Postgres tool path.
+
+## 14. Security & Privacy
 
 - Reference envelopes never carry secrets. `persist_before_emit` uses the existing context allow-list to strip credential-shaped keys.
 - `result_ref.auth_reference` (already present) points at keychain records by ID only; never inlines credentials.
 - Object-store URIs are treated as opaque; upstream access is gated by the existing auth provider.
 
-## 14. What this document supersedes
+## 15. What this document supersedes
 
 - `noetl_enhancement_session_2026_04_14.md` §4 "Schema Analysis", §7 "Worker Communication Architecture Decisions" (re-affirmed), §8 Phase 1/P1.2 trigger-maintained `execution.state` — **superseded by §6 here**.
 - `noetl_distributed_processing_plan.md` Phase 1 trigger-extension material — **superseded by §6 + §8 here**.
 - `noetl_schema_enhancements.md` §6 Full Trigger and §4 `execution.state` trigger-driven updates — **superseded by §6 here**.
 - What remains authoritative from the April 14 session: P0.1 atomic command dedup (shipped); P0.2 atomic `loop.done` via unique index (shipped); P0.3 `loop.started` event (shipped); P0.4 reaper (shipped); Phase 2 storage tier work (MinIO/PVC — shipped); Q1/Q2/Q3 worker communication decisions (NATS/HTTP split, no worker-to-worker, no WebSocket).
 
-## 15. Related Documents
+## 16. Related Documents
 
 | Document | Role |
 |---|---|
