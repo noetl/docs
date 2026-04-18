@@ -36,13 +36,12 @@ Inspired by [RisingWave's streaming architecture](https://docs.risingwave.com/ge
 │                      DATA PLANE                                  │
 │                                                                  │
 │  TempStore (noetl.core.storage.result_store)                     │
-│  ├─ NATS KV    (<1MB, execution-scoped, fast)                    │
-│  ├─ NATS Object (<10MB, execution-scoped)                        │
-│  ├─ MinIO/S3   (>10MB, durable, cross-worker)                    │
+│  ├─ NATS KV    (<1MB, execution-scoped, fast control-plane data) │
+│  ├─ MinIO/S3   (>1MB, preferred for result payloads)             │
 │  ├─ PVC        (large files, DuckDB-readable)                    │
 │  └─ Postgres   (queryable, relational)                           │
 │                                                                  │
-│  Loop collections stored in NATS KV:                             │
+│  Loop collections: KV for small sets, object storage for large   │
 │    save_loop_collection(exec_id, step, epoch_id, rows)           │
 │    get_loop_collection(exec_id, step, epoch_id) → rows           │
 ├─────────────────────────────────────────────────────────────────┤
@@ -81,7 +80,7 @@ Postgres SELECT → result_data = [{...}, ...]
     ↓
 _externalize_rows_to_store(result_data, execution_id, step_name)
     ↓
-TempStore.put(rows) → TempRef {kind: "temp_ref", ref: "noetl://exec/.../rows", store: "kv"}
+TempStore.put(rows) → TempRef {kind: "temp_ref", ref: "noetl://exec/.../rows", store: "kv|minio"}
     ↓
 event.result = {status: "ok", reference: {kind, ref, store}, context: {row_count: 100, columns: [...]}}
     ↓
@@ -91,7 +90,7 @@ mark_step_completed: eagerly resolves reference → caches rows in step_results
     ↓
 loop.in: _resolve_collection_if_reference() → TempStore.resolve() → real rows
     ↓
-save_loop_collection(rows) → NATS KV for cold-state recovery
+save_loop_collection(rows) → TempStore-backed persistence for cold-state recovery
 ```
 
 ## 5. Key Components
@@ -173,10 +172,15 @@ Templates like `{{ claim_patients.rows }}` work without playbook changes — the
 
 **Files:** `transitions.py`, `commands.py`
 
-Real collections saved to NATS KV at three points:
+Real collections are persisted through TempStore at three points:
 1. `transitions.py` — after rendering, before dispatch (all loop steps)
 2. `commands.py:226` — first-entry path
 3. `commands.py:~375` — epoch reset path
+
+Guidance:
+- NATS KV remains appropriate for small loop collections and scalar execution metadata.
+- Once loop collections or row payloads move above about 1 MB, MinIO should be the preferred backend instead of NATS Object Store.
+- NATS Object Store may remain as a compatibility tier, but it should not be the primary execution-data transport for 1-10 MB payloads.
 
 Cold-state recovery in `rendering.py._ensure_loop_state_for_epoch`:
 1. Try in-memory `existing_state.collection`

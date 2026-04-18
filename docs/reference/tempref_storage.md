@@ -27,7 +27,7 @@ Embedding full tool outputs directly in the event log causes:
 - high memory pressure on server/workers
 
 Standard solution:
-- store large bodies externally (Postgres, NATS KV/Object Store, GCS, etc.)
+- store large bodies externally (Postgres, NATS KV for small state, MinIO/GCS for payloads, etc.)
 - emit/persist only **metadata + references + extracted fields**
 
 ---
@@ -38,7 +38,7 @@ Standard solution:
 {
   "kind": "result_ref",
   "ref": "noetl://execution/<eid>/step/<step>/task/<task>/run/<task_run_id>/attempt/<n>",
-  "store": "nats_kv|nats_object|gcs|postgres",
+  "store": "nats_kv|minio|gcs|postgres",
   "scope": "step|execution|workflow|permanent",
   "expires_at": "2026-02-01T13:00:00Z",
   "meta": {
