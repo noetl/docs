@@ -93,6 +93,7 @@ make help
 - Grafana: http://localhost:3000 (admin/admin)
 - VictoriaMetrics: http://localhost:8428/vmui/
 - VictoriaLogs: http://localhost:9428
+- MinIO Object Storage: http://localhost:9000 (Console: :9001) - see [MinIO Guide](minio.md)
 
 **Management Commands:**
 ```bash
