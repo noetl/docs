@@ -295,13 +295,16 @@ ALTER TABLE noetl.result_ref
 ALTER TABLE noetl.result_ref
     ADD CONSTRAINT result_ref_store_tier_check
     CHECK (store_tier IN (
-        'memory', 'kv', 'object', 's3', 'gcs', 'db', 'duckdb', 'eventlog', 'minio', 'pvc'
+        'memory', 'kv', 'disk', 'object', 's3', 'gcs', 'db', 'duckdb', 'eventlog', 'minio', 'pvc'
     ));
 
 COMMENT ON COLUMN noetl.result_ref.store_tier IS
-    'Storage backend: memory, kv (NATS KV), object (NATS Object), s3 (Amazon S3), '
+    'Storage backend: memory (in-process), kv (NATS KV), '
+    'disk (local SSD cache + async cloud spill), s3 (Amazon S3 / MinIO), '
     'gcs (Google Cloud Storage), db (PostgreSQL), duckdb (local DuckDB), '
-    'eventlog (inline in event), minio (MinIO S3-compatible), pvc (k8s PVC or FUSE mount)';
+    'eventlog (inline in event), minio (alias for s3 w/ endpoint override), '
+    'pvc (k8s PVC or FUSE mount). "object" retained for in-flight rows; '
+    'auto-remapped to "disk" on read (phase 0 RisingWave alignment).';
 
 COMMENT ON COLUMN noetl.result_ref.physical_uri IS
     'Actual storage location: s3://bucket/key, gs://bucket/key, '

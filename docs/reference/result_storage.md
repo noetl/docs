@@ -104,8 +104,11 @@ Recommended ResultRef meta:
 - `meta.bucket`, `meta.key`, optional `meta.etag`
 
 Guidance:
-- Prefer MinIO once payloads exceed about 1 MB.
-- Treat NATS Object Store as legacy or compatibility storage rather than the preferred hot path for execution results.
+- Prefer MinIO / S3 / GCS once payloads exceed about 1 MB.
+- The NATS Object Store tier (`store: "object"`) was removed in the
+  phase 0 RisingWave-alignment release; payloads that referenced it are
+  auto-remapped to `store: "disk"` (local SSD cache + async cloud
+  spill). See [Storage and Streaming Alignment with RisingWave](../features/noetl_storage_and_streaming_alignment.md).
 
 ### 3.3 Google Cloud Storage (large / durable)
 Use for:

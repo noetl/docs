@@ -31,12 +31,17 @@ See also:
    - per-page outcomes (pagination streams)
    - per-iteration outcomes (loop)
    - combined outcomes via **manifests** (streamable)
-4. **Pluggable storage**: store bodies in:
-   - Postgres
-   - NATS KV
-   - NATS Object Store
-   - Google Cloud Storage (GCS)
+4. **Pluggable storage** (RisingWave-aligned tiers):
+   - in-process memory (step-scoped, <10KB)
+   - NATS KV (execution-scoped, <1MB)
+   - local disk cache with async cloud spill (`disk`, >=1MB)
+   - S3 / MinIO / Google Cloud Storage (durable, large)
+   - Postgres (queryable intermediate tables)
+
    and keep only **references + extracted fields** in events/context.
+   The previous `nats_object` tier was removed in phase 0 of the
+   RisingWave alignment. See
+   [Storage and Streaming Alignment with RisingWave](../../features/noetl_storage_and_streaming_alignment.md).
 5. **Streaming-friendly**: represent combined results as **manifests**, not huge merged arrays.
 
 ---
@@ -72,7 +77,7 @@ A **ResultRef** is a lightweight pointer to externally stored data.
 {
   "kind": "result_ref",
   "ref": "noetl://execution/<eid>/step/<step>/task/<task>/run/<task_run_id>/attempt/<n>",
-  "store": "nats_kv|nats_object|gcs|postgres",
+  "store": "memory|kv|disk|s3|gcs|db|eventlog",
   "scope": "step|execution|workflow|permanent",
   "expires_at": "2026-02-01T13:00:00Z",
   "meta": {
@@ -128,14 +133,20 @@ Use for:
 Recommended ResultRef meta:
 - `{ "bucket": "...", "key": "execution/<eid>/..." }`
 
-### 4.4 NATS Object Store (medium artifacts)
+### 4.4 DISK tier (medium artifacts, >= 1 MB)
+Local SSD/NVMe cache on the worker with async spill to the configured
+cloud tier (S3/MinIO or GCS via `NOETL_STORAGE_CLOUD_TIER`). Replaces
+the removed NATS Object Store tier.
+
 Use for:
 - paginated pages
 - chunked streaming parts
-- medium artifacts
+- medium artifacts between 1 MB and 10 MB (and larger as local capacity
+  allows)
 
 Recommended ResultRef meta:
-- `{ "bucket": "...", "key": ".../page_001.json.gz" }`
+- `{ "bucket": "...", "key": ".../page_001.json.gz" }` (written to the
+  cloud tier; the local cache copy is indexed by the same key)
 
 ### 4.5 Google Cloud Storage (large, durable)
 Use for:
@@ -162,7 +173,7 @@ Result storage controls live under **task.spec.result**.
         inline_max_bytes: 65536
         preview_max_bytes: 2048
         store:
-          kind: auto                 # auto|nats_kv|nats_object|gcs|postgres
+          kind: auto                 # auto|memory|kv|disk|s3|gcs|db
           scope: execution           # step|execution|workflow|permanent
           ttl: "1h"
           compression: gzip
@@ -217,7 +228,7 @@ Do not materialize huge merged arrays in memory/events. Use **manifest refs** li
 ### 7.2 Where manifests live
 A manifest itself is stored reference-first:
 - inline if tiny
-- else NATS Object Store / GCS / Postgres
+- else DISK (local cache + cloud spill) / S3 / GCS / Postgres
 
 The step boundary event stores only a reference to the manifest.
 
@@ -305,7 +316,7 @@ Each externally stored page becomes a ResultRef part, and the entire stream is r
 
 Quantum tools often return large measurement datasets.
 Standard pattern:
-- tool returns a ResultRef (NATS Object Store or GCS)
+- tool returns a ResultRef (DISK / S3 / GCS)
 - extracted fields store small metadata (job id, backend, shots, cost)
 - manifests represent iterative algorithms (VQE/QAOA) or shot batches
 

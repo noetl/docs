@@ -120,7 +120,7 @@ executor:
   version: noetl-runtime/2
   spec:
     result:
-      store: { kind: nats_object, bucket: "noetl-results" }
+      store: { kind: disk, bucket: "noetl-results" }
     http:
       timeout: { connect: 10, read: 60 }
 ```

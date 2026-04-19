@@ -179,8 +179,14 @@ Real collections are persisted through TempStore at three points:
 
 Guidance:
 - NATS KV remains appropriate for small loop collections and scalar execution metadata.
-- Once loop collections or row payloads move above about 1 MB, MinIO should be the preferred backend instead of NATS Object Store.
-- NATS Object Store may remain as a compatibility tier, but it should not be the primary execution-data transport for 1-10 MB payloads.
+- Loop collections or row payloads above about 1 MB route to the new
+  `StoreTier.DISK` tier — a local SSD/NVMe cache with async spill to
+  MinIO/S3/GCS (phase 1). In phase 0, DISK writes transparently spill
+  directly to the configured cloud tier (`NOETL_STORAGE_CLOUD_TIER`).
+- The NATS Object Store tier was removed in phase 0 of the RisingWave
+  alignment. Envelopes referencing `store: "object"` are auto-remapped
+  to `store: "disk"` with a one-time deprecation warning. See
+  [Storage and Streaming Alignment with RisingWave](noetl_storage_and_streaming_alignment.md).
 
 Cold-state recovery in `rendering.py._ensure_loop_state_for_epoch`:
 1. Try in-memory `existing_state.collection`

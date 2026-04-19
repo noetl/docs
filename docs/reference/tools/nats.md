@@ -1,12 +1,22 @@
 ---
 sidebar_position: 9
-title: NATS Tool 
-description: Interact with NATS JetStream, K/V Store, and Object Store as pipeline tasks 
+title: NATS Tool
+description: Interact with NATS JetStream and K/V Store as pipeline tasks
 ---
 
-# NATS Tool 
+# NATS Tool
 
-The `nats` tool provides access to NATS JetStream, Key/Value store, and Object Store operations for caching, messaging, and lightweight state.
+The `nats` tool provides access to NATS JetStream and Key/Value store
+operations for caching, messaging, and lightweight state.
+
+:::warning Object Store operations are deprecated
+`operation: object_put` / `object_get` targeted the NATS JetStream
+Object Store tier, which was removed from TempStore in phase 0 of the
+[RisingWave alignment](../../features/noetl_storage_and_streaming_alignment.md).
+The standalone `nats object_*` operations are scheduled for removal in
+phase 1. Migrate to the `s3` tool (MinIO via `NOETL_S3_ENDPOINT`) or
+the new `disk` storage tier.
+:::
 
 Standard reminders:
 - No step-level `case`/`eval`/`expr`. Use `when` in task policy and router arcs.

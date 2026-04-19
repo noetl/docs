@@ -158,7 +158,11 @@ NOETL_BG_POOL_MAX_SIZE: 6          # from 4
 
 #### H. TempStore tier optimization
 
-Use NATS Object Store (not KV) for collections >100KB to avoid KV size limits. Pre-warm the store connection at worker startup.
+Use the `disk` tier (local SSD cache + async cloud spill to MinIO/S3/GCS)
+for collections above the KV size limit (~1 MB). The NATS Object Store
+tier was removed in the phase 0 RisingWave alignment; see
+[Storage and Streaming Alignment with RisingWave](noetl_storage_and_streaming_alignment.md).
+Pre-warm the store connection at worker startup.
 
 ## Recommended Implementation Order
 

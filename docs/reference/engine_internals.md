@@ -66,14 +66,27 @@ noetl://execution/<eid>/result/<step>/<uuid>
 | `s3` / `gcs` | Cloud object storage | large and durable | Cross-system durable artifacts |
 | `db` | PostgreSQL | queryable | Relational intermediate tables and projections |
 
-### MinIO direction
+### RisingWave-aligned tiers (phase 0 onward)
 
-For execution payloads larger than about 1 MB, MinIO should be preferred over NATS Object Store.
+For execution payloads larger than about 1 MB, the router selects
+`StoreTier.DISK` — a local SSD/NVMe cache per worker with async spill
+to the configured cloud tier (S3/MinIO or GCS via
+`NOETL_STORAGE_CLOUD_TIER`). This mirrors
+[RisingWave's disk cache architecture](https://docs.risingwave.com/get-started/disk-cache).
 
 Why:
-- NATS KV is appropriate for small control-plane state, not multi-MB result transport
-- NATS Object Store can work as a compatibility layer, but it is not the preferred hot path for 1-10 MB execution data
-- MinIO gives NoETL an S3-compatible object layer that fits both local development and cloud-style storage patterns
+- NATS KV is appropriate for small control-plane state, not multi-MB result transport.
+- The NATS Object Store tier was removed in the phase 0 RisingWave
+  alignment. `store: "object"` payloads are auto-remapped to
+  `store: "disk"` with a one-time deprecation warning.
+- The DISK tier gives every worker a local hot cache + durable cloud
+  spill, which matches the elasticity and warm-start story in RisingWave.
+- In phase 0 the DISK backend itself is a placeholder; writes fall
+  through directly to the configured cloud tier. Phase 1 adds the
+  two-pool local cache (meta + data) with rate-limited inserts and
+  `recover_mode=Quiet` warm start.
+
+See [Storage and Streaming Alignment with RisingWave](../features/noetl_storage_and_streaming_alignment.md).
 
 ### Interim data placement
 
@@ -209,12 +222,19 @@ Available during evaluation:
 | `playbook.failed` | server | Terminal failure |
 | `execution.cancelled` | server | Terminal cancellation |
 
-## 10. Storage Guidance for the MinIO Transition
+## 10. Storage Guidance — RisingWave-Aligned Tiers
 
 Recommended policy:
-- keep NATS KV for small execution-scoped control-plane state
-- move payloads above 1 MB to MinIO
-- use PVC and cloud object storage for larger or more durable artifacts
-- treat NATS Object Store as legacy or compatibility storage, not the preferred medium-payload execution tier
+- keep NATS KV for small execution-scoped control-plane state (< 1 MB)
+- route payloads above 1 MB to `StoreTier.DISK` (local SSD cache + async
+  cloud spill); in phase 0 this spills directly to the cloud tier
+  selected by `NOETL_STORAGE_CLOUD_TIER` (S3/MinIO or GCS)
+- use PVC mounts for the disk cache directory
+  (`NOETL_STORAGE_LOCAL_CACHE_DIR`) — phase 1
+- treat the NATS Object Store tier as removed; envelopes with
+  `store: "object"` are auto-remapped to `store: "disk"` with a
+  one-time deprecation warning
 
-That keeps the control plane light, reduces NATS pressure from multi-MB objects, and gives NoETL a cleaner local-to-cloud storage model.
+That keeps the control plane light, reduces NATS pressure from multi-MB
+objects, and matches RisingWave's three-tier hot/warm/cold model for
+local-to-cloud storage.

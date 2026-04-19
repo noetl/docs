@@ -286,7 +286,7 @@ If also published to a broker:
   "payload": {
     "result_ref": {
       "kind": "result_ref",
-      "store": "nats_object",
+      "store": "disk",
       "ref": "noetl://execution/..../page_001.json.gz",
       "meta": {"bytes": 52480, "sha256": "..."}
     },
