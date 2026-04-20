@@ -274,9 +274,51 @@ framework drains the source and runs the MV incrementally per arrival.
   per-pool `capacity_mb` + `insert_rate_limit_mb` + `recover_mode`.
 - Async spill to cloud; memoize by content hash.
 - Warm-start from disk on worker restart (`recover_mode=Quiet`).
-- PVC mount recommendations for kind and GKE.
+- PVC mount recommendations for kind and GKE (see below).
 - Validation: rerun `test_pft_flow` and measure cache-hit-rate during
   replay.
+
+#### PVC mount guidance (phase 1)
+
+The disk cache lives under `NOETL_STORAGE_LOCAL_CACHE_DIR`
+(default `/opt/noetl/data/disk_cache`). That path is inside the
+`NOETL_DATA_DIR` tree, which workers already mount from a shared PVC.
+So in practice **no new PVC is required** — the existing worker volume
+hosts the cache.
+
+| Environment | Mount strategy | Notes |
+| --- | --- | --- |
+| **Local kind (Podman)** | `noetl-data-shared` PVC (RWX, 10 Gi) backed by `hostPath` on the Podman VM node | Already wired in `ci/manifests/noetl/pvc-noetl-data.yaml`; no change needed. |
+| **GKE dev / preview** | `noetl-data-shared` PVC with `storageClassName: standard-rwx` (Filestore) | Existing Helm defaults. Filestore IOPS are the cap; tune `NOETL_STORAGE_LOCAL_CACHE_INSERT_RATE_MB` accordingly. |
+| **GKE prod / high-throughput** | Prefer per-worker PVC with `storageClassName: premium-rwo` (PD-SSD) and use `StatefulSet` for workers so each pod has a private cache | Requires switching the worker workload from `Deployment` to `StatefulSet`; deferred to phase 3. |
+
+Sizing rules of thumb:
+
+- **Data pool capacity** = 2× the median per-execution externalized
+  payload size × `worker.replicas`. For `test_pft_flow` with the current
+  claim batch of 200, 2 GB/worker is comfortable.
+- **Meta pool capacity** = 10 % of the data pool, never less than
+  128 MB (covers the TempRef metadata hot path).
+- **Insert rate** = ~90 % of benchmarked sequential write on local
+  NVMe (local kind), 50–80 % on cloud block storage (GKE PD / Filestore).
+  The default 200 MB/s is a safe NVMe value.
+- **Total PVC size** ≥ `data + meta + 25 % eviction headroom`, so a 2 GB
+  data pool + 256 MB meta pool needs at least ~3 GB PVC. The shared
+  10 Gi default leaves plenty of room even if the pool grows during
+  bursts.
+
+Env var wiring (see `repos/ops/automation/helm/noetl/values.yaml`
+and `repos/noetl/ci/manifests/noetl/configmap-worker.yaml`):
+
+```yaml
+NOETL_STORAGE_CLOUD_TIER: "s3"         # or "gcs"
+NOETL_S3_ENDPOINT: "http://minio.minio.svc.cluster.local:9000"
+NOETL_STORAGE_LOCAL_CACHE_DIR: "/opt/noetl/data/disk_cache"
+NOETL_STORAGE_LOCAL_DATA_CACHE_CAPACITY_MB: "2048"
+NOETL_STORAGE_LOCAL_META_CACHE_CAPACITY_MB: "256"
+NOETL_STORAGE_LOCAL_CACHE_INSERT_RATE_MB: "200"
+NOETL_STORAGE_LOCAL_CACHE_RECOVER_MODE: "Quiet"
+```
 
 ### Phase 2 — Source / Table / MV / Sink tool kinds
 
