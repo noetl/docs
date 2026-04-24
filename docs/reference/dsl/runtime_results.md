@@ -32,9 +32,9 @@ See also:
    - per-iteration outcomes (loop)
    - combined outcomes via **manifests** (streamable)
 4. **Pluggable storage** (RisingWave-aligned tiers):
-   - in-process memory (step-scoped, <10KB)
-   - NATS KV (execution-scoped, <1MB)
-   - local disk cache with async cloud spill (`disk`, >=1MB)
+  - in-process memory (step-scoped, &lt;10KB)
+  - NATS KV (execution-scoped, &lt;1MB)
+  - local disk cache with async cloud spill (`disk`, &gt;=1MB)
    - S3 / MinIO / Google Cloud Storage (durable, large)
    - Postgres (queryable intermediate tables)
 

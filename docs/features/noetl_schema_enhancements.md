@@ -126,7 +126,7 @@ Written by the server when a loop step is first entered and the collection is ma
 | `event_type` | `'loop.started'` |
 | `node_name` | step name |
 | `node_type` | `'loop'` |
-| `meta` | `{"loop_id": "<snowflake_id>", "collection_size": N, "mode": "sequential"|"parallel"|"fanout"}` |
+| `meta` | `{"loop_id": "<snowflake_id>", "collection_size": N, "mode": ["sequential", "parallel", "fanout"]}` |
 | `context` | `{"collection_ref": "<MinIO/GCS/S3 URI>"}` — only when collection is externalized (size > threshold) |
 | `current_index` | `0` |
 | `status` | `'started'` |
@@ -203,7 +203,7 @@ Written atomically (via `ON CONFLICT DO NOTHING`) when done + failed = total_sha
 | `event_type` | `'loop.fanin.completed'` |
 | `node_name` | step name |
 | `meta` | `{"loop_id": "<id>"}` |
-| `result` | `{"status": "complete"|"failed"|"partial", "context": {"done": M, "failed": F, "total": N}}` |
+| `result` | Status enum (`complete`, `failed`, `partial`) plus context counters (`done`, `failed`, `total`) |
 | `status` | `'completed'` or `'partial'` or `'failed'` |
 
 ---

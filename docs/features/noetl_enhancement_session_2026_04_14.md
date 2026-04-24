@@ -151,7 +151,7 @@ CREATE INDEX idx_event_loop_id_type
 |---|---|---|
 | Large intermediate files | MinIO (S3-compatible, RWO PVC-backed) | gcsfuse-csi (GCS bucket as local FS) |
 | Static reference datasets | hostPath or NFS RWX PVC | Filestore NFS RWX PVC |
-| Small results (<10MB) | NATS KV / Object Store | NATS KV / Object Store |
+| Small results (&lt;10MB) | NATS KV / Object Store | NATS KV / Object Store |
 
 **`StoreTier` extension:**
 ```python
