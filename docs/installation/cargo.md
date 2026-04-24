@@ -159,7 +159,7 @@ cargo install noetl-cli --target aarch64-apple-darwin
 - **Homebrew** (macOS): `brew install noetl`
 - **APT** (Ubuntu/Debian): `sudo apt-get install noetl`
 - **PyPI**: `pip install noetl-cli`
-- **Docker**: `docker pull ghcr.io/noetl/noetl:latest`
+- **Podman**: `podman pull ghcr.io/noetl/noetl:latest`
 
 ## Troubleshooting
 

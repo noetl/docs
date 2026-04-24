@@ -1,44 +1,42 @@
-# Kind (Kubernetes in Docker)
+# Kind (Kubernetes in Podman)
 - [Kind default page](https://kind.sigs.k8s.io/)
 - [Kind GitHub](https://github.com/kubernetes-sigs/kind)
 - [Kind Documentation](https://kind.sigs.k8s.io/docs/)
 - [Kind Cheat Sheet](https://kind.sigs.k8s.io/docs/user/cheatsheet/)
-- [Kind Kubernetes in Docker](https://kind.sigs.k8s.io/docs/user/quick-start/#using-kind-with-docker)
-- [Kind Kubernetes in Docker (Alternative)](https://kind.sigs.k8s.io/docs/user/quick-start/#using-kind-with-docker-alternative)
+- [Kind with Podman](https://kind.sigs.k8s.io/docs/user/quick-start/#podman)
+- [Kind rootless provider notes](https://kind.sigs.k8s.io/docs/user/rootless/)
 
 This guide should get you started with Kind and basic Kubernetes operations.
 ## What is Kind?
-Kind is a tool for running local Kubernetes clusters using Docker containers as nodes. It's designed primarily for testing Kubernetes itself, but it's also used for local development and CI/CD pipelines.
+Kind is a tool for running local Kubernetes clusters using Podman containers as nodes. It's designed primarily for testing Kubernetes itself, but it's also used for local development and CI/CD pipelines.
 
 ## Prerequisites
 - **Homebrew**: macOS package manager
-- **Docker**: Kind requires Docker to be installed and running
-- **Kind**: Kubernetes in Docker
+- **Podman**: Kind requires Podman to be installed and running
+- **Kind**: Kubernetes in Podman
 - **kubectl**: Kubernetes command-line tool
 - **kubectx and kubens**: for easier context and namespace switching
 
 ## Installation Instructions
-### 1. Install Docker
-If you don't have Docker installed:
+### 1. Install Podman
+If you don't have Podman installed:
 
 **On macOS:**
 ``` bash
-brew install docker
-
-# Or download Docker Desktop from https://docker.com
+brew install podman 
+# Or install Podman Desktop from the official Podman releases page
 ```
 
 **On Linux (Ubuntu/Debian):**
 ``` bash
 sudo apt update
-sudo apt install docker.io
-sudo systemctl start docker
-sudo systemctl enable docker
-sudo usermod -aG docker $USER  # Add user to docker group
+sudo apt install -y podman
+sudo systemctl enable --now podman
+sudo usermod -aG podman $USER  # Add user to podman group
 ```
 
 **On Windows:**
-- Download Docker Desktop from [https://docker.com](https://docker.com)
+- Install Podman Desktop from the official Podman releases page
 
 ### 2. Install Kind
 **Using Homebrew (macOS/Linux):**
@@ -275,7 +273,7 @@ kind get clusters
 # Delete a cluster
 kind delete cluster --name cluster
 
-# Load Docker image into cluster
+# Load Podman image into cluster
 kind load docker-image <image-name>:tag --name <cluster-name>
 
 # Get cluster kubeconfig
@@ -355,8 +353,8 @@ noetl run automation/development/noetl.yaml --set action=status
 
 | Action | Description |
 |--------|-------------|
-| `build` | Build NoETL Docker image with timestamp tag |
-| `load` | Load Docker image into kind cluster |
+| `build` | Build NoETL Podman image with timestamp tag |
+| `load` | Load Podman image into kind cluster |
 | `deploy` | Deploy NoETL server and workers to Kubernetes |
 | `redeploy` | Full cycle: build → load → deploy (recommended for dev) |
 | `status` | Show NoETL pod and service status |

@@ -198,8 +198,8 @@ noetl run automation/setup/bootstrap.yaml
 ```
 
 This executes:
-1. Verify dependencies (Docker, kubectl, helm, kind)
-2. Build NoETL Docker images
+1. Verify dependencies (Podman, kubectl, helm, kind)
+2. Build NoETL Podman images
 3. Create Kind cluster
 4. Load images into cluster
 5. Deploy PostgreSQL
@@ -374,7 +374,7 @@ Located in `automation/`:
 - `infrastructure/qdrant.yaml` - Qdrant operations
 - `infrastructure/nats.yaml` - NATS operations
 - `deployment/noetl-stack.yaml` - NoETL service deployment
-- `development/docker.yaml` - Docker image building
+- `development/docker.yaml` - Podman image building
 - `development/noetl.yaml` - Development workflow
 
 ### Environment Configuration

@@ -254,7 +254,7 @@ make test-playbook-composition-full
 time make test-*-runtime
 
 # Resource validation  
-docker stats  # Monitor resource usage during tests
+podman stats  # Monitor resource usage during tests
 ```
 
 ## Debugging Test Failures
@@ -290,7 +290,7 @@ curl http://localhost:8082/api/credentials  # Verify registration
 # Symptom: "Test timed out"
 # Solution: Increase timeout or check resource usage
 export NOETL_TEST_TIMEOUT=600  # Increase to 10 minutes
-docker stats  # Check resource usage
+podman stats  # Check resource usage
 ```
 
 ### Log Analysis
@@ -338,7 +338,7 @@ pytest --cache-clear  # Clear cache if stale
 ```bash
 # Monitor resource usage
 htop  # System resources
-docker stats  # Container resources  
+podman stats  # Container resources  
 
 # Optimize database performance
 make postgres-reset-schema  # Clean state

@@ -61,7 +61,7 @@ kubectl rollout restart deployment/gateway-ui -n gateway
 ## Update Gateway (Rust)
 
 ```bash
-docker build -t noetl/gateway:dev -f crates/gateway/Dockerfile .
+podman build -t noetl/gateway:dev -f crates/gateway/Dockerfile .
 kind load docker-image noetl/gateway:dev --name noetl
 kubectl rollout restart deployment/gateway -n gateway
 ```

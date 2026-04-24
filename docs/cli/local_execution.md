@@ -193,12 +193,12 @@ workflow:
       - step: build
   
   - step: build
-    desc: "Build Docker image"
+    desc: "Build Podman image"
     tool:
       kind: shell
       cmds:
-        - "docker build -t myapp:latest ."
-        - "docker push myapp:latest"
+        - "podman build -t myapp:latest ."
+        - "podman push myapp:latest"
     next:
       - step: end
   
@@ -215,7 +215,7 @@ tool:
   kind: shell
   cmds: |
     echo "Starting build..."
-    docker build -t app:latest .
+    podman build -t app:latest .
     echo "Build complete"
 ```
 
@@ -340,13 +340,13 @@ workflow:
       - step: build_image
   
   - step: build_image
-    desc: "Build Docker image"
+    desc: "Build Podman image"
     tool:
       kind: shell
       cmds:
         - "echo 'Building image: {{ workload.image_tag }}'"
         - "echo 'Environment: {{ workload.build_env }}'"
-        - "docker build -t app:{{ workload.image_tag }} ."
+        - "podman build -t app:{{ workload.image_tag }} ."
     next:
       - step: end
   
@@ -836,7 +836,7 @@ workflow:
     tool:
       kind: shell
       cmds:
-        - "docker build -t {{ workload.registry }}/app:{{ workload.version }} ."
+        - "podman build -t {{ workload.registry }}/app:{{ workload.version }} ."
     next:
       - step: push_image
   
@@ -844,7 +844,7 @@ workflow:
     tool:
       kind: shell
       cmds:
-        - "docker push {{ workload.registry }}/app:{{ workload.version }}"
+        - "podman push {{ workload.registry }}/app:{{ workload.version }}"
     next:
       - step: deploy_k8s
   

@@ -50,7 +50,7 @@ kubectl logs -n test-server deployment/paginated-api
 
 **Configuration:**
 - Source: `tests/fixtures/servers/paginated_api.py`
-- Docker: `docker/test-server/Dockerfile`
+- Podman: `docker/test-server/Dockerfile`
 - Manifests: `ci/manifests/test-server/`
 
 **Port Mapping:**

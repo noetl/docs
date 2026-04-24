@@ -63,7 +63,7 @@ image:
   repository: us-central1-docker.pkg.dev/my-project/noetl/noetl-gateway
   tag: "20260127115929"
 
-# Docker Hub
+# Podman Hub
 image:
   repository: myorg/noetl-gateway
   tag: "v1.0.0"

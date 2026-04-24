@@ -15,7 +15,7 @@ NoETL provides `.deb` packages for Ubuntu/Debian distributions, hosted via GitHu
 - Debian build tools: `dpkg-dev`, `dpkg-deb`
 - Rust toolchain for building binary
 - Push access to `noetl/noetl` or `noetl/apt` repository
-- Linux system for building (can use Docker/GitHub Actions)
+- Linux system for building (can use Podman/GitHub Actions)
 
 ## Repository Architecture
 
@@ -37,9 +37,9 @@ Two hosting options:
 
 ### 1. Build Debian Package
 
-#### Option A: Docker Build (Recommended for macOS)
+#### Option A: Podman Build (Recommended for macOS)
 
-Build using Docker to avoid needing Linux system:
+Build using Podman to avoid needing Linux system:
 
 ```bash
 ./docker/release/build-deb-docker.sh 2.5.3
@@ -58,7 +58,7 @@ build/deb/noetl_2.5.3-1_amd64.deb
 build/deb/noetl_2.5.3-1_amd64.deb.sha256
 ```
 
-**Docker Build Details**:
+**Podman Build Details**:
 - Container: Ubuntu 22.04 with build-essential, dpkg-dev, Rust
 - Location: `docker/release/Dockerfile.deb`
 - Uses current branch code (not git clone)
@@ -163,9 +163,9 @@ gh release create v2.5.3 \
   --notes "Release notes here"
 ```
 
-## Docker Build Details
+## Podman Build Details
 
-The Docker-based builder is located at `docker/release/`:
+The Podman-based builder is located at `docker/release/`:
 
 **Files**:
 - `Dockerfile.deb` - Ubuntu 22.04 image with Rust and dpkg-dev
@@ -173,7 +173,7 @@ The Docker-based builder is located at `docker/release/`:
 - `README.md` - Usage documentation
 
 **Process**:
-1. Builds Docker image with Ubuntu 22.04 + Rust toolchain
+1. Builds Podman image with Ubuntu 22.04 + Rust toolchain
 2. Copies current repository code into container
 3. Runs `./scripts/build_deb.sh` inside container
 4. Extracts built .deb and SHA256 files to `build/deb/`
@@ -182,7 +182,7 @@ The Docker-based builder is located at `docker/release/`:
 **Testing Package**:
 ```bash
 # Test installation in clean Ubuntu container
-docker run --rm -v $(pwd)/build/deb:/packages ubuntu:22.04 bash -c '
+podman run --rm -v $(pwd)/build/deb:/packages ubuntu:22.04 bash -c '
   apt-get update && 
   dpkg -i /packages/noetl_2.5.3-1_amd64.deb && 
   noetl --version'

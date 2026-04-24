@@ -7,7 +7,7 @@ This guide provides information about setting up a development environment for N
 - Python 3.11+ (3.12 recommended)
 - Git
 - Make (optional, for using the Makefile)
-- Docker (optional, for containerized development)
+- Podman (optional, for containerized development)
 
 ## Setting Up a Development Environment
 
@@ -16,8 +16,8 @@ This guide provides information about setting up a development environment for N
 Use NoETL automation playbooks for a streamlined Kubernetes development workflow:
 
 **Prerequisites:**
-- Docker
-- Kind (Kubernetes in Docker)
+- Podman
+- Kind (Kubernetes in Podman)
 - kubectl
 - NoETL CLI (`noetl` binary)
 
@@ -52,7 +52,7 @@ kubectl logs -f -n noetl -l app=noetl-worker
 
 | Action | Description |
 |--------|-------------|
-| `build` | Build NoETL Docker image |
+| `build` | Build NoETL Podman image |
 | `load` | Load image into kind cluster |
 | `deploy` | Deploy to Kubernetes |
 | `redeploy` | Full cycle: build → load → deploy |
@@ -65,8 +65,8 @@ For detailed playbook documentation, see [Automation Playbooks](./automation_pla
 For a complete development environment with integrated observability using scripts:
 
 **Prerequisites:**
-- Docker
-- Kind (Kubernetes in Docker)
+- Podman
+- Kind (Kubernetes in Podman)
 - kubectl
 - Helm
 
@@ -209,7 +209,7 @@ kubectl logs -f -n noetl -l app=noetl-worker
 ```
 
 **What `redeploy` does:**
-1. Builds Docker image with timestamp tag using `docker/noetl/dev/Dockerfile`
+1. Builds Podman image with timestamp tag using `docker/noetl/dev/Dockerfile`
 2. Loads image into kind cluster using `kind load docker-image`
 3. Applies Kubernetes manifests from `ci/manifests/noetl/`
 4. Restarts deployments and waits for pods to be ready
@@ -349,33 +349,33 @@ NoETL provides scripts for publishing to PyPI:
 
 For more detailed instructions, see the [PyPI Publishing Guide](pypi_manual.md).
 
-## Docker Development
+## Podman Development
 
-### Building the Docker Image
+### Building the Podman Image
 
 ```bash
-# Build the Docker image
-docker build -t noetl:dev .
+# Build the Podman image
+podman build -t noetl:dev .
 
 # Or using Make
 make build
 ```
 
-### Running NoETL in Docker
+### Running NoETL in Podman
 
 ```bash
-# Run the NoETL server in Docker
-docker run -p 8082:8082 noetl:dev
+# Run the NoETL server in Podman
+podman run -p 8082:8082 noetl:dev
 
 # Or using Make
 make up
 ```
 
-### Running Tests in Docker
+### Running Tests in Podman
 
 ```bash
-# Run tests in Docker
-docker run noetl:dev pytest
+# Run tests in Podman
+podman run noetl:dev pytest
 
 # Or using Make
 make test

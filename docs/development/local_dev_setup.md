@@ -7,7 +7,7 @@ Running `python -m noetl.server` locally fails with:
 Server failed: Directory '/Users/.../noetl/core/ui/assets' does not exist
 ```
 
-**Root Cause**: UI assets are only built during Docker image creation, not available for local Python development.
+**Root Cause**: UI assets are only built during Podman image creation, not available for local Python development.
 
 ## Quick Fix
 
@@ -80,7 +80,7 @@ cp target/release/noetl ../bin/noetl
 ### The Question
 > Should we build binaries for all architectures to keep in the repository?
 
-### The Answer: **NO for repo, YES for Docker**
+### The Answer: **NO for repo, YES for Podman**
 
 **DON'T** commit pre-built binaries to git:
 - ❌ Bloats repository size
@@ -88,7 +88,7 @@ cp target/release/noetl ../bin/noetl
 - ❌ Security concerns (binary provenance)
 - ❌ CI/CD can't verify builds
 
-**DO** build multi-arch Docker images:
+**DO** build multi-arch Podman images:
 - ✅ Single image works on amd64 AND arm64
 - ✅ Kubernetes auto-selects correct architecture
 - ✅ Developer flexibility (Mac M-series + Intel/AMD)
@@ -111,7 +111,7 @@ cp target/release/noetl ../bin/noetl
 ./scripts/setup_local_dev.sh  # Builds native architecture
 ```
 
-**Docker/K8s Development**:
+**Podman/K8s Development**:
 ```bash
 # Build multi-arch image (future enhancement)
 noetl build --platforms linux/amd64,linux/arm64
@@ -132,7 +132,7 @@ aarch64    # ARM64 Linux
 
 And builds the appropriate binary without manual intervention.
 
-## Docker Multi-Architecture Strategy
+## Podman Multi-Architecture Strategy
 
 ### Current State
 - Single-architecture builds only
@@ -140,9 +140,9 @@ And builds the appropriate binary without manual intervention.
 - Works but locks image to build host architecture
 
 ### Recommended Enhancement
-- Add Docker Buildx support for multi-arch builds
+- Add Podman Buildx support for multi-arch builds
 - Single manifest supporting both amd64 and arm64
-- Docker/Kubernetes auto-selects correct platform
+- Podman/Kubernetes auto-selects correct platform
 
 ### Implementation
 See [Multi-Architecture Build Strategy](./multi_arch_strategy.md) for complete details.
@@ -159,7 +159,7 @@ See [Multi-Architecture Build Strategy](./multi_arch_strategy.md) for complete d
 **Solution**: Install Node.js or disable UI (server works without UI)
 
 ### "cargo: command not found"
-**Solution**: Install Rust from https://rustup.rs/ or use Docker for development
+**Solution**: Install Rust from https://rustup.rs/ or use Podman for development
 
 ### Missing development tools
 **Solution**: Use the OS-aware tooling playbooks to install all required tools:
@@ -181,7 +181,7 @@ noetl run automation/development/tooling_linux.yaml --set action=install-devtool
 # Setup local development
 ./scripts/setup_local_dev.sh            # Build UI + Rust CLI
 
-# Docker/K8s workflow
+# Podman/K8s workflow
 noetl run automation/setup/bootstrap.yaml          # Complete K8s environment
 noetl build                                        # Build container images
 noetl k8s redeploy                                 # Rebuild and redeploy to K8s

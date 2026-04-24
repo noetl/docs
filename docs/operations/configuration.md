@@ -91,11 +91,11 @@ POSTGRES_PORT=5432
 POSTGRES_DB=noetl
 ```
 
-## Docker and Kubernetes Configuration
+## Podman and Kubernetes Configuration
 
-When running NoETL in Docker or Kubernetes, you can set environment variables in the configuration files:
+When running NoETL in Podman or Kubernetes, you can set environment variables in the configuration files:
 
-### Docker Compose
+### Podman Compose
 
 ```yaml
 services:

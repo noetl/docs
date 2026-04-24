@@ -99,8 +99,8 @@ Test Architecture
 
 ### Prerequisites
 - Python 3.11+
-- Docker & Docker Compose  
-- PostgreSQL (via Docker or local)
+- Podman & Podman Compose  
+- PostgreSQL (via Podman or local)
 - Internet access (for integration tests)
 
 ### Quick Environment Setup

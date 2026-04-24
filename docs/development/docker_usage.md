@@ -1,10 +1,10 @@
-# NoETL Docker Usage Guide
+# NoETL Podman Usage Guide
 
-This guide provides detailed instructions for using NoETL with Docker.
+This guide provides detailed instructions for using NoETL with Podman.
 
 ## Overview
 
-NoETL can be run in Docker containers, which provides several benefits:
+NoETL can be run in Podman containers, which provides several benefits:
 
 - Consistent environment across different platforms
 - Easy deployment
@@ -13,28 +13,28 @@ NoETL can be run in Docker containers, which provides several benefits:
 
 ## Prerequisites
 
-- Docker installed on your system
-- Docker Compose (optional, for multi-container setups)
+- Podman installed on your system
+- Podman Compose (optional, for multi-container setups)
 
 ## Quick Start
 
-### Using the Official Docker Image
+### Using the Official Podman Image
 
-The simplest way to run NoETL in Docker is to use the official Docker image:
+The simplest way to run NoETL in Podman is to use the official Podman image:
 
 ```bash
 # Pull the latest NoETL image
-docker pull noetl/noetl:latest
+podman pull noetl/noetl:latest
 
 # Run the NoETL server
-docker run -p 8082:8082 noetl/noetl:latest
+podman run -p 8082:8082 noetl/noetl:latest
 ```
 
 This will start the NoETL server and expose it on port 8082 of your host machine.
 
 ### Building and Running from Source
 
-If you want to build the Docker image from source:
+If you want to build the Podman image from source:
 
 1. Clone the repository:
    ```bash
@@ -42,83 +42,83 @@ If you want to build the Docker image from source:
    cd noetl
    ```
 
-2. Build the Docker image:
+2. Build the Podman image:
    ```bash
-   docker build -t noetl:local .
+   podman build -t noetl:local .
    ```
 
 3. Run the NoETL server:
    ```bash
-   docker run -p 8082:8082 noetl:local
+   podman run -p 8082:8082 noetl:local
    ```
 
-## Using Docker Compose
+## Using Podman Compose
 
-NoETL provides a Docker Compose configuration that sets up a complete environment with PostgreSQL:
+NoETL provides a Podman Compose configuration that sets up a complete environment with PostgreSQL:
 
 1. Start the containers:
    ```bash
-   docker-compose up
+   podman compose up
    ```
 
 2. Or build and start the containers:
    ```bash
-   docker-compose up --build
+   podman compose up --build
    ```
 
 3. To run in detached mode:
    ```bash
-   docker-compose up -d
+   podman compose up -d
    ```
 
 4. To stop the containers:
    ```bash
-   docker-compose down
+   podman compose down
    ```
 
 ## Using the Makefile
 
-NoETL provides a Makefile with convenient commands for Docker operations:
+NoETL provides a Makefile with convenient commands for Podman operations:
 
 ```bash
-# Build the Docker containers
+# Build the Podman containers
 make build
 
-# Start the Docker containers
+# Start the Podman containers
 make up
 
-# Stop the Docker containers
+# Stop the Podman containers
 make down
 
 # View logs
 make logs
 
-# Run tests in Docker
+# Run tests in Podman
 make test
 ```
 
 ## Accessing the NoETL Server
 
-Once the NoETL server is running in Docker, you can access it at:
+Once the NoETL server is running in Podman, you can access it at:
 
 - Web UI: `http://localhost:8082`
 - API: `http://localhost:8082/api`
 
-## Running Playbooks in Docker
+## Running Playbooks in Podman
 
 ### Using the CLI
 
-You can execute NoETL commands inside the Docker container:
+You can execute NoETL commands inside the Podman container:
 
 ```bash
 # Execute a playbooks directly
-docker exec -it noetl noetl agent -f /path/to/playbooks.yaml
+podman exec -it noetl noetl agent -f /path/to/playbooks.yaml
 
 # Register a playbooks in the catalog
-docker exec -it noetl noetl playbooks --register /path/to/playbooks.yaml
+podman exec -it noetl noetl playbooks --register /path/to/playbooks.yaml
 
 # Execute a playbooks from the catalog
-docker exec -it noetl noetl playbooks --execute --path "workflows/example/playbook"
+podman exec -it noetl noetl playbooks --execute --path "workflows/example/playbook"
 ```
 
 ### Using the API
@@ -148,23 +148,23 @@ curl -X POST "http://localhost:8082/playbook/execute" \
 
 ## Mounting Volumes
 
-You can mount volumes to persist data and share files with the Docker container:
+You can mount volumes to persist data and share files with the Podman container:
 
 ```bash
-docker run -p 8082:8082 \
+podman run -p 8082:8082 \
   -v $(pwd)/playbooks:/app/playbooks \
   -v $(pwd)/data:/app/data \
   noetl/noetl:latest
 ```
 
-This mounts the local `playbooks` and `data` directories to the corresponding directories in the Docker container.
+This mounts the local `playbooks` and `data` directories to the corresponding directories in the Podman container.
 
 ## Environment Variables
 
-You can pass environment variables to the Docker container:
+You can pass environment variables to the Podman container:
 
 ```bash
-docker run -p 8082:8082 \
+podman run -p 8082:8082 \
   -e POSTGRES_HOST=postgres \
   -e POSTGRES_PORT=5432 \
   -e POSTGRES_USER=noetl \
@@ -173,18 +173,18 @@ docker run -p 8082:8082 \
   noetl/noetl:latest
 ```
 
-## Docker Compose Configuration
+## Podman Compose Configuration
 
-The default `docker-compose.yaml` file includes the following services:
+The default `podman compose.yaml` file includes the following services:
 
 - `noetl`: The NoETL server
 - `postgres`: PostgreSQL database for storing playbook data
 
-You can customize the Docker Compose configuration by editing the `docker-compose.yaml` file.
+You can customize the Podman Compose configuration by editing the `podman compose.yaml` file.
 
-## Customizing the Docker Image
+## Customizing the Podman Image
 
-If you need to customize the Docker image, you can create your own Dockerfile based on the official NoETL image:
+If you need to customize the Podman image, you can create your own Dockerfile based on the official NoETL image:
 
 ```dockerfile
 FROM noetl/noetl:latest
@@ -212,7 +212,7 @@ ENTRYPOINT ["noetl", "server"]
 If the container fails to start, check the logs:
 
 ```bash
-docker logs noetl
+podman logs noetl
 ```
 
 ### Cannot Connect to the Server
@@ -220,7 +220,7 @@ docker logs noetl
 If you cannot connect to the NoETL server, check that the port is correctly mapped:
 
 ```bash
-docker ps
+podman ps
 ```
 
 Make sure the container is running and the port mapping is correct (e.g., `0.0.0.0:8082->8082/tcp`).
@@ -231,11 +231,11 @@ If NoETL cannot connect to the PostgreSQL database, check the environment variab
 
 ```bash
 # Check the network
-docker network ls
-docker network inspect noetl_default
+podman network ls
+podman network inspect noetl_default
 
 # Check the PostgreSQL container
-docker logs postgres
+podman logs postgres
 ```
 
 ## Next Steps

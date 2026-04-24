@@ -92,7 +92,7 @@ Features:
 - **Homebrew** (macOS): `brew install noetl`
 - **Crates.io**: `cargo install noetl`
 - **PyPI**: `pip install noetlctl`
-- **Docker**: `docker pull ghcr.io/noetl/noetl:latest`
+- **Podman**: `podman pull ghcr.io/noetl/noetl:latest`
 
 ## Troubleshooting
 

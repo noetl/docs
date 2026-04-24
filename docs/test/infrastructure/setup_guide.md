@@ -17,7 +17,7 @@ NoETL Test Infrastructure
 │   ├── Google Cloud Storage (GCS)
 │   └── Cloud Authentication Services
 └── Development Tools
-    ├── Docker Compose (Local Development)
+    ├── Podman Compose (Local Development)
     ├── Kubernetes (Production-like Testing)
     └── Make Automation (Build & Test)
 ```
@@ -92,13 +92,13 @@ noetl run automation/test/pagination-server.yaml --set action=test
 ```bash
 # Required tools
 - Python 3.11+
-- Docker & Docker Compose
+- Podman & Podman Compose
 - Git
 - Make
 - curl & jq (for API testing)
 
 # Optional tools (recommended)
-- kind (Kubernetes in Docker)
+- kind (Kubernetes in Podman)
 - kubectl (Kubernetes CLI)
 - pgcli (PostgreSQL CLI)
 ```
@@ -115,7 +115,7 @@ make create-venv         # Create virtual environment
 make install-dev         # Install development dependencies
 
 # 3. Start services
-make up                  # Start all services via Docker Compose
+make up                  # Start all services via Podman Compose
 
 # 4. Verify installation
 make status              # Check all service status
@@ -151,11 +151,11 @@ make server-status       # Should return health check
 make postgres-status     # Should show connection success
 ```
 
-### 2. Docker Compose Setup
+### 2. Podman Compose Setup
 
 #### Service Configuration
 ```yaml
-# docker-compose.yaml (key services)
+# podman compose.yaml (key services)
 services:
   postgres:
     image: postgres:15
@@ -176,18 +176,18 @@ services:
       - "8082:8082"
 ```
 
-#### Docker Commands
+#### Podman Commands
 ```bash
 # Start all services
 make up
 
 # Start specific service
-docker-compose up postgres
-docker-compose up noetl-server
+podman compose up postgres
+podman compose up noetl-server
 
 # View logs
-docker-compose logs -f noetl-server
-docker-compose logs -f postgres
+podman compose logs -f noetl-server
+podman compose logs -f postgres
 
 # Reset environment
 make down && make up
@@ -405,7 +405,7 @@ make postgres-query SQL="SELECT * FROM executions LIMIT 5"
 make postgres-status
 
 # View database logs
-docker-compose logs postgres
+podman compose logs postgres
 ```
 
 ### Test Data Management
@@ -458,7 +458,7 @@ jq 'select(.level == "ERROR")' logs/event.json
 ### Performance Monitoring
 ```bash
 # Resource usage
-docker stats                              # Container resources
+podman stats                              # Container resources
 htop                                      # System resources
 iotop                                     # I/O usage
 
@@ -498,7 +498,7 @@ make noetl-restart
 ```bash
 # Symptom: "could not connect to server"
 # Solution: Check PostgreSQL status
-docker-compose ps postgres               # Check container status
+podman compose ps postgres               # Check container status
 make postgres-status                     # Test connection
 make postgres-reset-schema               # Reset if corrupted
 ```
@@ -525,7 +525,7 @@ curl http://localhost:8082/api/credentials # Verify registration
 ```bash
 # Nuclear option: reset everything
 make down                               # Stop all services
-docker system prune -af --volumes      # Clean Docker
+podman system prune -af --volumes      # Clean Podman
 make postgres-reset-schema              # Reset database
 make up                                 # Restart services
 make register-test-credentials          # Re-register credentials
@@ -550,7 +550,7 @@ make worker-restart
 ### Database Optimization
 ```sql
 -- PostgreSQL tuning for tests
--- Add to postgresql.conf or docker environment
+-- Add to postgresql.conf or podman environment
 
 shared_buffers = 256MB
 work_mem = 4MB  

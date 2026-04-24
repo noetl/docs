@@ -94,21 +94,21 @@ noetl run automation/iap/gcp/deploy_gke_stack.yaml \
 This command:
 1. Uploads source code to Cloud Storage
 2. Triggers Cloud Build to compile the Rust binary
-3. Creates a Docker image and pushes to Artifact Registry
+3. Creates a Podman image and pushes to Artifact Registry
 4. Deploys the image to GKE via Helm
 
-### Manual Docker Build
+### Manual Podman Build
 
 ```bash
-# Build the Docker image
-docker build -f Dockerfile.gateway -t noetl-gateway:latest .
+# Build the Podman image
+podman build -f Dockerfile.gateway -t noetl-gateway:latest .
 
 # Tag for Artifact Registry
-docker tag noetl-gateway:latest \
+podman tag noetl-gateway:latest \
   us-central1-docker.pkg.dev/YOUR_PROJECT/noetl/noetl-gateway:latest
 
 # Push to registry
-docker push us-central1-docker.pkg.dev/YOUR_PROJECT/noetl/noetl-gateway:latest
+podman push us-central1-docker.pkg.dev/YOUR_PROJECT/noetl/noetl-gateway:latest
 ```
 
 ## Deploying to GKE

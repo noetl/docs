@@ -162,7 +162,7 @@ MCP server deployment references placeholder image. Users can build from source:
 ```bash
 git clone https://github.com/ClickHouse/mcp-clickhouse.git
 cd mcp-clickhouse
-docker build -t clickhouse/mcp-server:latest .
+podman build -t clickhouse/mcp-server:latest .
 kind load docker-image clickhouse/mcp-server:latest --name noetl-cluster
 ```
 

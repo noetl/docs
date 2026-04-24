@@ -79,7 +79,7 @@ All packages install the same Rust binary named `noetl`.
 - System-wide installation
 - Integration with apt-get workflow
 
-**Build**: Docker-based for cross-platform building from macOS
+**Build**: Podman-based for cross-platform building from macOS
 
 **Release Process**: See [APT Releases](./apt-releases.md)
 
@@ -91,7 +91,7 @@ All packages install the same Rust binary named `noetl`.
 | **Ubuntu/Debian** | APT | Crates.io, PyPI |
 | **Other Linux** | Crates.io | PyPI |
 | **Windows** | PyPI | Crates.io |
-| **CI/CD** | Crates.io | PyPI, Docker |
+| **CI/CD** | Crates.io | PyPI, Podman |
 
 ## Version Synchronization
 
@@ -122,7 +122,7 @@ For a new version (e.g., 2.5.5):
 7. **Update Homebrew**: `./scripts/homebrew_publish.sh 2.5.5`
 8. **Publish to PyPI**: `cd crates/noetlctl && maturin publish`
 
-## Docker-Based Building
+## Podman-Based Building
 
 For developers on macOS or Windows who need to build Linux packages:
 
@@ -135,7 +135,7 @@ Output: `build/deb/noetl_2.5.5-1_amd64.deb`
 
 ### Test Installation
 ```bash
-docker run --rm -v $(pwd)/build/deb:/packages ubuntu:22.04 bash -c '
+podman run --rm -v $(pwd)/build/deb:/packages ubuntu:22.04 bash -c '
   apt-get update && 
   dpkg -i /packages/noetl_2.5.5-1_amd64.deb && 
   noetl --version'
@@ -160,7 +160,7 @@ Located in `scripts/`:
 - `homebrew_publish.sh` - Homebrew formula SHA256 update
 
 Located in `docker/release/`:
-- `build-deb-docker.sh` - Docker-based Debian building
+- `build-deb-docker.sh` - Podman-based Debian building
 - `Dockerfile.deb` - Ubuntu build environment
 
 ## Troubleshooting
@@ -190,10 +190,10 @@ grep 'version' crates/noetlctl/pyproject.toml
 
 ### Build Failures
 
-**Docker build fails on macOS**:
-- Ensure Docker Desktop is running
+**Podman build fails on macOS**:
+- Ensure Podman Desktop is running
 - Check available disk space
-- Try: `docker system prune -a`
+- Try: `podman system prune -a`
 
 **Rust compilation errors**:
 - Update Rust: `rustup update`

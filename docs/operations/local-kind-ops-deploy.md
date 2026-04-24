@@ -11,7 +11,7 @@ This runbook deploys NoETL locally to a `kind` cluster using the `ops` automatio
 
 ## Prerequisites
 
-- Colima is running (instead of Docker Desktop for better performance on M-series Macs)
+- Colima is running (instead of Podman Desktop for better performance on M-series Macs)
 - `kubectl`, `kind`, and `noetl` CLI are installed
 - Repos are present at:
   - `repos/ops`
@@ -19,20 +19,20 @@ This runbook deploys NoETL locally to a `kind` cluster using the `ops` automatio
 
 ## Colima Setup (Recommended for macOS)
 
-Colima is a lightweight container runtime that runs in a VM and is more efficient than Docker Desktop on Apple Silicon Macs. It includes built-in port forwarding for accessing services from your host machine.
+Colima is a lightweight container runtime that runs in a VM and is more efficient than Podman Desktop on Apple Silicon Macs. It includes built-in port forwarding for accessing services from your host machine.
 
 ### 1. Install and start Colima
 
 ```bash
 # Install via Homebrew (if not already installed)
-brew install colima docker kind kubectl
+brew install colima podman kind kubectl
 
 # Start Colima with persistent port forwarding
 colima start
 
 # Verify Colima is running
 colima status
-docker context use colima
+podman context use colima
 ```
 
 ### 2. Configure persistent port forwarding
@@ -102,11 +102,11 @@ Once Colima is running with port forwarding configured, all kind cluster service
 
 ## 1. Create or reset local cluster
 
-**Important**: Ensure Colima is running and docker context is set to `colima`:
+**Important**: Ensure Colima is running and podman context is set to `colima`:
 
 ```bash
 colima status  # Should show "running"
-docker context show  # Should show "colima"
+podman context show  # Should show "colima"
 ```
 
 Create the cluster:

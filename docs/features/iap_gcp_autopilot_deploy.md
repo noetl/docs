@@ -21,7 +21,7 @@ noetl iap init --project mestumre-dev --bucket mestumre-dev-noetl-state
 
 ## Create Artifact Registry Repository
 
-Use the IaP playbook to create a Docker image repository.
+Use the IaP playbook to create a Podman image repository.
 
 ```bash
 noetl iap apply automation/iap/gcp/artifact_registry.yaml \

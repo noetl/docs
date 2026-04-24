@@ -729,7 +729,7 @@ class NoetlClient {
 
 This section describes the Kind Kubernetes cluster setup for local development.
 
-> **Commands Reference:** See [dev-commands.md](../development/dev-commands.md) for all kubectl/docker commands.
+> **Commands Reference:** See [dev-commands.md](../development/dev-commands.md) for all kubectl/podman commands.
 
 ### Cluster Architecture
 
@@ -752,7 +752,7 @@ The Kind cluster runs with the following namespaces:
 
 **Python Code (Hot-Reload)**
 
-Uses ConfigMap-based file mounting to override Python files inside containers without Docker rebuilds. Requires one-time deployment patching to add volume mounts. After editing local files: update ConfigMap, then restart deployments.
+Uses ConfigMap-based file mounting to override Python files inside containers without Podman rebuilds. Requires one-time deployment patching to add volume mounts. After editing local files: update ConfigMap, then restart deployments.
 
 **Gateway UI**
 
@@ -760,7 +760,7 @@ UI files stored in `gateway-ui-files` ConfigMap, served by nginx. Update ConfigM
 
 **Gateway (Rust)**
 
-Requires Docker image rebuild, load into Kind with `kind load docker-image`, then restart deployment.
+Requires Podman image rebuild, load into Kind with `kind load docker-image`, then restart deployment.
 
 **Playbooks**
 

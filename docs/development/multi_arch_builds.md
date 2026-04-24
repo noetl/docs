@@ -6,7 +6,7 @@ sidebar_position: 7
 
 ## Overview
 
-NoETL supports building container images for multiple CPU architectures (amd64, arm64) using Docker Buildx. This enables:
+NoETL supports building container images for multiple CPU architectures (amd64, arm64) using Podman Buildx. This enables:
 - **Development flexibility**: Mac M-series (arm64) and Intel/AMD (amd64) developers
 - **Deployment flexibility**: Deploy to any Kubernetes cluster regardless of node architecture
 - **Cost optimization**: Use cheaper arm64 cloud instances where appropriate
@@ -15,7 +15,7 @@ NoETL supports building container images for multiple CPU architectures (amd64, 
 ## Architecture Components
 
 ### Rust CLI Binary (`noetlctl`)
-The Rust CLI is compiled natively within the Docker build process:
+The Rust CLI is compiled natively within the Podman build process:
 - **Dev image** (`docker/noetl/dev/Dockerfile`): Uses `rust:1.83-slim` builder
 - **Standalone binary** (`noetlctl/Dockerfile`): Uses Alpine with musl static linking
 
@@ -27,14 +27,14 @@ Built once with Node.js (platform-agnostic), copied into final image.
 
 ## Enabling Multi-Architecture Builds
 
-### 1. Setup Docker Buildx
+### 1. Setup Podman Buildx
 
 ```bash
 # Create buildx builder (one-time setup)
-docker buildx create --name noetl-builder --use --bootstrap
+podman buildx create --name noetl-builder --use --bootstrap
 
 # Verify builder supports multiple platforms
-docker buildx inspect noetl-builder
+podman buildx inspect noetl-builder
 ```
 
 ### 2. Update Build Scripts
@@ -59,7 +59,7 @@ done
 
 # Use buildx for multi-arch builds
 if $BUILD_PLATFORMS; then
-    docker buildx build \
+    podman buildx build \
         --platform "${PLATFORMS}" \
         ${BUILD_PROGRESS_ARGS} \
         -t "${REGISTRY}noetl-local-dev:${TAG}" \
@@ -68,7 +68,7 @@ if $BUILD_PLATFORMS; then
         "${REPO_ROOT}"
 else
     # Single-arch build (existing behavior)
-    docker build ${BUILD_PROGRESS_ARGS} \
+    podman build ${BUILD_PROGRESS_ARGS} \
         -t "${REGISTRY}noetl-local-dev:${TAG}" \
         -f "${DOCKER_DIR}/noetl/dev/Dockerfile" \
         "${REPO_ROOT}"
@@ -88,11 +88,11 @@ noetl build --platforms linux/arm64 --push --registry ghcr.io/noetl/
 noetl build
 ```
 
-## Local Development Without Docker
+## Local Development Without Podman
 
 ### Issue: UI Assets Missing
 
-When running `python -m noetl.server` locally (outside Docker), the UI assets directory doesn't exist because it's only built during Docker image creation.
+When running `python -m noetl.server` locally (outside Podman), the UI assets directory doesn't exist because it's only built during Podman image creation.
 
 **Solution 1: Build UI Locally**
 ```bash
@@ -160,7 +160,7 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       
-      - name: Set up Docker Buildx
+      - name: Set up Podman Buildx
         uses: docker/setup-buildx-action@v3
       
       - name: Login to GitHub Container Registry
@@ -184,7 +184,7 @@ jobs:
 ### 1. Verify Image Manifests
 
 ```bash
-docker buildx imagetools inspect ghcr.io/noetl/noetl-local-dev:latest
+podman buildx imagetools inspect ghcr.io/noetl/noetl-local-dev:latest
 ```
 
 Expected output shows both architectures:
@@ -200,10 +200,10 @@ Platforms:
 
 ```bash
 # Pull and run amd64 image on any platform
-docker run --platform linux/amd64 ghcr.io/noetl/noetl-local-dev:latest server start
+podman run --platform linux/amd64 ghcr.io/noetl/noetl-local-dev:latest server start
 
 # Pull and run arm64 image on any platform
-docker run --platform linux/arm64 ghcr.io/noetl/noetl-local-dev:latest server start
+podman run --platform linux/arm64 ghcr.io/noetl/noetl-local-dev:latest server start
 ```
 
 ### 3. Kubernetes Deployment
@@ -250,7 +250,7 @@ RUN cross build --release --target aarch64-unknown-linux-gnu
 **Solution**: Rebuild for correct architecture or use multi-arch image
 
 ### QEMU emulation slow
-**Cause**: Emulating foreign architecture in Docker  
+**Cause**: Emulating foreign architecture in Podman  
 **Solution**: Use native builders or cross-compilation
 
 ### Kind cluster architecture mismatch
@@ -270,4 +270,4 @@ RUN cross build --release --target aarch64-unknown-linux-gnu
 
 - [Rust CLI Migration](./rust_cli_migration)
 - [PyPI Rust Bundling](./pypi_rust_bundling)
-- [Docker Usage](/docs/development/docker_usage)
+- [Podman Usage](/docs/development/docker_usage)

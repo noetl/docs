@@ -20,7 +20,7 @@ noetl run automation/setup/bootstrap.yaml
 # Destroy environment
 noetl run automation/setup/destroy.yaml
 
-# Build Docker image
+# Build Podman image
 noetl build
 
 # Deploy to Kubernetes
@@ -36,10 +36,10 @@ noetl run automation/setup/bootstrap.yaml
 ```
 
 Performs complete K8s environment setup:
-1. Verify dependencies (Docker, kubectl, kind)
+1. Verify dependencies (Podman, kubectl, kind)
 2. Check ports availability (54321, 3000, 9428, 8082)
 3. Build noetlctl Rust CLI
-4. Build NoETL Docker image
+4. Build NoETL Podman image
 5. Create kind Kubernetes cluster
 6. Load image into kind
 7. Deploy PostgreSQL
@@ -67,7 +67,7 @@ noetl run automation/setup/destroy.yaml
 
 Cleans up all resources:
 1. Delete kind cluster
-2. Clean Docker resources
+2. Clean Podman resources
 3. Clear cache directories
 4. Clear NoETL data and logs
 
@@ -210,7 +210,7 @@ Control all observability services (ClickHouse, Qdrant, NATS) together:
 
 ## Development Commands
 
-### Docker
+### Podman
 
 | Action | Command |
 |--------|---------|
@@ -250,7 +250,7 @@ Control all observability services (ClickHouse, Qdrant, NATS) together:
 |--------|---------|
 | Install base | `noetl run automation/development/tooling_linux.yaml --set action=install-base` |
 | Install dev tools | `noetl run automation/development/tooling_linux.yaml --set action=install-devtools` |
-| Fix Docker perms | `noetl run automation/development/tooling_linux.yaml --set action=fix-docker-perms` |
+| Fix Podman perms | `noetl run automation/development/tooling_linux.yaml --set action=fix-docker-perms` |
 
 ## Test Commands
 
@@ -324,7 +324,7 @@ The `noetl` Rust CLI provides direct commands:
 
 | Command | Description |
 |---------|-------------|
-| `noetl build` | Build Docker image |
+| `noetl build` | Build Podman image |
 | `noetl build --no-cache` | Build without cache |
 
 ### Kubernetes Commands
@@ -409,7 +409,7 @@ automation/
 ├── deployment/
 │   └── noetl-stack.yaml          # NoETL service deployment
 ├── development/
-│   ├── docker.yaml               # Docker operations
+│   ├── docker.yaml               # Podman operations
 │   ├── noetl.yaml                # NoETL development workflow
 │   ├── setup_tooling.yaml        # OS-aware tooling setup
 │   ├── tooling_macos.yaml        # macOS tools (Homebrew)

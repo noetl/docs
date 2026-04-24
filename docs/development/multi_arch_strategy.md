@@ -4,13 +4,13 @@
 
 NoETL has a Rust CLI binary (`noetlctl`) that needs to work across:
 - **Local development**: Mac (arm64/amd64), Linux (amd64/arm64), Windows
-- **Docker containers**: Linux (amd64/arm64)
+- **Podman containers**: Linux (amd64/arm64)
 - **Kubernetes clusters**: Any node architecture
 
 Currently:
 - Single-architecture builds only
 - Mac developers can't run locally without building UI assets
-- Docker images locked to build host architecture
+- Podman images locked to build host architecture
 
 ## Recommendation: YES - Implement Multi-Architecture Support
 
@@ -19,7 +19,7 @@ Currently:
 1. **Development Flexibility**
    - Mac M-series developers need arm64 binaries locally
    - Intel Mac/Linux developers need amd64 binaries
-   - Single Docker image works everywhere
+   - Single Podman image works everywhere
 
 2. **Production Flexibility**
    - Deploy to any Kubernetes cluster (amd64 or arm64 nodes)
@@ -103,7 +103,7 @@ Add GitHub Actions workflow for automated multi-arch builds:
 ## Architecture-Specific Considerations
 
 ### Rust Cross-Compilation
-Current approach uses native compilation within Docker (slow under emulation).
+Current approach uses native compilation within Podman (slow under emulation).
 
 **Optimization**: Use `cross-rs` for faster builds:
 ```dockerfile
@@ -149,16 +149,16 @@ Platform-agnostic - build once, copy to both images.
    ./bin/noetl server start
    ```
 
-2. **Docker single-arch**:
+2. **Podman single-arch**:
    ```bash
    noetl build
-   docker run noetl-local-dev:latest server start
+   podman run noetl-local-dev:latest server start
    ```
 
-3. **Docker multi-arch**:
+3. **Podman multi-arch**:
    ```bash
-   docker buildx build --platform linux/amd64,linux/arm64 ...
-   docker buildx imagetools inspect noetl-local-dev:latest
+   podman buildx build --platform linux/amd64,linux/arm64 ...
+   podman buildx imagetools inspect noetl-local-dev:latest
    ```
 
 4. **Kubernetes deployment**:
@@ -169,6 +169,6 @@ Platform-agnostic - build once, copy to both images.
 
 ## References
 
-- [Docker Buildx Documentation](https://docs.docker.com/buildx/working-with-buildx/)
+- [Podman Buildx Documentation](https://docs.docker.com/buildx/working-with-buildx/)
 - [Rust Cross-Compilation](https://rust-lang.github.io/rustup/cross-compilation.html)
 - [GitHub Actions Multi-Arch](https://docs.github.com/en/actions/publishing-packages/publishing-docker-images#publishing-images-to-github-packages)

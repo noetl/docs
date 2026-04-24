@@ -31,7 +31,7 @@ gcloud auth activate-service-account –key-file=.secrets/noetl-demo.json
 
 ## 3. Application Default Credentials (ADC)
 
-Some tools (Python SDKs, Docker containers, etc.) use ADC, which is set separately from `gcloud auth login`.
+Some tools (Python SDKs, Podman containers, etc.) use ADC, which is set separately from `gcloud auth login`.
 
 ### A. Set ADC to Service Account
 ```bash

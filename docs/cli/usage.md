@@ -26,7 +26,7 @@ The main command is `noetl`, which provides:
 - `noetl iap` - Infrastructure as Playbook commands
 - `noetl db` - Database management commands
 - `noetl k8s` - Kubernetes deployment commands
-- `noetl build` - Build Docker images
+- `noetl build` - Build Podman images
 
 ## Quick Start
 
@@ -517,7 +517,7 @@ noetl k8s remove
 ## Build Commands
 
 ```bash
-# Build Docker image
+# Build Podman image
 noetl build
 
 # Build without cache

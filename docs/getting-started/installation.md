@@ -66,7 +66,7 @@ For production deployments, NoETL runs as a Kubernetes service with PostgreSQL b
 
 ### Prerequisites
 
-- Docker
+- Podman
 - kubectl
 - Helm 3.x
 - Kind (for local development)
@@ -109,7 +109,7 @@ noetl run automation/development/setup_tooling.yaml --set action=validate-instal
 - **macOS**: `automation/development/tooling_macos.yaml` (uses Homebrew)
 - **Linux/WSL2**: `automation/development/tooling_linux.yaml` (uses apt-get)
 
-**Tools installed:** docker, kind, kubectl, helm, jq, yq, pyenv, uv, tfenv, psql
+**Tools installed:** podman, kind, kubectl, helm, jq, yq, pyenv, uv, tfenv, psql
 
 **Optional**: Deploy VictoriaMetrics monitoring stack:
 

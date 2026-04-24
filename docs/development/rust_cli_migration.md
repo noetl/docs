@@ -36,7 +36,7 @@ NoETL uses a hybrid architecture where a Rust binary (fast, native) handles CLI 
 
 ## Deployment Targets
 
-### 1. Docker Containers
+### 1. Podman Containers
 
 **Multi-Stage Build** (`docker/noetl/dev/Dockerfile`):
 
@@ -76,7 +76,7 @@ CMD ["python", "-m", "noetl.server"]
 
 **Platform Support:**
 
-The CLI supports building Docker images for different platforms via the `--platform` argument:
+The CLI supports building Podman images for different platforms via the `--platform` argument:
 
 ```bash
 # Build for Linux AMD64 (default, for Kubernetes/Kind)
@@ -92,14 +92,14 @@ The CLI supports building Docker images for different platforms via the `--platf
 ```
 
 **Why This Matters:**
-- **Mac Silicon (M1/M2/M3)**: Docker Desktop defaults to `linux/arm64` but Kubernetes Kind clusters run `linux/amd64`
+- **Mac Silicon (M1/M2/M3)**: Podman Desktop defaults to `linux/arm64` but Kubernetes Kind clusters run `linux/amd64`
 - **Cross-Compilation**: Building for the wrong platform causes containers to fail silently or OOMKill in K8s
-- **Local Testing**: Use `linux/arm64` for faster local Docker runs on Mac Silicon
+- **Local Testing**: Use `linux/arm64` for faster local Podman runs on Mac Silicon
 - **Production**: Always use `linux/amd64` for Kubernetes deployments
 
 **Default Behavior:**
 - All build commands default to `linux/amd64` for Kind/K8s compatibility
-- On Mac Silicon, this triggers Docker's cross-compilation (slower but correct)
+- On Mac Silicon, this triggers Podman's cross-compilation (slower but correct)
 - Override with `--platform` flag when needed for local-only images
 
 ### 2. Kubernetes
@@ -288,7 +288,7 @@ async def run_v2_worker(worker_id, nats_url, server_url):
 
 ### Build Commands
 
-**Docker Build** (Rust):
+**Podman Build** (Rust):
 ```rust
 async fn build_docker_image(no_cache: bool) -> Result<()> {
     let tag = format!("local/noetl:{}", timestamp());
@@ -326,7 +326,7 @@ async fn k8s_deploy() -> Result<()> {
 
 ## Migration History
 
-### Phase 1: Docker & Kubernetes (Complete)
+### Phase 1: Podman & Kubernetes (Complete)
 **Commit**: `58ab80f3`
 
 - Updated Dockerfile to Rust 1.83 with multi-stage build
@@ -336,7 +336,7 @@ async fn k8s_deploy() -> Result<()> {
 - Added kind load to k8s deploy
 - Renamed all references: noetlctl → noetl
 
-**Result**: Rust CLI in Docker and Kubernetes
+**Result**: Rust CLI in Podman and Kubernetes
 
 ### Phase 2: PyPI Bundling (Complete)
 **Commit**: `059a2d35`
@@ -462,7 +462,7 @@ kubectl logs -n noetl deployment/noetl-worker
 kubectl describe pod -n noetl -l app=noetl-worker
 ```
 
-### Docker build fails
+### Podman build fails
 ```bash
 ./bin/noetl build --no-cache
 cd noetlctl && cargo update
@@ -477,20 +477,20 @@ noetl 2.1.2
 real    0m0.012s
 ```
 
-**Docker Build Time**:
+**Podman Build Time**:
 - First build: ~6 minutes
 - Incremental: ~30 seconds (with cache)
 
 **Binary Distribution**:
 - Rust binary: 5.5 MB
 - Python wheel: 12.3 MB (with binary)
-- Docker image: 450 MB (compressed)
+- Podman image: 450 MB (compressed)
 
 ## References
 
 ### Internal Documentation
 - [PyPI Bundling](./pypi_rust_bundling)
-- [Docker Usage](/docs/development/docker_usage)
+- [Podman Usage](/docs/development/docker_usage)
 - [Kubernetes Deployment](/docs/development/kind_kubernetes)
 
 ### External Resources
@@ -499,7 +499,7 @@ real    0m0.012s
 - [sysinfo](https://docs.rs/sysinfo/) - Process management
 
 ### Related Commits
-- `58ab80f3` - Phase 1: Docker & K8s
+- `58ab80f3` - Phase 1: Podman & K8s
 - `213cd01e` - Documentation updates
 - `24e8266d` - AI instructions
 - `059a2d35` - Phase 2: PyPI bundling

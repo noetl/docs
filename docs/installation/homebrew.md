@@ -61,7 +61,7 @@ cp target/release/noetl /usr/local/bin/
 - **PyPI**: `pip install noetlctl` (Python-based distribution)
 - **Crates.io**: `cargo install noetl` (Rust-based distribution)
 - **APT**: `sudo apt-get install noetl` (Ubuntu/Debian)
-- **Docker**: `docker pull ghcr.io/noetl/noetl:latest`
+- **Podman**: `podman pull ghcr.io/noetl/noetl:latest`
 - **Manual**: Download binaries from [GitHub Releases](https://github.com/noetl/noetl/releases)
 
 ## Next Steps

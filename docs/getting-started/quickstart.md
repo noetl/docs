@@ -39,7 +39,7 @@ noetl --version
 - `noetl server start/stop` - Manage NoETL server
 - `noetl worker start/stop` - Manage workers
 - `noetl db init/validate` - Database management
-- `noetl build` - Build Docker images
+- `noetl build` - Build Podman images
 - `noetl k8s deploy/redeploy/reset` - Kubernetes deployment
 - `noetl register playbook` - Register playbooks
 - `noetl run <reference>` - Execute playbooks (local or distributed)
@@ -83,12 +83,12 @@ noetl run automation/development/tooling_macos.yaml --set action=install-devtool
 noetl run automation/development/tooling_linux.yaml --set action=install-devtools
 ```
 
-**Tools installed:** git, curl, jq, docker, kind, kubectl, helm, pyenv, uv, tfenv
+**Tools installed:** git, curl, jq, podman, kind, kubectl, helm, pyenv, uv, tfenv
 
 **What `noetl run boot` does:**
-1. Validates prerequisites (docker, kind, kubectl, helm, python3, uv)
+1. Validates prerequisites (podman, kind, kubectl, helm, python3, uv)
 2. Checks for existing Rust CLI binary (`target/release/noetl`) - builds only if missing
-3. Builds NoETL Docker images
+3. Builds NoETL Podman images
 4. Creates Kind Kubernetes cluster with pre-configured NodePort mappings
 5. Deploys PostgreSQL database
 6. Deploys NoETL server (control plane) and workers (data plane)

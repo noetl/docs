@@ -148,16 +148,16 @@ export NOETL_BASE_URL=http://localhost:8082
 export NATS_URL=nats://127.0.0.1:4222
 ```
 
-## Docker
+## Podman
 
 Build:
 ```bash
-docker build -t noetl/gateway:dev -f crates/gateway/Dockerfile .
+podman build -t noetl/gateway:dev -f crates/gateway/Dockerfile .
 ```
 
 Run:
 ```bash
-docker run --rm -p 8090:8090 \
+podman run --rm -p 8090:8090 \
   -e NOETL_BASE_URL=http://host.docker.internal:8082 \
   -e NATS_URL=nats://host.docker.internal:4222 \
   noetl/gateway:dev

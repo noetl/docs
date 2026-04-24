@@ -44,7 +44,7 @@ The Rust Worker Pool is a high-performance worker implementation that executes w
 ### Prerequisites
 
 - Rust 1.75+ (install via [rustup](https://rustup.rs/))
-- Docker (for containerized dependencies)
+- Podman (for containerized dependencies)
 - NATS Server (for message queue)
 
 ### Building from Source
@@ -71,13 +71,13 @@ cargo test -p worker-pool
 
 ```bash
 # Start NATS with JetStream
-docker run -d --name nats \
+podman run -d --name nats \
   -p 4222:4222 \
   -p 8222:8222 \
   nats:latest -js
 
 # Start PostgreSQL (optional, for postgres tool)
-docker run -d --name postgres \
+podman run -d --name postgres \
   -e POSTGRES_PASSWORD=demo \
   -e POSTGRES_USER=noetl \
   -e POSTGRES_DB=noetl \
@@ -139,7 +139,7 @@ cargo fmt --all
 - [kind](https://kind.sigs.k8s.io/) installed
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) configured
 - [helm](https://helm.sh/docs/intro/install/) v3+
-- Docker running
+- Podman running
 
 ### Setup Kind Cluster
 
@@ -175,13 +175,13 @@ kubectl cluster-info
 
 ```bash
 # Build the worker-pool image
-docker build -f crates/worker-pool/Dockerfile -t noetl-worker-pool:latest .
+podman build -f crates/worker-pool/Dockerfile -t noetl-worker-pool:latest .
 
 # Load into kind cluster
 kind load docker-image noetl-worker-pool:latest
 
 # Build and load NoETL server image (if needed)
-docker build -f docker/noetl/pip/Dockerfile -t noetl:latest .
+podman build -f docker/noetl/pip/Dockerfile -t noetl:latest .
 kind load docker-image noetl:latest
 ```
 
@@ -278,11 +278,11 @@ gcloud config set project $PROJECT_ID
 
 # Create Artifact Registry repository
 gcloud artifacts repositories create noetl \
-  --repository-format=docker \
+  --repository-format=podman \
   --location=$REGION \
   --description="NoETL container images"
 
-# Configure Docker authentication
+# Configure Podman authentication
 gcloud auth configure-docker ${REGION}-docker.pkg.dev
 
 # Create GKE Autopilot cluster (recommended)
@@ -307,20 +307,20 @@ gcloud container clusters create $CLUSTER_NAME \
 export REGISTRY=${REGION}-docker.pkg.dev/${PROJECT_ID}/noetl
 
 # Build worker-pool
-docker build -f crates/worker-pool/Dockerfile \
+podman build -f crates/worker-pool/Dockerfile \
   -t ${REGISTRY}/noetl-worker-pool:latest \
   -t ${REGISTRY}/noetl-worker-pool:$(git rev-parse --short HEAD) \
   .
 
 # Push to Artifact Registry
-docker push ${REGISTRY}/noetl-worker-pool:latest
-docker push ${REGISTRY}/noetl-worker-pool:$(git rev-parse --short HEAD)
+podman push ${REGISTRY}/noetl-worker-pool:latest
+podman push ${REGISTRY}/noetl-worker-pool:$(git rev-parse --short HEAD)
 
 # Build and push NoETL server
-docker build -f docker/noetl/pip/Dockerfile \
+podman build -f docker/noetl/pip/Dockerfile \
   -t ${REGISTRY}/noetl:latest \
   .
-docker push ${REGISTRY}/noetl:latest
+podman push ${REGISTRY}/noetl:latest
 ```
 
 #### Using Playbook for Build/Push

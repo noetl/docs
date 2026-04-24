@@ -80,7 +80,7 @@ python -m noetl.worker
 
 ✅ **Recommended for:**
 - Kubernetes deployments
-- Docker containers
+- Podman containers
 - CI/CD pipelines
 - Production environments
 - Any containerized/orchestrated environment
@@ -105,7 +105,7 @@ command: ["python"]
 args: ["-m", "noetl.worker"]
 ```
 
-**Docker:**
+**Podman:**
 ```dockerfile
 CMD ["python", "-m", "noetl.server", "--host", "0.0.0.0", "--port", "8082"]
 ```
@@ -134,9 +134,9 @@ python -m noetl.worker
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│              Kubernetes / Docker / Production                │
+│              Kubernetes / Podman / Production                │
 ├─────────────────────────────────────────────────────────────┤
-│  K8s/Docker manages process lifecycle                       │
+│  K8s/Podman manages process lifecycle                       │
 │      ↓                                                       │
 │  python -m noetl.server  ←── Direct execution               │
 │  python -m noetl.worker  ←── No wrapper                     │
@@ -183,8 +183,8 @@ def main():
 
 **Status**: ✅ Works on all architectures (amd64, arm64)
 
-- Docker images run Python directly
-- No Rust binary compilation in Docker
+- Podman images run Python directly
+- No Rust binary compilation in Podman
 - QEMU emulation not needed
 - Reliable cross-platform operation
 
@@ -193,7 +193,7 @@ def main():
 If you need Rust CLI in containers:
 
 1. **Build separately**: Use `scripts/build_rust_multiarch.sh`
-2. **Copy into Docker**: Pre-compiled binaries for each platform
+2. **Copy into Podman**: Pre-compiled binaries for each platform
 3. **Optional**: Rust binary available but not required
 
 ```dockerfile
@@ -203,7 +203,7 @@ COPY noetlctl/target/x86_64-unknown-linux-gnu/release/noetl /usr/local/bin/noetl
 COPY noetlctl/target/aarch64-unknown-linux-gnu/release/noetl /usr/local/bin/noetl || true
 ```
 
-**Important**: Do NOT compile Rust inside Docker builds - it causes QEMU emulation issues on ARM Macs.
+**Important**: Do NOT compile Rust inside Podman builds - it causes QEMU emulation issues on ARM Macs.
 
 ## Environment Variables
 
@@ -270,7 +270,7 @@ Both approaches are equivalent - use noetlctl for convenience, or REST API for a
 |------------|------------|--------|-----|
 | Local Mac/Linux | noetlctl | `./bin/noetl server start` | Convenient, PID management |
 | Kubernetes | Python direct | `python -m noetl.server` | K8s manages processes |
-| Docker | Python direct | `CMD ["python", "-m", "noetl.server"]` | Container lifecycle |
+| Podman | Python direct | `CMD ["python", "-m", "noetl.server"]` | Container lifecycle |
 | CI/CD | Python direct | `python -m noetl.server` | Simpler, portable |
 | Windows | noetlctl | `noetl.exe server start` | Native Windows binary |
 

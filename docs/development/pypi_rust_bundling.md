@@ -212,7 +212,7 @@ cannot execute binary file: Exec format error
 
 ### Phase 1: Binary Integration (Completed)
 - ✅ Rust CLI implemented (`noetlctl/src/main.rs`)
-- ✅ Docker multi-stage build with Rust compilation
+- ✅ Podman multi-stage build with Rust compilation
 - ✅ Kubernetes deployments using `noetl` binary
 - ✅ Local development workflow with `./bin/noetl`
 

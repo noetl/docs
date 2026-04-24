@@ -25,7 +25,7 @@ NoETL provides playbook-based infrastructure provisioning for GCP, allowing you 
 2. **gcloud CLI** installed and authenticated
 3. **kubectl** installed
 4. **Helm** installed (v3+)
-5. **Docker** installed (for building images)
+5. **Podman** installed (for building images)
 6. **NoETL CLI** installed
 
 ### Authenticate with GCP
@@ -110,7 +110,7 @@ This automatically builds and pushes:
 - NoETL server (Python) - uses `E2_HIGHCPU_8` machine
 - Gateway (Rust) - uses `E2_HIGHCPU_32` machine for faster compilation
 
-#### Option B: Local Docker Build
+#### Option B: Local Podman Build
 
 If you're on an AMD64 machine or prefer local builds:
 
@@ -133,7 +133,7 @@ noetl run automation/iap/gcp/deploy_gke_stack.yaml \
 #### Manual Build (if needed)
 
 ```bash
-# Configure Docker for Artifact Registry
+# Configure Podman for Artifact Registry
 gcloud auth configure-docker us-central1-docker.pkg.dev
 
 # Set environment variables
@@ -149,11 +149,11 @@ GKE Autopilot runs AMD64 nodes. When building locally on ARM Mac (M1/M2/M3), you
 
 ```bash
 # For Python images (fast locally)
-docker build --platform linux/amd64 -t ${REGISTRY}/noetl:${TAG} \
+podman build --platform linux/amd64 -t ${REGISTRY}/noetl:${TAG} \
   -f docker/noetl/pip/Dockerfile \
   --build-arg NOETL_VERSION=latest \
   .
-docker push ${REGISTRY}/noetl:${TAG}
+podman push ${REGISTRY}/noetl:${TAG}
 
 # For Rust images (use Cloud Build - much faster!)
 gcloud builds submit --project $PROJECT_ID \
@@ -167,17 +167,17 @@ gcloud builds submit --project $PROJECT_ID \
 
 ```bash
 # Build from PyPI Dockerfile
-docker build --platform linux/amd64 -t ${REGISTRY}/noetl:${TAG} \
+podman build --platform linux/amd64 -t ${REGISTRY}/noetl:${TAG} \
   -f docker/noetl/pip/Dockerfile \
   --build-arg NOETL_VERSION=latest \
   .
 
 # Push to Artifact Registry
-docker push ${REGISTRY}/noetl:${TAG}
+podman push ${REGISTRY}/noetl:${TAG}
 
 # Also tag as latest
-docker tag ${REGISTRY}/noetl:${TAG} ${REGISTRY}/noetl:latest
-docker push ${REGISTRY}/noetl:latest
+podman tag ${REGISTRY}/noetl:${TAG} ${REGISTRY}/noetl:latest
+podman push ${REGISTRY}/noetl:latest
 ```
 
 ##### Build Gateway (Rust) - Recommended: Cloud Build
@@ -190,11 +190,11 @@ gcloud builds submit --project $PROJECT_ID \
   --machine-type=e2-highcpu-32 \
   -f crates/gateway/Dockerfile .
 
-# Or local Docker (slow on ARM Mac)
-docker build --platform linux/amd64 -t ${REGISTRY}/noetl-gateway:${TAG} \
+# Or local Podman (slow on ARM Mac)
+podman build --platform linux/amd64 -t ${REGISTRY}/noetl-gateway:${TAG} \
   -f crates/gateway/Dockerfile \
   .
-docker push ${REGISTRY}/noetl-gateway:${TAG}
+podman push ${REGISTRY}/noetl-gateway:${TAG}
 ```
 
 ##### Build Worker Pool (Rust) - Optional
@@ -265,11 +265,11 @@ noetl run automation/iap/gcp/gke_autopilot.yaml \
 | `deploy_gateway` | `true` | Deploy Gateway |
 | `init_noetl_schema` | `true` | Initialize NoETL PostgreSQL schema |
 
-### Docker Build Configuration
+### Podman Build Configuration
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `docker_platform` | `linux/amd64` | Target platform for Docker builds |
+| `docker_platform` | `linux/amd64` | Target platform for Podman builds |
 | `noetl_image_tag` | `latest` | Tag for NoETL server image |
 | `gateway_image_tag` | `latest` | Tag for Gateway image |
 | `worker_image_tag` | `latest` | Tag for Worker Pool image |
@@ -442,9 +442,9 @@ This error indicates an architecture mismatch (ARM64 image on AMD64 cluster).
 kubectl logs -n noetl deploy/noetl-server 2>&1 | head -5
 
 # If you see "exec format error", rebuild with correct platform:
-docker build --platform linux/amd64 -t ${REGISTRY}/noetl:${TAG} \
+podman build --platform linux/amd64 -t ${REGISTRY}/noetl:${TAG} \
   -f docker/noetl/pip/Dockerfile .
-docker push ${REGISTRY}/noetl:${TAG}
+podman push ${REGISTRY}/noetl:${TAG}
 
 # Update deployment to use new tag
 kubectl set image deployment/noetl-server noetl=${REGISTRY}/noetl:${TAG} -n noetl
