@@ -246,7 +246,9 @@ The pagination server provides:
 
 ## Local GUI (Direct API, No Gateway)
 
-Use `automation/development/gui.yaml` from `repos/ops` to deploy the standalone GUI in local kind, wired directly to the NoETL API (`http://localhost:8082`) without gateway proxying.
+Use `automation/development/gui.yaml` from `repos/ops` to deploy the standalone GUI in local kind, wired directly to the NoETL API without gateway proxying.
+
+The GUI now uses runtime env injection (`/env-config.js`) at container startup, so you can change API/auth variables with `action=deploy` (or Helm upgrade) without rebuilding the image.
 
 ### Default direct mode
 
@@ -260,11 +262,12 @@ noetl run automation/development/gui.yaml --runtime local --set action=redeploy
 The playbook accepts these variables:
 
 - `api_mode` (default: `direct`)
-- `api_base_url` (default: `http://localhost:8082`)
+- `api_base_url` (default: `http://722-2.local:8082`)
 - `allow_skip_auth` (default: `true`)
 - `image_repository` (default: `localhost/local/noetl-gui`)
 - `gui_namespace` (default: `gui`)
-- `gui_service_type` (default: `ClusterIP`)
+- `gui_service_type` (default: `NodePort`)
+- `gui_node_port` (default: `30081`)
 
 Example with explicit overrides:
 
@@ -273,9 +276,20 @@ cd repos/ops
 noetl run automation/development/gui.yaml --runtime local \
    --set action=redeploy \
    --set api_mode=direct \
-   --set api_base_url=http://localhost:8082 \
+   --set api_base_url=http://722-2.local:8082 \
    --set allow_skip_auth=true \
    --set gui_namespace=gui
+```
+
+Change only runtime env (no rebuild required):
+
+```bash
+cd repos/ops
+noetl run automation/development/gui.yaml --runtime local \
+   --set action=deploy \
+   --set api_base_url=http://722-2.local:8082 \
+   --set gui_service_type=NodePort \
+   --set gui_node_port=30081
 ```
 
 ### Check status and access
@@ -287,6 +301,9 @@ noetl run automation/development/gui.yaml --runtime local --set action=status
 # Optional local access
 kubectl -n gui port-forward svc/gui 8080:80
 # open http://localhost:8080
+
+# Local network access (from another machine)
+# open http://722-2.local:38081
 ```
 
 ## Output Visibility
