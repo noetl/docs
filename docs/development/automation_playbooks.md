@@ -244,6 +244,51 @@ The pagination server provides:
 - **Cursor-based**: `http://localhost:30555/api/v1/events`
 - **Retry testing**: `http://localhost:30555/api/v1/flaky`
 
+## Local GUI (Direct API, No Gateway)
+
+Use `automation/development/gui.yaml` from `repos/ops` to deploy the standalone GUI in local kind, wired directly to the NoETL API (`http://localhost:8082`) without gateway proxying.
+
+### Default direct mode
+
+```bash
+cd repos/ops
+noetl run automation/development/gui.yaml --runtime local --set action=redeploy
+```
+
+### Direct API variables
+
+The playbook accepts these variables:
+
+- `api_mode` (default: `direct`)
+- `api_base_url` (default: `http://localhost:8082`)
+- `allow_skip_auth` (default: `true`)
+- `image_repository` (default: `localhost/local/noetl-gui`)
+- `gui_namespace` (default: `gui`)
+- `gui_service_type` (default: `ClusterIP`)
+
+Example with explicit overrides:
+
+```bash
+cd repos/ops
+noetl run automation/development/gui.yaml --runtime local \
+   --set action=redeploy \
+   --set api_mode=direct \
+   --set api_base_url=http://localhost:8082 \
+   --set allow_skip_auth=true \
+   --set gui_namespace=gui
+```
+
+### Check status and access
+
+```bash
+cd repos/ops
+noetl run automation/development/gui.yaml --runtime local --set action=status
+
+# Optional local access
+kubectl -n gui port-forward svc/gui 8080:80
+# open http://localhost:8080
+```
+
 ## Output Visibility
 
 All playbook output is visible by default. Use `--verbose` for extra debug information:
