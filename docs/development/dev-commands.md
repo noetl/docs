@@ -2,6 +2,12 @@
 
 Quick reference for common development tasks in the Kind cluster.
 
+## Related Playbook Guide
+
+For standalone GUI deployment in local kind with direct NoETL API mode (no gateway), see:
+
+- [Automation Playbooks: Local GUI (Direct API, No Gateway)](./automation_playbooks.md#local-gui-direct-api-no-gateway)
+
 ## Hot-Reload Python Code
 
 ### Initial Setup (One-time)
