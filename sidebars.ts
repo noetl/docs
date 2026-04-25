@@ -201,6 +201,7 @@ const sidebars: SidebarsConfig = {
       label: 'GUI',
       items: [
         'gui',
+        'gui/terminal-console',
         'gui/custom-ui-gateway',
       ],
     },
