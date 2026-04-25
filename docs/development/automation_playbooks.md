@@ -97,8 +97,8 @@ or set the values in your own wrapper playbook so they are always passed during 
 ## Bootstrap Workflow
 
 Complete K8s environment setup including:
-- Prerequisite validation (noetl, podman, kind, kubectl, task, python3, uv)
-- Podman image building (Python server/worker image)
+- Prerequisite validation (noetl, podman, kind, kubectl, python3, uv)
+- Container image building (Python server/worker image)
 - Kind cluster creation
 - Image loading to cluster
 - PostgreSQL deployment
@@ -149,14 +149,14 @@ noetl run automation/development/tooling_linux.yaml --set action=install-devtool
 
 ### Steps
 
-1. **validate_prerequisites** - Check required tools (podman, kind, kubectl, task, python3, uv)
-2. **check_docker_running** - Verify Podman daemon is running
+1. **validate_prerequisites** - Check required tools (podman, kind, kubectl, python3, uv)
+2. **check_container_runtime** - Verify Podman machine/container runtime is available
 3. **check_existing_cluster** - Check for existing kind cluster
 4. **maybe_build_rust_cli** - Check for `target/release/noetl` binary:
    - If binary exists: skip build (saves compilation time)
    - If binary missing: build automatically
    - Use `--set build_rust_cli=true` to force rebuild
-5. **build_docker_images** - Build NoETL Python container
+5. **build_images** - Build NoETL Python container image
 6. **check_port_conflicts** - Verify required ports are available
 7. **create_kind_cluster** - Create K8s cluster (configurable via `kind_config`)
 8. **load_image_to_kind** - Load image to cluster
@@ -197,7 +197,7 @@ noetl run automation/setup/destroy.yaml
 ### Steps
 
 1. **delete_cluster** - Delete kind cluster
-2. **cleanup_docker** - Prune Podman resources
+2. **cleanup_container_runtime** - Prune local container resources
 3. **clear_cache** - Clear cache directories
 4. **clear_noetl_data** - Remove data directories
 
@@ -721,7 +721,7 @@ noetl run automation/development/tooling_linux.yaml --set action=fix-docker-perm
 - `setup` - Validate required tooling
 - `validate-install` - Validate required tools are installed
 - `validate-devtools` - Validate optional dev tools
-- `validate-docker` - Validate Podman Desktop integration
+- `validate-docker` - Validate container runtime compatibility (legacy action name)
 
 **Installation (Base):**
 - `install-base` - Install basic CLI tools (git, curl, jq, make, python3, etc.)
@@ -733,7 +733,7 @@ noetl run automation/development/tooling_linux.yaml --set action=fix-docker-perm
 
 **Configuration:**
 - `ensure-path` - Ensure tool paths in shell config (~/.zshrc on macOS, ~/.bashrc on Linux)
-- `fix-docker-perms` - (Linux/WSL2 only) Add user to podman group
+- `fix-docker-perms` - (Linux/WSL2 only) Legacy action name for container socket permissions
 
 ### NoETL Development Deployment
 
@@ -747,7 +747,7 @@ noetl run automation/development/noetl.yaml --set action=help
 noetl run automation/development/noetl.yaml --set action=redeploy
 
 # Individual actions
-noetl run automation/development/noetl.yaml --set action=build    # Build Podman image
+noetl run automation/development/noetl.yaml --set action=build    # Build container image (Podman)
 noetl run automation/development/noetl.yaml --set action=load     # Load image into kind
 noetl run automation/development/noetl.yaml --set action=deploy   # Deploy to Kubernetes
 noetl run automation/development/noetl.yaml --set action=status   # Show pod/service status
@@ -757,8 +757,8 @@ noetl run automation/development/noetl.yaml --set action=status   # Show pod/ser
 
 | Action | Description |
 |--------|-------------|
-| `build` | Build NoETL Podman image with timestamp tag |
-| `load` | Load Podman image into kind cluster |
+| `build` | Build NoETL container image with timestamp tag |
+| `load` | Load image into kind cluster |
 | `deploy` | Deploy NoETL server and workers to Kubernetes |
 | `redeploy` | Full cycle: build → load → deploy (recommended for dev) |
 | `status` | Show NoETL pod and service status |
@@ -767,7 +767,7 @@ noetl run automation/development/noetl.yaml --set action=status   # Show pod/ser
 **Workflow Details:**
 
 1. **Build** (`action=build`)
-   - Builds Podman image using `docker/noetl/dev/Dockerfile`
+   - Builds container image using `docker/noetl/dev/Dockerfile`
    - Tags image with timestamp: `local/noetl:YYYY-MM-DD-HH-MM`
    - Saves tag to `.noetl_last_build_tag.txt` for subsequent steps
 
@@ -803,21 +803,21 @@ kubectl logs -f -n noetl -l app=noetl-worker
 
 **Prerequisites:**
 - Kind cluster must be running (`kind get clusters` shows `noetl`)
-- Podman daemon must be running
+- Podman machine must be running
 - kubectl configured for kind-noetl context
 
-### Podman Operations
+### Container Runtime Operations
 
-Manage Podman image building and cleanup:
+Manage local container image building and cleanup:
 
 ```bash
 # Build NoETL image
 noetl run automation/development/docker.yaml --set action=build
 
-# Check Podman status
+# Check container runtime status
 noetl run automation/development/docker.yaml --set action=status
 
-# Cleanup all Podman resources
+# Cleanup all container resources
 noetl run automation/development/docker.yaml --set action=cleanup-all
 
 # Clear all images
@@ -825,14 +825,15 @@ noetl run automation/development/docker.yaml --set action=images-clear
 ```
 
 **Build Actions:**
-- `build` - Build NoETL Podman image
-- `noetl-image-build` - Build noetl container with podman 
+- `build` - Build NoETL container image
+- `noetl-image-build` - Build NoETL container image
+
 **Cleanup Actions:**
-- `cleanup-all` - Clean all podman resources (builders, images, volumes)
-- `images-clear` - Clear all podman images
+- `cleanup-all` - Clean all local container resources (builders, images, volumes)
+- `images-clear` - Clear all local container images
 
 **Status:**
-- `status` - Check Podman status with version, images, containers, disk usage
+- `status` - Check container runtime status with version, images, containers, disk usage
 
 ## Best Practices
 
@@ -885,7 +886,7 @@ noetl run automation/setup/bootstrap.yaml --set build_rust_cli=true --set deploy
 ### Bootstrap Fails
 
 1. Check prerequisites: `noetl run automation/setup/bootstrap.yaml --set target=validate -v`
-2. Verify Podman running: `podman ps`
+2. Verify container runtime running: `podman ps`
 3. Check existing cluster: `kind get clusters`
 4. View detailed output: Add `-v` flag for verbose output
 
@@ -943,7 +944,7 @@ automation/
 │   ├── postgres.yaml             # PostgreSQL deployment
 │   └── qdrant.yaml               # Qdrant vector database
 ├── development/
-│   ├── docker.yaml               # Podman operations
+│   ├── docker.yaml               # Local container operations (legacy file name)
 │   ├── setup_tooling.yaml        # OS-aware tooling setup (auto-detects OS)
 │   ├── tooling_macos.yaml        # Dev tools for macOS (Homebrew)
 │   └── tooling_linux.yaml        # Dev tools for Linux/WSL2 (apt-get)
@@ -955,5 +956,5 @@ automation/
 
 - See [Local Development Setup](./local_dev_setup.md) for manual setup instructions
 - See [Kind Kubernetes](./kind_kubernetes.md) for cluster management
-- See [Podman Usage](./docker_usage.md) for container workflows
+- See [Local Container Usage (Podman + NoETL Playbooks)](./docker_usage.md) for container workflows
 - See [Testing Guide](../test/README.md) for test infrastructure details

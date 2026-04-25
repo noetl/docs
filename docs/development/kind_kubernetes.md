@@ -1,19 +1,18 @@
-# Kind (Kubernetes in Podman)
+# Kind (Local Kubernetes)
 - [Kind default page](https://kind.sigs.k8s.io/)
 - [Kind GitHub](https://github.com/kubernetes-sigs/kind)
 - [Kind Documentation](https://kind.sigs.k8s.io/docs/)
 - [Kind Cheat Sheet](https://kind.sigs.k8s.io/docs/user/cheatsheet/)
-- [Kind with Podman](https://kind.sigs.k8s.io/docs/user/quick-start/#podman)
-- [Kind rootless provider notes](https://kind.sigs.k8s.io/docs/user/rootless/)
+- [Kind Quick Start](https://kind.sigs.k8s.io/docs/user/quick-start/)
 
 This guide should get you started with Kind and basic Kubernetes operations.
 ## What is Kind?
-Kind is a tool for running local Kubernetes clusters using Podman containers as nodes. It's designed primarily for testing Kubernetes itself, but it's also used for local development and CI/CD pipelines.
+Kind is a tool for running local Kubernetes clusters using container-based nodes. It is commonly used for local development and CI pipelines.
 
 ## Prerequisites
 - **Homebrew**: macOS package manager
-- **Podman**: Kind requires Podman to be installed and running
-- **Kind**: Kubernetes in Podman
+- **Podman**: Local container runtime
+- **Kind**: Local Kubernetes
 - **kubectl**: Kubernetes command-line tool
 - **kubectx and kubens**: for easier context and namespace switching
 
@@ -23,20 +22,21 @@ If you don't have Podman installed:
 
 **On macOS:**
 ``` bash
-brew install podman 
-# Or install Podman Desktop from the official Podman releases page
+brew install podman
+
+# Initialize and start the machine (recommended name)
+podman machine init --cpus 4 --memory 8192 --disk-size 200 --rootful noetl-dev
+podman machine start noetl-dev
 ```
 
 **On Linux (Ubuntu/Debian):**
 ``` bash
 sudo apt update
-sudo apt install -y podman
-sudo systemctl enable --now podman
-sudo usermod -aG podman $USER  # Add user to podman group
+sudo apt install podman
 ```
 
 **On Windows:**
-- Install Podman Desktop from the official Podman releases page
+- Install Podman Desktop and initialize a Podman machine
 
 ### 2. Install Kind
 **Using Homebrew (macOS/Linux):**
@@ -273,7 +273,7 @@ kind get clusters
 # Delete a cluster
 kind delete cluster --name cluster
 
-# Load Podman image into cluster
+# Load image into cluster
 kind load docker-image <image-name>:tag --name <cluster-name>
 
 # Get cluster kubeconfig
@@ -353,8 +353,8 @@ noetl run automation/development/noetl.yaml --set action=status
 
 | Action | Description |
 |--------|-------------|
-| `build` | Build NoETL Podman image with timestamp tag |
-| `load` | Load Podman image into kind cluster |
+| `build` | Build NoETL container image with timestamp tag |
+| `load` | Load image into kind cluster |
 | `deploy` | Deploy NoETL server and workers to Kubernetes |
 | `redeploy` | Full cycle: build → load → deploy (recommended for dev) |
 | `status` | Show NoETL pod and service status |
@@ -377,120 +377,6 @@ kubectl logs -f -n noetl -l app=noetl-worker
 
 For detailed playbook documentation, see [Automation Playbooks](./automation_playbooks.md#noetl-development-deployment).
 
-### Method 2: Unified Platform Script
+### Legacy Note
 
-For a complete development environment with integrated observability:
-
-```bash
-# Clone NoETL repository
-git clone https://github.com/noetl/noetl.git
-cd noetl
-
-# Deploy unified platform
-make unified-deploy
-
-# OR: Complete recreation from scratch
-make unified-recreate-all
-
-# OR: Direct script usage
-./k8s/deploy-unified-platform.sh
-```
-
-### What Gets Deployed
-
-**Unified Architecture:**
-- **Namespace**: `noetl-platform` (all NoETL components)
-- **Namespace**: `postgres` (database)
-
-**Components:**
-- NoETL server (http://localhost:30082)
-- 3 Worker pools (cpu-01, cpu-02, gpu-01)
-- PostgreSQL database with schema
-- Grafana dashboard (http://localhost:3000, admin/admin)
-- VictoriaMetrics (http://localhost:8428/vmui/)
-- VictoriaLogs (http://localhost:9428)
-- Vector for log/metrics collection
-
-### Benefits of Unified Deployment
-
-1. **Simplified Management**: All components in one namespace
-2. **Better Service Discovery**: Direct pod-to-pod communication
-3. **Unified Observability**: Everything monitored together
-4. **Resource Efficiency**: Reduced namespace overhead
-
-### Deployment Options
-
-**Makefile Commands (Recommended):**
-```bash
-# Complete unified deployment
-make unified-deploy
-
-# Complete recreation from scratch  
-make unified-recreate-all
-
-# Health checking
-make unified-health-check
-
-# Port forwarding management
-make unified-port-forward-start
-make unified-port-forward-status
-make unified-port-forward-stop
-
-# Get credentials
-make unified-grafana-credentials
-
-# View all commands
-make help
-```
-
-**Direct Script Usage:**
-```bash
-# Basic unified deployment
-./k8s/deploy-unified-platform.sh
-
-# Complete recreation
-./k8s/recreate-all.sh
-
-# Health check
-./k8s/health-check.sh
-
-# Skip certain components
-./k8s/deploy-unified-platform.sh --no-observability
-./k8s/deploy-unified-platform.sh --no-postgres
-
-# Use existing cluster
-./k8s/deploy-unified-platform.sh --no-cluster
-
-# Custom namespace
-./k8s/deploy-unified-platform.sh --namespace my-platform
-```
-
-### Monitoring and Debugging
-
-```bash
-# Check all pods
-kubectl get pods -n noetl-platform
-
-# Check services
-kubectl get services -n noetl-platform
-
-# View NoETL server logs
-kubectl logs -n noetl-platform -l app=noetl
-
-# View worker logs
-kubectl logs -n noetl-platform -l component=worker
-
-# Port-forward to Grafana
-kubectl port-forward -n noetl-platform service/vmstack-grafana 3000:80
-```
-
-### Cleanup
-
-```bash
-# Delete entire cluster
-kind delete cluster --name noetl-cluster
-
-# Or just delete NoETL components
-kubectl delete namespace noetl-platform
-kubectl delete namespace postgres
-```
+Older docs referenced Make-based unified scripts. Current local development should use NoETL playbooks from automation/development and automation/infrastructure, as shown above.

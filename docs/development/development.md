@@ -6,8 +6,9 @@ This guide provides information about setting up a development environment for N
 
 - Python 3.11+ (3.12 recommended)
 - Git
-- Make (optional, for using the Makefile)
-- Podman (optional, for containerized development)
+- Podman (for containerized local Kubernetes workflows)
+- kind and kubectl
+- noetl CLI
 
 ## Setting Up a Development Environment
 
@@ -17,7 +18,7 @@ Use NoETL automation playbooks for a streamlined Kubernetes development workflow
 
 **Prerequisites:**
 - Podman
-- Kind (Kubernetes in Podman)
+- Kind
 - kubectl
 - NoETL CLI (`noetl` binary)
 
@@ -52,7 +53,7 @@ kubectl logs -f -n noetl -l app=noetl-worker
 
 | Action | Description |
 |--------|-------------|
-| `build` | Build NoETL Podman image |
+| `build` | Build NoETL container image |
 | `load` | Load image into kind cluster |
 | `deploy` | Deploy to Kubernetes |
 | `redeploy` | Full cycle: build → load → deploy |
@@ -60,56 +61,7 @@ kubectl logs -f -n noetl -l app=noetl-worker
 
 For detailed playbook documentation, see [Automation Playbooks](./automation_playbooks.md#noetl-development-deployment).
 
-### Option 2: Unified Platform Script
-
-For a complete development environment with integrated observability using scripts:
-
-**Prerequisites:**
-- Podman
-- Kind (Kubernetes in Podman)
-- kubectl
-- Helm
-
-```bash
-# Clone repository
-git clone https://github.com/noetl/noetl.git
-cd noetl
-
-# Deploy complete platform
-make unified-deploy
-
-# OR: Complete recreation from scratch
-make unified-recreate-all
-
-# Check platform health
-make unified-health-check
-
-# View all available commands
-make help
-```
-
-**Services Available:**
-- NoETL Server: http://localhost:30082 (API & UI)
-- Grafana: http://localhost:3000 (admin/admin)
-- VictoriaMetrics: http://localhost:8428/vmui/
-- VictoriaLogs: http://localhost:9428
-- MinIO Object Storage: http://localhost:9000 (Console: :9001) - see [MinIO Guide](minio.md)
-
-**Management Commands:**
-```bash
-# Port forwarding
-make unified-port-forward-start
-make unified-port-forward-status
-make unified-port-forward-stop
-
-# Get credentials
-make unified-grafana-credentials
-
-# Clean up
-kind delete cluster --name noetl-cluster
-```
-
-### Option 3: Local Python Development
+### Option 2: Local Python Development
 
 #### 1. Clone the Repository
 
@@ -119,19 +71,6 @@ cd noetl
 ```
 
 #### 2. Create a Virtual Environment
-
-#### Using Make
-
-```bash
-# Install uv package manager
-make install-uv
-
-# Create a virtual environment
-make create-venv
-
-# Activate the virtual environment
-source .venv/bin/activate
-```
 
 #### Manually
 
@@ -155,10 +94,6 @@ uv pip install -e ".[dev]"
 #### 3. Install Dependencies
 
 ```bash
-# Using Make
-make install
-
-# Or manually
 uv pip install -e ".[dev]"
 ```
 
@@ -209,34 +144,10 @@ kubectl logs -f -n noetl -l app=noetl-worker
 ```
 
 **What `redeploy` does:**
-1. Builds Podman image with timestamp tag using `docker/noetl/dev/Dockerfile`
+1. Builds container image with timestamp tag using `docker/noetl/dev/Dockerfile`
 2. Loads image into kind cluster using `kind load docker-image`
 3. Applies Kubernetes manifests from `ci/manifests/noetl/`
 4. Restarts deployments and waits for pods to be ready
-
-### Unified Platform Development (Alternative)
-
-For full observability stack:
-
-```bash
-# Deploy/redeploy the complete platform
-make unified-deploy
-
-# Complete recreation for clean state
-make unified-recreate-all
-
-# Check platform health after changes
-make unified-health-check
-
-# View logs
-kubectl logs -f -n noetl-platform -l app=noetl,component=server
-kubectl logs -f -n noetl-platform -l app=noetl-worker,component=worker
-
-# Access services
-# NoETL API: http://localhost:30082/api/health
-# Grafana: http://localhost:3000 (admin/admin)
-# Metrics: http://localhost:8428/vmui/
-```
 
 ### Local Python Development
 
@@ -251,9 +162,6 @@ pytest --cov=noetl
 
 # Run specific tests
 pytest tests/test_agent.py
-
-# Using Make
-make test
 ```
 
 #### Running the Server Locally
@@ -261,18 +169,12 @@ make test
 ```bash
 # Run the server in development mode
 noetl server --reload
-
-# Or using Make
-make run
 ```
 
 ### Building the Package
 
 ```bash
 # Build the package
-make build-package
-
-# Or manually
 python -m build
 ```
 
@@ -282,9 +184,6 @@ NoETL follows the PEP 8 style guide. You can check your code style using:
 
 ```bash
 # Check code style
-make lint
-
-# Or manually
 flake8 noetl tests
 ```
 
@@ -312,9 +211,6 @@ flake8 noetl tests
 
 ```bash
 # Build the package
-make build-package
-
-# Or manually
 python -m build
 ```
 
@@ -349,36 +245,13 @@ NoETL provides scripts for publishing to PyPI:
 
 For more detailed instructions, see the [PyPI Publishing Guide](pypi_manual.md).
 
-## Podman Development
+## Container Build (Optional)
 
-### Building the Podman Image
-
-```bash
-# Build the Podman image
-podman build -t noetl:dev .
-
-# Or using Make
-make build
-```
-
-### Running NoETL in Podman
+For local image debugging outside playbooks:
 
 ```bash
-# Run the NoETL server in Podman
-podman run -p 8082:8082 noetl:dev
-
-# Or using Make
-make up
-```
-
-### Running Tests in Podman
-
-```bash
-# Run tests in Podman
-podman run noetl:dev pytest
-
-# Or using Make
-make test
+podman build --platform linux/arm64 -t local/noetl:dev -f docker/noetl/dev/Dockerfile .
+kind load docker-image local/noetl:dev --name noetl
 ```
 
 ## Debugging

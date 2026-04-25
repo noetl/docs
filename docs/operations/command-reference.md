@@ -210,7 +210,7 @@ Control all observability services (ClickHouse, Qdrant, NATS) together:
 
 ## Development Commands
 
-### Podman
+### Container Runtime
 
 | Action | Command |
 |--------|---------|
@@ -250,7 +250,7 @@ Control all observability services (ClickHouse, Qdrant, NATS) together:
 |--------|---------|
 | Install base | `noetl run automation/development/tooling_linux.yaml --set action=install-base` |
 | Install dev tools | `noetl run automation/development/tooling_linux.yaml --set action=install-devtools` |
-| Fix Podman perms | `noetl run automation/development/tooling_linux.yaml --set action=fix-docker-perms` |
+| Fix container socket perms | `noetl run automation/development/tooling_linux.yaml --set action=fix-docker-perms` |
 
 ## Test Commands
 
@@ -324,7 +324,7 @@ The `noetl` Rust CLI provides direct commands:
 
 | Command | Description |
 |---------|-------------|
-| `noetl build` | Build Podman image |
+| `noetl build` | Build container image |
 | `noetl build --no-cache` | Build without cache |
 
 ### Kubernetes Commands
@@ -409,7 +409,7 @@ automation/
 ├── deployment/
 │   └── noetl-stack.yaml          # NoETL service deployment
 ├── development/
-│   ├── docker.yaml               # Podman operations
+│   ├── docker.yaml               # Local container operations (legacy file name)
 │   ├── noetl.yaml                # NoETL development workflow
 │   ├── setup_tooling.yaml        # OS-aware tooling setup
 │   ├── tooling_macos.yaml        # macOS tools (Homebrew)

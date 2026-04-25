@@ -11,81 +11,44 @@ This runbook deploys NoETL locally to a `kind` cluster using the `ops` automatio
 
 ## Prerequisites
 
-- Colima is running (instead of Podman Desktop for better performance on M-series Macs)
+- Podman machine is running (recommended: noetl-dev)
 - `kubectl`, `kind`, and `noetl` CLI are installed
 - Repos are present at:
   - `repos/ops`
   - `repos/noetl`
 
-## Colima Setup (Recommended for macOS)
+## Podman Setup (Recommended for macOS)
 
-Colima is a lightweight container runtime that runs in a VM and is more efficient than Podman Desktop on Apple Silicon Macs. It includes built-in port forwarding for accessing services from your host machine.
+Podman provides the local container runtime used by the development playbooks.
 
-### 1. Install and start Colima
+### 1. Install and start Podman machine
 
 ```bash
 # Install via Homebrew (if not already installed)
-brew install colima podman kind kubectl
+brew install podman kind kubectl
 
-# Start Colima with persistent port forwarding
-colima start
+# Initialize and start podman machine (one-time init)
+podman machine init --cpus 4 --memory 8192 --disk-size 200 --rootful noetl-dev
+podman machine start noetl-dev
 
-# Verify Colima is running
-colima status
-podman context use colima
+# Verify Podman machine is running
+podman machine list
 ```
 
-### 2. Configure persistent port forwarding
+### 2. Validate kind host port mappings
 
-Colima port forwarding is configured in `~/.colima/default/colima.yaml`. The file has been pre-configured with all necessary ports from the kind cluster configuration:
+kind port mappings are defined in repos/ops/ci/kind/config.yaml and are applied when creating the cluster.
 
-```yaml
-# ~/.colima/default/colima.yaml
-forwards:
-  - guestPort: 8082
-    hostPort: 8082      # NoETL API
-  - guestPort: 54321
-    hostPort: 54321     # PostgreSQL
-  - guestPort: 32422
-    hostPort: 32422     # NATS Client
-  - guestPort: 32822
-    hostPort: 32822     # NATS Monitoring
-  - guestPort: 33000
-    hostPort: 33000     # Grafana
-  - guestPort: 39428
-    hostPort: 39428     # VictoriaLogs
-  - guestPort: 30123
-    hostPort: 30123     # ClickHouse HTTP
-  - guestPort: 30900
-    hostPort: 30900     # ClickHouse Native
-  - guestPort: 30633
-    hostPort: 30633     # Qdrant HTTP
-  - guestPort: 30634
-    hostPort: 30634     # Qdrant gRPC
-  - guestPort: 32888
-    hostPort: 32888     # Superset
-  - guestPort: 32999
-    hostPort: 32999     # JupyterLab
-  - guestPort: 32555
-    hostPort: 32555     # Pagination Test
-  - guestPort: 15000
-    hostPort: 15000     # IBKR Gateway
-  - guestPort: 38090
-    hostPort: 38090     # Gateway API
-  - guestPort: 38080
-    hostPort: 38080     # Gateway UI
-```
-
-After updating the config, restart Colima:
+If you change mappings, recreate cluster:
 
 ```bash
-colima stop
-colima start --force-restart
+kind delete cluster --name noetl || true
+kind create cluster --name noetl --config repos/ops/ci/kind/config.yaml
 ```
 
 ### 3. Access services from your host machine
 
-Once Colima is running with port forwarding configured, all kind cluster services are accessible via these host ports:
+With kind cluster mappings applied, services are accessible from host ports:
 
 | Service | Host Port | Access URL |
 |---------|-----------|------------|
@@ -96,17 +59,16 @@ Once Colima is running with port forwarding configured, all kind cluster service
 | Grafana | 33000 | `http://localhost:33000` |
 | Gateway UI | 38080 | `http://localhost:38080` |
 
-**Note**: The kind cluster's `extraPortMappings` in `ci/kind/config.yaml` map container ports (30082, 30321, etc.) to host ports (8082, 54321, etc.). Colima's port forwarding then maps these host ports within the VM to your macOS machine.
+**Note**: The kind cluster's `extraPortMappings` in `ci/kind/config.yaml` map container ports (30082, 30321, etc.) directly to host ports (8082, 54321, etc.).
 
 ---
 
 ## 1. Create or reset local cluster
 
-**Important**: Ensure Colima is running and podman context is set to `colima`:
+**Important**: Ensure Podman machine is running:
 
 ```bash
-colima status  # Should show "running"
-podman context show  # Should show "colima"
+podman machine list  # noetl-dev should be running
 ```
 
 Create the cluster:
