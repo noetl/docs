@@ -1,12 +1,46 @@
 ---
 sidebar_position: 7
 title: Agent Orchestration with NoETL
-description: Using NoETL as a registry and orchestrator for AI agents
+description: Using NoETL as a distributed business operating system for agentic playbooks
 ---
 
 # Agent Orchestration with NoETL
 
-NoETL can serve as both a **registry** and **orchestrator** for AI agents, where each agent is defined as a NoETL playbook. This page explains why the mapping is natural, what it looks like in practice, and what needs to be built.
+NoETL can serve as both a **registry** and **orchestrator** for AI agents, where each agent is defined as a NoETL playbook. More broadly, NoETL is evolving toward a distributed business operating system: a shell, catalog, scheduler, execution fabric, event log, and observability plane for business tasks described in the NoETL DSL.
+
+The analogy is intentional. A distributed operating system presents many networked nodes as one coherent system. NoETL applies the same idea to business execution: many playbooks, workers, credentials, AI tools, APIs, and Kubernetes resources appear to users as one programmable workspace for running work.
+
+---
+
+## NoETL as a Distributed Business Operating System
+
+In NoETL, the "process" is a playbook execution. The "program" is a DSL playbook. The "shell" is the CLI, GUI prompt, API, or scheduler that launches work. The "kernel services" are catalog registration, dispatch, credentials, event sourcing, execution projections, and worker coordination.
+
+| Distributed OS Concept | NoETL Business OS Equivalent |
+|---|---|
+| Single system image | One catalog and prompt surface across server, workers, schedules, and APIs |
+| Process management | Playbook execution, status, cancellation, rerun, and supervision |
+| Inter-process communication | NATS subjects, nested playbooks, event streams, and result references |
+| Resource management | Kubernetes workers, credentials, external systems, storage, and AI models |
+| Transparency | Users run `noetl` tasks without manually choosing every worker or service |
+| Reliability | Event sourcing in `noetl.event`, command projection in `noetl.command`, and execution projection in `noetl.execution` |
+| Scheduling | Cron, event-driven triggers, external API calls, and user prompt commands |
+| Observability | Execution dashboard, event detail, diagnostics, reports, and AI-assisted analysis |
+
+NoETL does not replace Kubernetes. Kubernetes is the substrate for container scheduling and cluster operations. NoETL sits above it as the domain operating layer for business work: discovering tasks, binding credentials, invoking tools, coordinating AI agents, and explaining what happened.
+
+### The NoETL Prompt
+
+The NoETL prompt is the interactive shell for that workspace:
+
+```text
+noetl@kind:/execution$ run fixtures/playbooks/hello_world
+noetl@kind:/execution$ executions failed
+noetl@kind:/execution$ report 612955956145554347
+noetl@kind:/execution$ fix 612955956145554347
+```
+
+The prompt should always show the active context, such as local kind, a server API, or a gateway-backed environment. Over time it becomes the primary operating interface for users and agents to run playbooks, inspect status, retrieve reports, schedule work, and repair failed executions.
 
 ---
 
