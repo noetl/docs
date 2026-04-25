@@ -19,6 +19,10 @@ The context name tells the user which NoETL server or local API is currently in 
 |---|---|
 | `help` | Show the supported console commands. |
 | `context` | Show the active NoETL runtime mode, API base URL, and skip-auth setting. |
+| `menu` | Show clickable GUI navigation targets. |
+| `ls` | List the current workspace options, including views and contextual commands. |
+| `cd <view>` | Navigate to a view such as `catalog`, `editor`, `execution`, `credentials`, `travel`, or `users`. |
+| `open <view\|execution_id>` | Open a view or execution detail page. |
 | `status` | Call the NoETL health endpoint and print the current server status. |
 | `playbooks [query]` | List registered playbooks, optionally filtered by path, name, or description. |
 | `catalog [query]` | Alias for `playbooks`. |
@@ -31,6 +35,26 @@ The context name tells the user which NoETL server or local API is currently in 
 | `rerun <execution_id> [payload]` | Rerun a previous execution, optionally with replacement workload. |
 | `stop <execution_id>` | Request cancellation/stop for a running execution. |
 | `clear` | Clear the console history. |
+
+## Clickable Results
+
+Console output can include clickable actions. For example:
+
+- `menu` returns clickable view targets.
+- `ls` returns view targets plus useful contextual commands.
+- `playbooks` returns runnable playbook actions.
+- `executions` returns actions to open or report on recent executions.
+
+These actions keep the terminal-like workflow fast while preserving the regular GUI navigation and full page views.
+
+## Navigation Examples
+
+```text
+noetl@kind:/execution$ menu
+noetl@kind:/execution$ cd editor
+noetl@kind:/editor$ open execution
+noetl@kind:/execution$ open 612955956145554347
+```
 
 ## Payloads
 
