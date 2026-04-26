@@ -35,7 +35,7 @@ Both windows can be hidden and shown. Hiding the console leaves the current view
 | `menu` | Show clickable GUI navigation targets. |
 | `ls` | List the current workspace options, including views and contextual commands. |
 | `cd <view>` | Navigate to a view such as `catalog`, `editor`, `execution`, `credentials`, `travel`, or `users`. |
-| `open <view\|execution_id>` | Open a view or execution detail page. |
+| `open <view&#124;execution_id>` | Open a view or execution detail page. |
 | `status` | Call the NoETL health endpoint and print the current server status. |
 | `playbooks [query]` | List registered playbooks, optionally filtered by path, name, or description. |
 | `catalog [query]` | Alias for `playbooks`. |
