@@ -5,13 +5,26 @@ description: NoETL GUI prompt commands for catalog discovery, execution, diagnos
 
 # Terminal Console
 
-The NoETL GUI includes a terminal-style console at the top of the authenticated app. The prompt shows the active runtime context and current view:
+The NoETL GUI uses a terminal-style console as the primary navigation surface at the top of the authenticated app. The prompt shows the active runtime context and current view:
 
 ```text
 noetl@kind:/execution$
 ```
 
 The context name tells the user which NoETL server or local API is currently in use. In local development, `kind` usually means the GUI is talking directly to the NoETL API running in the local kind cluster.
+
+The console replaces the traditional horizontal menu, but the regular dashboard/page views remain available in the lower view window. Users can navigate through commands, clickable console results, or route-specific page actions.
+
+## Windows
+
+The UI is split into two terminal-like windows:
+
+| Window | Purpose |
+|---|---|
+| Console window | Navigation, commands, execution launch, reports, and diagnostics. |
+| View window | The regular GUI page for catalog, editor, execution observability, credentials, travel, or users. |
+
+Both windows can be hidden and shown. Hiding the console leaves the current view open; hiding the view leaves the console available as a command-only workspace.
 
 ## Command Reference
 
@@ -46,6 +59,8 @@ Console output can include clickable actions. For example:
 - `executions` returns actions to open or report on recent executions.
 
 These actions keep the terminal-like workflow fast while preserving the regular GUI navigation and full page views.
+
+Console output rows can also be closed. Longer outputs expose compact/expanded controls so users can keep only the useful command history visible.
 
 ## Navigation Examples
 
