@@ -302,6 +302,8 @@ workflow:
 
 The GUI terminal can translate `k8s pods noetl` into a normal `/execute` request for this playbook with `resource_kind: "agent"`. The Kubernetes MCP server is then called by the worker, and every activity is tracked as NoETL execution state: `noetl.event` is the event log, `noetl.command` is the worker command projection, and `noetl.execution` is the execution-state projection.
 
+For local deployment, the Kubernetes MCP server is installed by the ops playbook `automation/development/mcp_kubernetes.yaml`, and the runtime agent is registered from `automation/agents/kubernetes/runtime.yaml`. The GUI then exposes it as a scoped workspace such as `/mcp/kubernetes`, where commands like `pods noetl` still become auditable NoETL executions. See [Kubernetes MCP Local Kind Setup](../operations/kubernetes-mcp-local-kind.md) for the end-to-end runbook.
+
 ---
 
 ## How This Connects to ai-meta

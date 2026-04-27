@@ -94,6 +94,8 @@ The GUI terminal can map commands such as `k8s pods noetl` to a playbook invocat
 
 This makes each terminal action a NoETL execution process with status, events, rerun support, and reports.
 
+For local Kubernetes setup, use the ops playbook `automation/development/mcp_kubernetes.yaml` to deploy the MCP server and register `automation/agents/kubernetes/runtime.yaml` as an `agent` catalog resource. See [Kubernetes MCP Local Kind Setup](../../operations/kubernetes-mcp-local-kind.md) for the full runbook.
+
 ## Catalog Registration
 
 Agent playbooks should still use `kind: Playbook` inside YAML so the DSL parser can execute them, but they can be registered in the catalog with resource kind `agent`:
