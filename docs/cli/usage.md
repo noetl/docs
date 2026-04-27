@@ -472,16 +472,22 @@ noetl register playbook --directory tests/fixtures/playbooks
 
 # Register credentials
 noetl register credential --file credentials/postgres.json
+
+# Register an executable agent playbook
+noetl catalog register automation/agents/kubernetes/runtime.yaml --resource-type agent
 ```
 
 ### Querying Catalog
 
 ```bash
 # List playbooks
-noetl catalog list Playbook
+noetl catalog list playbook
+
+# List agent playbooks
+noetl catalog list agent
 
 # List credentials
-noetl catalog list Credential --json
+noetl catalog list credential --json
 
 # Get specific resource
 noetl catalog get my-playbook

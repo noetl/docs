@@ -6,7 +6,7 @@ description: NoETL Gateway - API gateway for authentication and GraphQL proxy
 
 # NoETL Gateway
 
-The NoETL Gateway is a Rust-based API gateway that provides authentication, authorization, and GraphQL proxy capabilities for the NoETL platform.
+The NoETL Gateway is a Rust-based API gateway that provides authentication, authorization, GraphQL compatibility, and authenticated REST proxy access to the NoETL platform.
 
 :::info Source Code
 For development documentation, local setup, and code details, see the [Gateway Crate README](https://github.com/noetl/noetl/blob/master/crates/gateway/README.md).
@@ -54,9 +54,31 @@ Gateway Request → Check NATS K/V → Cache Hit? → Use cached session (sub-ms
 - **Auth0 Integration**: OAuth2/OIDC authentication via Auth0 Universal Login
 - **Session Caching**: Fast session lookups via NATS K/V cache
 - **Session Management**: Session tokens managed via NoETL playbooks (PostgreSQL source of truth)
-- **GraphQL Proxy**: Authenticated access to NoETL's GraphQL API
+- **GraphQL Compatibility**: Authenticated `executePlaybook` and proxy helpers for clients that prefer GraphQL
+- **REST Proxy**: Canonical `/noetl/*` forwarding to NoETL server `/api/*`
 - **CORS Support**: Configurable cross-origin resource sharing
 - **Stateless Design**: No direct database connections
+
+## Agent and MCP Execution
+
+Gateway does not call MCP servers directly. It authenticates the client and forwards canonical execution requests to NoETL:
+
+```http
+POST /noetl/execute
+{
+  "path": "automation/agents/kubernetes/runtime",
+  "workload": {
+    "method": "tools/call",
+    "tool": "pods_list_in_namespace",
+    "arguments": { "namespace": "noetl" }
+  },
+  "resource_kind": "agent"
+}
+```
+
+The NoETL server dispatches the playbook, the worker executes `kind: mcp`, and the resulting activity is tracked in NoETL execution state. This keeps GUI terminal commands, external API calls, and scheduled jobs on the same agent-as-playbook audit path.
+
+Gateway's typed GraphQL `executePlaybook` mutation also accepts `resourceKind`; use `agent` for catalog entries registered as agent playbooks.
 
 ## API Endpoints
 
@@ -68,6 +90,7 @@ Gateway Request → Check NATS K/V → Cache Hit? → Use cached session (sub-ms
 | `/api/auth/login` | POST | Auth0 token login |
 | `/api/auth/validate` | POST | Validate session |
 | `/api/auth/check-access` | POST | Check playbook permissions |
+| `/api/runtime/contract` | GET | Gateway route and execution contract |
 
 ### Protected Endpoints (Require Authentication)
 

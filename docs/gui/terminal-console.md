@@ -47,6 +47,14 @@ Both windows can be hidden and shown. Hiding the console leaves the current view
 | `diagnose <execution_id>` | Alias for `fix`. |
 | `rerun <execution_id> [payload]` | Rerun a previous execution, optionally with replacement workload. |
 | `stop <execution_id>` | Request cancellation/stop for a running execution. |
+| `mcp status` | Launch the Kubernetes runtime agent playbook to inspect MCP availability and tool count. |
+| `mcp tools` | Launch the Kubernetes runtime agent playbook to list exposed MCP tools. |
+| `k8s pods [namespace]` | Launch the Kubernetes runtime agent playbook and list pods. |
+| `k8s namespaces` | Launch the Kubernetes runtime agent playbook and list namespaces. |
+| `k8s events [namespace]` | Launch the Kubernetes runtime agent playbook and list Kubernetes events. |
+| `k8s deployments [namespace]` | Launch the Kubernetes runtime agent playbook and list deployments. |
+| `k8s services [namespace]` | Launch the Kubernetes runtime agent playbook and list services. |
+| `k8s logs <pod> [namespace] [container]` | Launch the Kubernetes runtime agent playbook and fetch recent pod logs. |
 | `clear` | Clear the console history. |
 
 ## Clickable Results
@@ -98,5 +106,33 @@ The console is the first GUI shell for NoETL as a distributed business operating
 - `noetl.execution` is the execution-state projection.
 - Kubernetes supplies the distributed runtime substrate.
 - The console, CLI, API, and scheduler are user and agent entrypoints into the same workspace.
+
+## MCP and Kubernetes Commands
+
+MCP-backed terminal commands are executed through NoETL playbooks, not direct browser-to-MCP calls. The terminal maps Kubernetes commands to the agent playbook `automation/agents/kubernetes/runtime`, then renders the execution ID and final output.
+
+For example, this command:
+
+```text
+noetl@kind:/catalog$ k8s pods mcp
+```
+
+starts a playbook execution equivalent to:
+
+```json
+{
+  "path": "automation/agents/kubernetes/runtime",
+  "workload": {
+    "method": "tools/call",
+    "tool": "pods_list_in_namespace",
+    "arguments": {
+      "namespace": "mcp"
+    }
+  },
+  "resource_kind": "agent"
+}
+```
+
+The resulting MCP request is made by the NoETL worker using `kind: mcp`, so the activity appears in the execution dashboard, event log, command projection, rerun flow, and reports.
 
 Keep this page updated whenever console commands or command semantics change.

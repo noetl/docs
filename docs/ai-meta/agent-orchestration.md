@@ -76,11 +76,11 @@ NoETL's server already handles capabilities 1 through 4 for playbooks. NATS prov
 
 ### How NoETL Covers Each
 
-**Registration:** Every playbook deployed to the server is registered. Adding `metadata.agent: true` and `metadata.capabilities` to agent playbooks makes them discoverable as agents specifically.
+**Registration:** Every playbook deployed to the server is registered. Agent playbooks keep YAML `kind: Playbook` for DSL execution, but can be stored in `noetl.catalog` with catalog kind `agent`. Adding `metadata.agent: true` and `metadata.capabilities` makes them discoverable as agents specifically.
 
-**Discovery:** The server tracks all deployed playbooks. Extending the query API to filter by metadata (e.g., "find agents with capability `code-review`") enables agent discovery.
+**Discovery:** The server tracks versioned resources through `noetl.catalog.kind` and `noetl.resource.name`. Resource kinds include `playbook`, `agent`, `mcp`, `memory`, and `credential`, with capability filters for agent discovery.
 
-**Invocation:** `noetl exec <playbook> --set key=value` already starts a playbook with input parameters. An agent invocation is the same call.
+**Invocation:** `noetl exec <playbook> --set key=value` already starts a playbook with input parameters. An agent invocation is the same call, with `resource_kind: "agent"` when the catalog entry is registered as an agent.
 
 **State tracking:** `noetl status` shows running, completed, and failed executions. Agent status is playbook execution status.
 
@@ -252,7 +252,9 @@ The agents do not need to know about each other. The parent playbook handles seq
 | Playbook execution engine | Yes | No change needed |
 | Agent metadata in playbooks | Yes | Implemented via `metadata.agent` and `metadata.capabilities` extraction on catalog registration |
 | Discovery by capability | Yes | Implemented via `/catalog/list` filters and `/catalog/agents/list` endpoint |
+| Catalog resource kinds | Yes | `noetl.resource` defines `playbook`, `agent`, `mcp`, `memory`, and `credential`; `playbook` and `agent` are executable |
 | ADK/LangChain bridge tool | Yes (initial) | Implemented as `tool.kind: agent` with `framework: adk|langchain|custom`, entrypoint loading, and runtime invocation |
+| MCP bridge tool | Yes (initial) | Implemented as `tool.kind: mcp` so agent playbooks can call MCP servers while retaining execution/event traceability |
 | Agent memory read/write | No | Steps that read/write to ai-meta `memory/` or NATS KV store |
 | Inter-agent messaging | Partially (NATS exists) | Standardize a message schema for agent-to-agent results |
 | Agent status in dashboard | Partially (`noetl status`) | Extend to show agent-specific metadata and capabilities |
@@ -273,6 +275,32 @@ NoETL now has a first-class agent runtime bridge. Instead of writing raw Python 
 ```
 
 For ADK-style runners, pass keyword payload fields such as `user_id`, `session_id`, and `new_message`; the runtime bridge maps payload keys to the callable signature and materializes async generator event streams into step output.
+
+### MCP Servers as Agent Tools
+
+MCP servers should be reached through playbook execution rather than direct GUI calls. In this pattern, the playbook is the agent and `kind: mcp` is one of its tools:
+
+```yaml
+metadata:
+  name: kubernetes_runtime_agent
+  path: automation/agents/kubernetes/runtime
+  agent: true
+  capabilities:
+    - kubernetes-observability
+    - mcp:kubernetes
+
+workflow:
+  - step: call_mcp
+    tool:
+      kind: mcp
+      server: kubernetes
+      endpoint: "{{ workload.endpoint }}"
+      method: "{{ workload.method }}"
+      tool: "{{ workload.tool }}"
+      arguments: "{{ workload.arguments }}"
+```
+
+The GUI terminal can translate `k8s pods noetl` into a normal `/execute` request for this playbook with `resource_kind: "agent"`. The Kubernetes MCP server is then called by the worker, and every activity is tracked as NoETL execution state: `noetl.event` is the event log, `noetl.command` is the worker command projection, and `noetl.execution` is the execution-state projection.
 
 ---
 
