@@ -98,6 +98,7 @@ const sidebars: SidebarsConfig = {
             'reference/tools/gcs',
             'reference/tools/ducklake',
             'reference/tools/transfer',
+            'reference/tools/mcp',
           ],
         },
         {
@@ -109,6 +110,11 @@ const sidebars: SidebarsConfig = {
           type: 'doc',
           id: 'reference/auth_and_keychain_reference',
           label: 'Authentication & Keychain',
+        },
+        {
+          type: 'doc',
+          id: 'reference/catalog-resources',
+          label: 'Catalog Resources',
         },
         {
           type: 'doc',

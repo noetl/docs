@@ -1,11 +1,11 @@
 ---
 title: Terminal Console
-description: NoETL GUI prompt commands for catalog discovery, execution, diagnostics, and reports
+description: NoETL GUI prompt commands for catalog discovery, execution, diagnostics, MCP agents, and reports
 ---
 
 # Terminal Console
 
-The NoETL GUI uses a terminal-style console as the primary navigation surface at the top of the authenticated app. The prompt shows the active runtime context and current view:
+The NoETL GUI uses a terminal-style console as the primary navigation surface at the top of the authenticated app. The prompt shows the active runtime context and current workspace:
 
 ```text
 noetl@kind:/execution$
@@ -21,16 +21,16 @@ The UI is split into two terminal-like windows:
 
 | Window | Purpose |
 |---|---|
-| Console window | Navigation, commands, execution launch, reports, and diagnostics. |
+| Console window | Navigation, commands, execution launch, reports, diagnostics, and MCP-backed agent operations. |
 | View window | The regular GUI page for catalog, editor, execution observability, credentials, travel, or users. |
 
-Both windows can be hidden and shown. Hiding the console leaves the current view open; hiding the view leaves the console available as a command-only workspace.
+Both windows can be hidden, shown, maximized, and resized. Hiding the console leaves the current view open; hiding the view leaves the console available as a command-only workspace.
 
 ## Command Reference
 
 | Command | Description |
 |---|---|
-| `help` | Show the supported console commands. |
+| `help` | Show the supported console commands for the current workspace. |
 | `context` | Show the active NoETL runtime mode, API base URL, and skip-auth setting. |
 | `menu` | Show clickable GUI navigation targets. |
 | `ls` | List the current workspace options, including views and contextual commands. |
@@ -47,7 +47,42 @@ Both windows can be hidden and shown. Hiding the console leaves the current view
 | `diagnose <execution_id>` | Alias for `fix`. |
 | `rerun <execution_id> [payload]` | Rerun a previous execution, optionally with replacement workload. |
 | `stop <execution_id>` | Request cancellation/stop for a running execution. |
+| `cd /mcp` | Navigate to the MCP workspace. |
+| `cd /mcp/kubernetes` | Navigate to the Kubernetes MCP workspace. |
+| `mcp status` | Launch the Kubernetes runtime agent playbook to inspect MCP availability and tool count. |
+| `mcp tools` | Launch the Kubernetes runtime agent playbook to list exposed MCP tools. |
+| `k8s pods [namespace]` | Launch the Kubernetes runtime agent playbook and list pods. |
+| `k8s namespaces` | Launch the Kubernetes runtime agent playbook and list namespaces. |
+| `k8s events [namespace]` | Launch the Kubernetes runtime agent playbook and list Kubernetes events. |
+| `k8s deployments [namespace]` | Launch the Kubernetes runtime agent playbook and list deployments. |
+| `k8s services [namespace]` | Launch the Kubernetes runtime agent playbook and list services. |
+| `k8s logs <pod> [namespace] [container]` | Launch the Kubernetes runtime agent playbook and fetch recent pod logs. |
 | `clear` | Clear the console history. |
+
+## Scoped MCP Workspaces
+
+MCP servers are exposed as folder-like workspaces. The current prompt controls which commands are most natural:
+
+```text
+noetl@kind:/mcp$
+noetl@kind:/mcp/kubernetes$
+```
+
+Inside `/mcp/kubernetes`, Kubernetes commands can be typed without the `k8s` prefix:
+
+| Command | Description |
+|---|---|
+| `status` | Check the Kubernetes MCP server and report health, agent path, execution ID, and tool count. |
+| `tools` | List the MCP tools available from the Kubernetes MCP server. |
+| `namespaces` | List namespaces. |
+| `pods [namespace]` | List pods across the cluster or in a namespace. |
+| `services [namespace]` | List services. |
+| `deployments [namespace]` | List deployments. |
+| `events [namespace]` | List recent Kubernetes events. |
+| `logs <pod> [namespace] [container]` | Fetch recent pod logs. |
+| `top [namespace]` | Show pod or node metrics when the cluster metrics API is installed. |
+
+The older global forms, such as `k8s pods noetl`, remain valid from any workspace. The scoped form keeps the terminal closer to a filesystem shell: move to the resource scope first, then run the verbs that are valid for that scope.
 
 ## Clickable Results
 
@@ -57,8 +92,9 @@ Console output can include clickable actions. For example:
 - `ls` returns view targets plus useful contextual commands.
 - `playbooks` returns runnable playbook actions.
 - `executions` returns actions to open or report on recent executions.
+- Kubernetes MCP results return actions such as `open <execution_id>`, `report <execution_id>`, `pods`, `namespaces`, `events`, and `services`.
 
-These actions keep the terminal-like workflow fast while preserving the regular GUI navigation and full page views.
+When a command returns structured rows, the terminal can render a compact table instead of plain text. This is useful for Kubernetes resources, catalog entries, execution lists, and future MCP providers.
 
 Console output rows can also be closed. Longer outputs expose compact/expanded controls so users can keep only the useful command history visible.
 
@@ -69,6 +105,8 @@ noetl@kind:/execution$ menu
 noetl@kind:/execution$ cd editor
 noetl@kind:/editor$ open execution
 noetl@kind:/execution$ open 612955956145554347
+noetl@kind:/catalog$ cd /mcp/kubernetes
+noetl@kind:/mcp/kubernetes$ pods noetl
 ```
 
 ## Payloads
@@ -98,5 +136,36 @@ The console is the first GUI shell for NoETL as a distributed business operating
 - `noetl.execution` is the execution-state projection.
 - Kubernetes supplies the distributed runtime substrate.
 - The console, CLI, API, and scheduler are user and agent entrypoints into the same workspace.
+
+## MCP and Kubernetes Commands
+
+MCP-backed terminal commands are executed through NoETL playbooks, not direct browser-to-MCP calls. The terminal maps Kubernetes commands to the agent playbook `automation/agents/kubernetes/runtime`, starts a normal NoETL execution with `resource_kind: "agent"`, and renders the execution ID plus the final report.
+
+For example, this command:
+
+```text
+noetl@kind:/mcp/kubernetes$ pods mcp
+```
+
+starts a playbook execution equivalent to:
+
+```json
+{
+  "path": "automation/agents/kubernetes/runtime",
+  "resource_kind": "agent",
+  "workload": {
+    "server": "kubernetes",
+    "method": "tools/call",
+    "tool": "pods_list_in_namespace",
+    "arguments": {
+      "namespace": "mcp"
+    }
+  }
+}
+```
+
+The resulting MCP request is made by the NoETL worker using `tool.kind: mcp`, so the activity appears in the execution dashboard, event log, command projection, rerun flow, and reports.
+
+For local cluster setup, see [Kubernetes MCP Local Kind Setup](../operations/kubernetes-mcp-local-kind.md). For playbook syntax, see [MCP Tool](../reference/tools/mcp.md).
 
 Keep this page updated whenever console commands or command semantics change.

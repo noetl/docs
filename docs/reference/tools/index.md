@@ -30,6 +30,7 @@ See `documentation/docs/reference/dsl/step_spec.md` for the full DSL model.
 | `gcs` | Google Cloud Storage | export/import artifacts |
 | `ducklake` | Lakehouse queries | unified analytics |
 | `nats` | JetStream/KV/Object Store | state, messaging, artifacts |
+| `mcp` | Model Context Protocol calls | agent tools, runtime observability |
 
 ---
 
