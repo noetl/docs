@@ -150,7 +150,26 @@ Expected response fields include:
 }
 ```
 
-Registering as `agent` is important. If the same YAML is registered as `playbook`, the DSL can still run, but the GUI terminal cannot discover it as a Kubernetes MCP agent.
+Registering as `agent` is recommended. The GUI terminal discovers registered
+agent playbooks from the NoETL catalog and only exposes them in MCP scopes when
+they are labeled for terminal use:
+
+```yaml
+metadata:
+  agent: true
+  terminal:
+    visible: true
+    workspace: kubernetes
+    scopes:
+      - /mcp/kubernetes
+  capabilities:
+    - mcp:kubernetes
+```
+
+The GUI never connects to `kubernetes-mcp-server` directly. It only calls the
+NoETL API. The NoETL worker performs MCP calls from inside the agent execution,
+which keeps every operation visible in `noetl.event`, `noetl.command`, and
+`noetl.execution`.
 
 ## 4. Validate from the NoETL API
 
@@ -219,7 +238,9 @@ The execution should be visible in the execution dashboard because the call went
 Open the GUI and navigate to the MCP workspace:
 
 ```text
-noetl@kind:/catalog$ cd /mcp/kubernetes
+noetl@kind:/catalog$ cd /mcp
+noetl@kind:/mcp$ mcp discover
+noetl@kind:/mcp$ cd kubernetes
 noetl@kind:/mcp/kubernetes$ status
 noetl@kind:/mcp/kubernetes$ tools
 noetl@kind:/mcp/kubernetes$ namespaces
