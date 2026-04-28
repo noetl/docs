@@ -66,7 +66,7 @@ MCP servers are exposed as folder-like workspaces after they are registered in
 the NoETL catalog. The GUI does not call MCP servers directly and does not
 proxy `/mcp/...` through nginx. It discovers:
 
-- catalog resources with `kind = mcp`
+- catalog resources with `kind = 'mcp'`
 - agent playbooks with `metadata.agent: true` and terminal metadata
 
 If nothing is registered, `/mcp` shows an empty-but-healthy workspace and the
