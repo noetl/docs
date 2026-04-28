@@ -48,23 +48,34 @@ Both windows can be hidden, shown, maximized, and resized. Hiding the console le
 | `rerun <execution_id> [payload]` | Rerun a previous execution, optionally with replacement workload. |
 | `stop <execution_id>` | Request cancellation/stop for a running execution. |
 | `cd /mcp` | Navigate to the MCP workspace. |
-| `cd /mcp/kubernetes` | Navigate to the Kubernetes MCP workspace. |
-| `mcp status` | Launch the Kubernetes runtime agent playbook to inspect MCP availability and tool count. |
-| `mcp tools` | Launch the Kubernetes runtime agent playbook to list exposed MCP tools. |
-| `k8s pods [namespace]` | Launch the Kubernetes runtime agent playbook and list pods. |
-| `k8s namespaces` | Launch the Kubernetes runtime agent playbook and list namespaces. |
-| `k8s events [namespace]` | Launch the Kubernetes runtime agent playbook and list Kubernetes events. |
-| `k8s deployments [namespace]` | Launch the Kubernetes runtime agent playbook and list deployments. |
-| `k8s services [namespace]` | Launch the Kubernetes runtime agent playbook and list services. |
-| `k8s logs <pod> [namespace] [container]` | Launch the Kubernetes runtime agent playbook and fetch recent pod logs. |
+| `mcp discover` | Discover registered MCP service resources and terminal-visible agent playbooks from the NoETL catalog. |
+| `cd /mcp/<name>` | Navigate to a registered MCP workspace, such as `/mcp/kubernetes`. |
+| `mcp status` | Launch the selected workspace agent playbook to inspect MCP availability and tool count. |
+| `mcp tools` | Launch the selected workspace agent playbook to list exposed MCP tools. |
+| `k8s pods [namespace]` | Launch the registered Kubernetes runtime agent playbook and list pods. |
+| `k8s namespaces` | Launch the registered Kubernetes runtime agent playbook and list namespaces. |
+| `k8s events [namespace]` | Launch the registered Kubernetes runtime agent playbook and list Kubernetes events. |
+| `k8s deployments [namespace]` | Launch the registered Kubernetes runtime agent playbook and list deployments. |
+| `k8s services [namespace]` | Launch the registered Kubernetes runtime agent playbook and list services. |
+| `k8s logs <pod> [namespace] [container]` | Launch the registered Kubernetes runtime agent playbook and fetch recent pod logs. |
 | `clear` | Clear the console history. |
 
 ## Scoped MCP Workspaces
 
-MCP servers are exposed as folder-like workspaces. The current prompt controls which commands are most natural:
+MCP servers are exposed as folder-like workspaces after they are registered in
+the NoETL catalog. The GUI does not call MCP servers directly and does not
+proxy `/mcp/...` through nginx. It discovers:
+
+- catalog resources with `kind = 'mcp'`
+- agent playbooks with `metadata.agent: true` and terminal metadata
+
+If nothing is registered, `/mcp` shows an empty-but-healthy workspace and the
+rest of the GUI continues to operate.
+
+The current prompt controls which commands are most natural:
 
 ```text
-noetl@kind:/mcp$
+noetl@kind:/mcp$ mcp discover
 noetl@kind:/mcp/kubernetes$
 ```
 
@@ -139,7 +150,21 @@ The console is the first GUI shell for NoETL as a distributed business operating
 
 ## MCP and Kubernetes Commands
 
-MCP-backed terminal commands are executed through NoETL playbooks, not direct browser-to-MCP calls. The terminal maps Kubernetes commands to the agent playbook `automation/agents/kubernetes/runtime`, starts a normal NoETL execution with `resource_kind: "agent"`, and renders the execution ID plus the final report.
+MCP-backed terminal commands are executed through NoETL playbooks, not direct browser-to-MCP calls. The terminal discovers terminal-visible agents from the NoETL catalog, maps Kubernetes commands to the registered agent playbook, starts a normal NoETL execution with the catalog entry's resource kind, and renders the execution ID plus the final report.
+
+Agent playbooks intended for terminal scopes should declare metadata like:
+
+```yaml
+metadata:
+  agent: true
+  terminal:
+    visible: true
+    workspace: kubernetes
+    scopes:
+      - /mcp/kubernetes
+  capabilities:
+    - mcp:kubernetes
+```
 
 For example, this command:
 
