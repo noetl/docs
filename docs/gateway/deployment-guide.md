@@ -388,7 +388,9 @@ const auth0Config = {
 The gateway uses a NoETL playbook for authentication. Ensure the playbook is registered:
 
 ```bash
-noetl register playbook -f tests/fixtures/playbooks/api_integration/auth0/auth0_login.yaml
+cd repos/e2e
+noetl --server-url http://localhost:8082 register playbook \
+  -f fixtures/playbooks/api_integration/auth0/auth0_login.yaml
 ```
 
 The playbook:
@@ -472,6 +474,23 @@ kubectl logs -n gateway deployment/gateway | grep -i cors
 **Cause**: Gateway code expects `output` field but NoETL returns `variables.success`
 
 **Solution**: Ensure gateway is deployed with latest code that reads from `variables.success`
+
+#### `Invalid email` after NoETL callback
+
+**Symptom**: Gateway logs show `Auth login execution_id: ...`, then `Internal callback received ... status=success`, but the browser still sees a failed login and the response body is `{"error":"Invalid email"}`.
+
+**Cause**: The registered `api_integration/auth0/auth0_login` system playbook does not match the deployed NoETL runtime envelope. Current workers persist Python step results under the step `context`, so the callback must read `prepare_session_cache.context.session_cache.*` and `prepare_session_cache.context.user`.
+
+**Solution**: Re-register the current playbook from `repos/e2e`, then retry login:
+
+```bash
+kubectl -n noetl port-forward svc/noetl 18082:8082
+cd repos/e2e
+noetl --server-url http://localhost:18082 register playbook \
+  -f fixtures/playbooks/api_integration/auth0/auth0_login.yaml
+```
+
+If this still fails, check the execution events for the returned execution id and verify Cloud SQL/PgBouncer permissions for the NoETL database user.
 
 #### Auth0 Callback Error
 

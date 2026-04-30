@@ -14,9 +14,9 @@ It is based on:
 
 - `automation/gcp_gke/noetl_gke_fresh_stack.yaml`
 - `automation/gcp_gke/README.md`
-- `tests/fixtures/playbooks/api_integration/auth0/*.yaml`
+- `repos/e2e/fixtures/playbooks/api_integration/auth0/*.yaml`
 
-Current baseline date: **2026-02-19**.
+Current baseline date: **2026-04-30**.
 
 ## Current GCP deployment profile
 
@@ -88,6 +88,43 @@ When `bootstrap_gateway_auth=true` (default), deploy automation performs:
    - `api_integration/auth0/provision_auth_schema`
    - `api_integration/auth0/setup_admin_permissions`
 4. Execute `api_integration/auth0/provision_auth_schema` and wait until `COMPLETED`
+
+### Current public deployment wiring
+
+The current GKE profile keeps NoETL private and exposes only GUI and Gateway:
+
+| Component | Public endpoint | In-cluster target | Notes |
+|---|---|---|---|
+| GUI | `https://mestumre.dev` | `gui.gui.svc.cluster.local` | Runtime config comes from `/env-config.js`. |
+| Gateway | `https://gateway.mestumre.dev` | `gateway.gateway.svc.cluster.local` | CORS must allow the GUI origin. |
+| NoETL API | none | `noetl.noetl.svc.cluster.local:8082` | ClusterIP only; Gateway proxies authenticated traffic. |
+| PostgreSQL | none | `pgbouncer.postgres.svc.cluster.local:5432` | PgBouncer connects to Cloud SQL through the Cloud SQL Proxy sidecar. |
+
+Required GUI runtime values for the gateway-backed mode:
+
+```javascript
+window.__NOETL_ENV__ = {
+  VITE_API_MODE: "gateway",
+  VITE_API_BASE_URL: "https://gateway.example.com/noetl",
+  VITE_GATEWAY_URL: "https://gateway.example.com",
+  VITE_ALLOW_SKIP_AUTH: "false",
+  VITE_AUTH0_DOMAIN: "your-tenant.us.auth0.com",
+  VITE_AUTH0_CLIENT_ID: "your-auth0-spa-client-id",
+  VITE_AUTH0_REDIRECT_URI: "https://your-gui-domain/login"
+};
+```
+
+Required Gateway settings:
+
+```text
+NOETL_BASE_URL=http://noetl.noetl.svc.cluster.local:8082
+NATS_URL=nats://<user>:<password>@nats.nats.svc.cluster.local:4222
+GATEWAY_PUBLIC_URL=https://gateway.example.com
+CORS_ALLOWED_ORIGINS=https://your-gui-domain,https://gateway.example.com
+GATEWAY_AUTH_BYPASS=false
+```
+
+Never enable `VITE_ALLOW_SKIP_AUTH=true` or `GATEWAY_AUTH_BYPASS=true` in this GKE profile.
 
 ## System playbook architecture
 
@@ -181,6 +218,24 @@ kubectl port-forward -n noetl svc/noetl 18082:8082
 curl -s http://localhost:18082/api/catalog | jq '.resources[] | select(.path | startswith("api_integration/auth0/")) | .path'
 ```
 
+If the auth playbooks need to be refreshed from the dedicated e2e repository:
+
+```bash
+cd repos/e2e
+noetl --server-url http://localhost:18082 register playbook \
+  -f fixtures/playbooks/api_integration/auth0/auth0_login.yaml
+noetl --server-url http://localhost:18082 register playbook \
+  -f fixtures/playbooks/api_integration/auth0/auth0_validate_session.yaml
+noetl --server-url http://localhost:18082 register playbook \
+  -f fixtures/playbooks/api_integration/auth0/check_playbook_access.yaml
+noetl --server-url http://localhost:18082 register playbook \
+  -f fixtures/playbooks/api_integration/auth0/user_management.yaml
+noetl --server-url http://localhost:18082 register playbook \
+  -f fixtures/playbooks/api_integration/auth0/provision_auth_schema.yaml
+noetl --server-url http://localhost:18082 register playbook \
+  -f fixtures/playbooks/api_integration/auth0/setup_admin_permissions.yaml
+```
+
 ### 3. Validate schema/role data
 
 ```bash
@@ -198,6 +253,38 @@ kubectl exec -n postgres deploy/pgbouncer -- sh -lc 'echo "Use Cloud SQL client 
 - Login through Gateway UI/API
 - Confirm `auth.sessions` row exists in Postgres
 - Confirm `sessions` bucket entry exists in NATS KV
+
+### 5. Verify browser login through Gateway
+
+Use an Auth0 ID token from the browser session or Auth0 tooling. Do not put passwords in shell commands or logs.
+
+```bash
+curl -i -X OPTIONS https://gateway.example.com/api/auth/login \
+  -H "Origin: https://your-gui-domain" \
+  -H "Access-Control-Request-Method: POST"
+
+curl -i -X POST https://gateway.example.com/api/auth/login \
+  -H "Origin: https://your-gui-domain" \
+  -H "Content-Type: application/json" \
+  --data '{"auth0_token":"<auth0-id-token>","auth0_domain":"your-tenant.us.auth0.com"}'
+```
+
+Expected login response:
+
+```json
+{
+  "status": "authenticated",
+  "session_token": "<opaque-session-token>",
+  "user": {
+    "user_id": 1,
+    "email": "user@example.com",
+    "display_name": "User Name",
+    "roles": []
+  },
+  "expires_at": "2026-05-01T00:00:00",
+  "message": "Authentication successful"
+}
+```
 
 ## Common pitfalls and fixes
 
@@ -234,6 +321,46 @@ ADD COLUMN IF NOT EXISTS granted_by BIGINT REFERENCES auth.users(user_id);
 ```
 
 2. Or align `user_management.yaml` insert statement to current table definition.
+
+### 4. Gateway login returns 401/500 or `Invalid email`
+
+Symptoms:
+
+- Browser login fails with `401`
+- Gateway `/api/auth/login` returns `500 {"error":"Invalid email"}`
+- Gateway logs show a successful NoETL callback, but the callback user payload is missing `email`
+- NoETL worker logs show template errors around `prepare_session_cache.session_cache` or `prepare_session_cache.data.session_cache`
+
+Cause:
+
+`auth0_login.yaml` is a system playbook. It must match the current NoETL runtime result envelope. In current distributed runtime, Python step results are available to later steps through `prepare_session_cache.context.*` after state compaction. Older registered versions of the playbook addressed the prepared payload through `prepare_session_cache.session_cache.*` or `prepare_session_cache.data.*`, which produced a callback with null user fields. Gateway correctly rejected that callback as an invalid login payload.
+
+Fix:
+
+1. Register the current playbook from `repos/e2e`:
+
+```bash
+kubectl -n noetl port-forward svc/noetl 18082:8082
+cd repos/e2e
+noetl --server-url http://localhost:18082 register playbook \
+  -f fixtures/playbooks/api_integration/auth0/auth0_login.yaml
+```
+
+2. Confirm the registered version is the newest catalog version:
+
+```bash
+curl -s http://localhost:18082/api/catalog/resource/api_integration/auth0/auth0_login | jq '{path, kind, version}'
+```
+
+3. Retry login and inspect Gateway logs:
+
+```bash
+kubectl -n gateway logs deployment/gateway --since=10m | rg "Auth login|callback|Invalid email"
+```
+
+4. If login still fails before the callback, confirm Cloud SQL grants for the NoETL database user. The auth playbooks need table, sequence, function, and schema privileges on the `auth` schema and the NoETL execution tables used by the runtime.
+
+Do not test this path with real user passwords in terminal commands. Use the browser Auth0 flow, or use a short-lived ID token copied from the authenticated browser session.
 
 ## Related docs
 

@@ -164,7 +164,9 @@ function loginWithAuth0() {
 ### Register the Auth0 Login Playbook
 
 ```bash
-noetl register playbook -f tests/fixtures/playbooks/api_integration/auth0/auth0_login.yaml
+cd repos/e2e
+noetl --server-url http://localhost:8082 register playbook \
+  -f fixtures/playbooks/api_integration/auth0/auth0_login.yaml
 ```
 
 ### Playbook Overview
@@ -399,6 +401,24 @@ Expected response:
 1. Check playbook is registered
 2. Verify credential exists and has correct permissions
 3. Check NoETL logs for playbook execution errors
+
+### Gateway returns `Invalid email` after a successful callback
+
+**Symptom**: `POST /api/auth/login` reaches NoETL, Gateway logs show `status=success` from `/api/internal/callback`, but the HTTP response is `500 {"error":"Invalid email"}` or the browser reports a failed login.
+
+**Cause**: The registered `api_integration/auth0/auth0_login` playbook is older than the deployed NoETL runtime result envelope. Current distributed execution compacts Python step output under `prepare_session_cache.context.*`. Older playbook versions referenced `prepare_session_cache.session_cache.*` or `prepare_session_cache.data.*`, causing Gateway to receive null user fields.
+
+**Solution**:
+
+```bash
+kubectl -n noetl port-forward svc/noetl 18082:8082
+cd repos/e2e
+noetl --server-url http://localhost:18082 register playbook \
+  -f fixtures/playbooks/api_integration/auth0/auth0_login.yaml
+kubectl -n gateway logs deployment/gateway --since=10m | rg "Auth login|callback|Invalid email"
+```
+
+Retry the browser login after the playbook is re-registered. Do not test by pasting real user passwords into terminal commands; use the browser Auth0 flow or a short-lived ID token.
 
 ### "User not found in Auth0"
 
