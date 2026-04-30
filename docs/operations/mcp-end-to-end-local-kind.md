@@ -308,6 +308,6 @@ You're on a noetl image older than v2.28.0. Roll forward.
 ## Related documentation
 
 - [MCP catalog architecture overview](../architecture/mcp_catalog_architecture)
-- [GKE deployment guide](mcp_end_to_end_gke)
+- [GKE deployment guide](mcp-end-to-end-gke)
 - [Local Kind Deployment (general)](local-kind-ops-deploy)
 - [Kubernetes MCP Local Kind Setup (older runbook)](kubernetes-mcp-local-kind)

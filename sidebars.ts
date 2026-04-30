@@ -26,6 +26,7 @@ const sidebars: SidebarsConfig = {
         'getting-started/design-philosophy',
         'getting-started/semantic-pipeline',
         'architecture/sink_driven_storage',
+        'architecture/mcp_catalog_architecture',
       ],
     },
     {

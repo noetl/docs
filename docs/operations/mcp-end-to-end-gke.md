@@ -8,7 +8,7 @@ sidebar_position: 4
 # MCP End-to-End on GKE
 
 Deploy the same NoETL + MCP architecture you ran locally
-([MCP End-to-End on Local Kind](mcp_end_to_end_local_kind)) onto a
+([MCP End-to-End on Local Kind](mcp-end-to-end-local-kind)) onto a
 Google Kubernetes Engine cluster.
 
 The shape of the deployment is identical:
@@ -343,7 +343,7 @@ stream back through the friendly run dialog.
 ## Related documentation
 
 - [MCP catalog architecture overview](../architecture/mcp_catalog_architecture)
-- [MCP End-to-End on Local Kind](mcp_end_to_end_local_kind)
+- [MCP End-to-End on Local Kind](mcp-end-to-end-local-kind)
 - [GKE Autopilot Full Provisioning](../features/gke_autopilot_full_provisioning)
 - [GKE User Guide](../iap-gcp/gke_user_guide)
 - [GCP Cloud SQL + PgBouncer Private IP](gcp-cloudsql-pgbouncer-private-ip)

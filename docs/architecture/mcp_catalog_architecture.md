@@ -13,9 +13,9 @@ playbooks and credentials, deployed and operated entirely through
 playbooks, surfaced in the GUI as a friendly form-driven workspace.
 
 This document is a high-level tour. For the deploy walkthrough,
-see [MCP End-to-End on Local Kind](../operations/mcp_end_to_end_local_kind);
+see [MCP End-to-End on Local Kind](../operations/mcp-end-to-end-local-kind);
 for the GKE variant, see
-[MCP End-to-End on GKE](../operations/mcp_end_to_end_gke).
+[MCP End-to-End on GKE](../operations/mcp-end-to-end-gke).
 
 ## Why this design
 
@@ -323,7 +323,7 @@ Open follow-ups (none blocking):
 
 ## Read more
 
-- [MCP End-to-End on Local Kind](../operations/mcp_end_to_end_local_kind) — full bring-up from scratch
-- [MCP End-to-End on GKE](../operations/mcp_end_to_end_gke) — same architecture in the cloud
+- [MCP End-to-End on Local Kind](../operations/mcp-end-to-end-local-kind) — full bring-up from scratch
+- [MCP End-to-End on GKE](../operations/mcp-end-to-end-gke) — same architecture in the cloud
 - [Older Kubernetes MCP runbook](../operations/kubernetes-mcp-local-kind) — pre-architecture-PR, kept for context
 - [Sink-driven storage](sink_driven_storage) — the event/projection pattern this builds on
