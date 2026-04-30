@@ -52,6 +52,7 @@ Both windows can be hidden, shown, maximized, and resized. Hiding the console le
 | `cd /mcp/<name>` | Navigate to a registered MCP workspace, such as `/mcp/kubernetes`. |
 | `mcp status` | Launch the selected workspace agent playbook to inspect MCP availability and tool count. |
 | `mcp tools` | Launch the selected workspace agent playbook to list exposed MCP tools. |
+| `call <tool> [payload]` | Inside `/mcp/<name>`, invoke an MCP tool through the selected workspace agent. Payload can be JSON or `--set key=value` pairs. |
 | `k8s pods [namespace]` | Launch the registered Kubernetes runtime agent playbook and list pods. |
 | `k8s namespaces` | Launch the registered Kubernetes runtime agent playbook and list namespaces. |
 | `k8s events [namespace]` | Launch the registered Kubernetes runtime agent playbook and list Kubernetes events. |
@@ -95,6 +96,23 @@ Inside `/mcp/kubernetes`, Kubernetes commands can be typed without the `k8s` pre
 
 The older global forms, such as `k8s pods noetl`, remain valid from any workspace. The scoped form keeps the terminal closer to a filesystem shell: move to the resource scope first, then run the verbs that are valid for that scope.
 
+Generic MCP scopes, such as `/mcp/gcp`, support the same execution path even
+when the GUI does not know provider-specific verbs:
+
+| Command | Description |
+|---|---|
+| `status` | Run the workspace agent with `tools/list` and show the execution ID plus tool count. |
+| `tools` | Print the exposed tool names and descriptions. |
+| `call <tool> [payload]` | Invoke a specific MCP tool through the workspace agent. |
+
+Example:
+
+```text
+noetl@kind:/mcp$ cd /mcp/gcp
+noetl@kind:/mcp/gcp$ tools
+noetl@kind:/mcp/gcp$ call list_clusters --set parent=projects/noetl-demo-19700101/locations/-
+```
+
 ## Clickable Results
 
 Console output can include clickable actions. For example:
@@ -118,6 +136,8 @@ noetl@kind:/editor$ open execution
 noetl@kind:/execution$ open 612955956145554347
 noetl@kind:/catalog$ cd /mcp/kubernetes
 noetl@kind:/mcp/kubernetes$ pods noetl
+noetl@kind:/mcp$ cd /mcp/gcp
+noetl@kind:/mcp/gcp$ call list_clusters --set parent=projects/noetl-demo-19700101/locations/-
 ```
 
 ## Payloads

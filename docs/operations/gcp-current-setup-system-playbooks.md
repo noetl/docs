@@ -236,7 +236,29 @@ noetl --server-url http://localhost:18082 register playbook \
   -f fixtures/playbooks/api_integration/auth0/setup_admin_permissions.yaml
 ```
 
-### 3. Validate schema/role data
+### 3. Register managed GKE MCP content
+
+For the Google Cloud managed GKE MCP endpoint, register the runtime
+agent and `Mcp` resource from `repos/ops`:
+
+```bash
+cd repos/ops
+
+noetl --server-url http://localhost:18082 catalog register \
+  automation/agents/gcp/runtime.yaml
+noetl --server-url http://localhost:18082 catalog register \
+  automation/agents/gcp/templates/mcp_gke_managed.yaml
+```
+
+The GUI terminal discovers this as `/mcp/gcp`. It does not call
+Google Cloud directly; `status`, `tools`, and `call <tool>` start
+NoETL executions for the `mcp/gcp/gke` agent playbook. The worker
+needs Google Cloud credentials through Workload Identity, a
+`GOOGLE_OAUTH_ACCESS_TOKEN` environment override, or a one-off
+`workload.access_token` for local debugging. Prefer Workload Identity
+with `roles/container.viewer`.
+
+### 4. Validate schema/role data
 
 ```bash
 kubectl exec -n postgres deploy/pgbouncer -- sh -lc 'echo "Use Cloud SQL client path for deep DB checks"'
@@ -248,13 +270,13 @@ kubectl exec -n postgres deploy/pgbouncer -- sh -lc 'echo "Use Cloud SQL client 
 # FROM auth.playbook_permissions ORDER BY role_id;
 ```
 
-### 4. Verify session cache path
+### 5. Verify session cache path
 
 - Login through Gateway UI/API
 - Confirm `auth.sessions` row exists in Postgres
 - Confirm `sessions` bucket entry exists in NATS KV
 
-### 5. Verify browser login through Gateway
+### 6. Verify browser login through Gateway
 
 Use an Auth0 ID token from the browser session or Auth0 tooling. Do not put passwords in shell commands or logs.
 

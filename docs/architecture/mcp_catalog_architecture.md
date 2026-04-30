@@ -125,6 +125,15 @@ Every block describes intent rather than commands:
 - `spec.runtime.agent` — which playbook the GUI calls when a user invokes a tool
 - `spec.deployment` — knobs the lifecycle agents read at install time
 
+Managed MCP providers use the same catalog shape without a deploy
+lifecycle. For example, the Google Cloud GKE managed endpoint is
+registered as `kind: Mcp` at `mcp/gcp`, points at
+`https://container.googleapis.com/mcp/read-only`, and uses the
+terminal agent playbook `mcp/gcp/gke`. No pod is installed in the
+cluster; the NoETL worker obtains a Google Cloud access token through
+Workload Identity or an explicit execution workload override, calls
+the managed endpoint, and records the response as a normal execution.
+
 The server exposes:
 
 - `POST /api/mcp/{path}/lifecycle/{verb}` — dispatch a lifecycle agent

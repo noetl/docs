@@ -420,6 +420,109 @@ services
 events
 ```
 
+For Google Cloud's managed GKE MCP endpoint, register the remote-managed
+resource and agent instead of deploying an in-cluster MCP server:
+
+```bash
+cd /path/to/ai-meta/repos/ops
+
+noetl catalog register automation/agents/gcp/runtime.yaml
+noetl catalog register automation/agents/gcp/templates/mcp_gke_managed.yaml
+```
+
+Then bind the NoETL worker service account to a Google service account with
+`roles/container.viewer` so the worker can obtain a token through Workload
+Identity. The GUI terminal discovers this as `/mcp/gcp`:
+
+```text
+cd /mcp/gcp
+status
+tools
+call list_clusters --set parent=projects/<project-id>/locations/-
+```
+
+## Internet Exposure Model
+
+The preferred production shape is:
+
+- GUI is static and public on Cloudflare Pages or an equivalent static host.
+- Gateway is the only public API surface.
+- NoETL server, workers, NATS, PgBouncer, Cloud SQL, and MCP services are not
+  internet-addressable.
+
+This keeps the browser-facing assets close to users while the GKE cluster
+remains an internal execution fabric.
+
+### Option A: GUI on Cloudflare Pages, Gateway in GKE
+
+Use this when you want the least deployment change from the current
+`mestumre.dev` setup:
+
+1. Build `repos/gui` with gateway mode.
+2. Deploy the static `dist/` output to Cloudflare Pages.
+3. Configure GUI runtime env:
+
+```javascript
+window.__NOETL_ENV__ = {
+  VITE_API_MODE: "gateway",
+  VITE_API_BASE_URL: "https://gateway.example.com/noetl",
+  VITE_GATEWAY_URL: "https://gateway.example.com",
+  VITE_ALLOW_SKIP_AUTH: "false",
+  VITE_AUTH0_REDIRECT_URI: "https://app.example.com/login"
+};
+```
+
+4. Expose only the Gateway service publicly. Keep `noetl/noetl` as
+   `ClusterIP` and do not create a public Ingress or LoadBalancer for it.
+5. Set Gateway CORS to the Cloudflare Pages origin:
+
+```text
+CORS_ALLOWED_ORIGINS=https://app.example.com,https://gateway.example.com
+NOETL_BASE_URL=http://noetl.noetl.svc.cluster.local:8082
+GATEWAY_AUTH_BYPASS=false
+```
+
+### Option B: GUI on Cloudflare Pages, Gateway on Cloud Run
+
+Use this when the GKE cluster should have no public Services at all:
+
+1. Deploy Gateway to Cloud Run with `GATEWAY_AUTH_BYPASS=false`.
+2. Give Cloud Run private egress to the VPC that contains the GKE cluster.
+   Google Cloud supports Cloud Run egress to VPC networks through Direct VPC
+   egress or Serverless VPC Access.
+3. Expose NoETL inside GKE through an internal-only endpoint reachable from
+   that VPC, such as an internal LoadBalancer service.
+4. Point Gateway at the internal NoETL address:
+
+```text
+NOETL_BASE_URL=http://<internal-noetl-address>:8082
+CORS_ALLOWED_ORIGINS=https://app.example.com,https://gateway.example.com
+GATEWAY_PUBLIC_URL=https://gateway.example.com
+```
+
+5. Keep GUI runtime pointing at the public Gateway URL, never at NoETL.
+
+This option gives the cleanest isolation boundary: Cloudflare serves GUI,
+Cloud Run authenticates and proxies, and GKE remains private runtime only.
+
+### Exposure checks
+
+After deployment, this should be true:
+
+```bash
+kubectl -n noetl get svc noetl
+kubectl -n noetl get ingress
+kubectl -n gui get svc,ingress
+kubectl -n gateway get svc,ingress
+```
+
+Expected:
+
+- `noetl/noetl` is `ClusterIP`
+- no public Ingress in `noetl`
+- no public GUI service when the GUI is on Cloudflare Pages
+- exactly one public Gateway endpoint, or none in GKE when Gateway is on Cloud Run
+
 ## Rollback
 
 Gateway:

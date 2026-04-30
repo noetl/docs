@@ -208,7 +208,74 @@ NOETL_HOST=localhost NOETL_PORT=8082 \
 # (and the six lifecycle files; same loop as local kind step 6)
 ```
 
-## Step 7 — Deploy the Kubernetes MCP server via lifecycle.deploy
+### Option B — Register Google Cloud's managed GKE MCP endpoint
+
+Google Cloud also exposes a [managed GKE MCP server](https://docs.cloud.google.com/kubernetes-engine/docs/reference/mcp)
+at `https://container.googleapis.com/mcp/read-only`. This option does
+not deploy a pod in the `mcp` namespace. It registers a NoETL
+`Mcp` resource plus a terminal-visible agent playbook under
+`/mcp/gcp`; every terminal call still becomes a normal NoETL
+execution recorded in `noetl.event`, `noetl.command`, and the
+`noetl.execution` projection.
+
+Register the managed resource and runtime agent:
+
+```bash
+cd repos/ops
+
+noetl catalog register automation/agents/gcp/runtime.yaml
+noetl catalog register automation/agents/gcp/templates/mcp_gke_managed.yaml
+```
+
+The worker that runs the agent needs a Google Cloud access token.
+The playbook resolves one in this order:
+
+1. `workload.access_token` passed to the execution (use only for
+   local one-off debugging)
+2. `GOOGLE_OAUTH_ACCESS_TOKEN` in the worker environment
+3. the GKE metadata server for the worker pod's service account
+
+For GKE Workload Identity, bind the NoETL worker Kubernetes
+service account to a Google service account with read-only GKE
+permissions:
+
+```bash
+PROJECT_ID="$(gcloud config get-value project)"
+GSA="noetl-worker-mcp@${PROJECT_ID}.iam.gserviceaccount.com"
+
+gcloud iam service-accounts create noetl-worker-mcp \
+  --display-name="NoETL worker managed GKE MCP"
+
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+  --member="serviceAccount:${GSA}" \
+  --role="roles/container.viewer"
+
+gcloud iam service-accounts add-iam-policy-binding "${GSA}" \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="serviceAccount:${PROJECT_ID}.svc.id.goog[noetl/noetl-worker]"
+
+kubectl annotate serviceaccount noetl-worker -n noetl \
+  "iam.gke.io/gcp-service-account=${GSA}" --overwrite
+
+kubectl rollout restart deployment/noetl-worker -n noetl
+```
+
+In the GUI terminal:
+
+```text
+cd /mcp
+cd /mcp/gcp
+status
+tools
+call list_clusters --set parent=projects/<project-id>/locations/-
+```
+
+Use the managed endpoint for cloud-level GKE inventory and
+read-only cluster diagnostics. Use the in-cluster Kubernetes MCP
+server below when you want Kubernetes API-server views from inside
+the target cluster's network.
+
+## Step 7 — Deploy the in-cluster Kubernetes MCP server via lifecycle.deploy
 
 Same dispatch path as local kind:
 
