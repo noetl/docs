@@ -22,7 +22,7 @@ The intended path is:
 Browser
   -> Cloudflare Pages: https://mestumre.dev
   -> Cloudflare Tunnel: https://gateway.mestumre.dev
-  -> GKE Service: http://gateway.gateway.svc.cluster.local:8090
+  -> GKE Service: http://gateway.gateway.svc.cluster.local:80
   -> GKE private services: noetl, nats, pgbouncer
 ```
 
@@ -39,9 +39,9 @@ to the same internal Gateway service:
 
 | Public hostname | Tunnel service |
 |---|---|
-| `gateway.mestumre.dev` | `http://gateway.gateway.svc.cluster.local:8090` |
-| `gateway.example.com` | `http://gateway.gateway.svc.cluster.local:8090` |
-| `api.example.net` | `http://gateway.gateway.svc.cluster.local:8090` |
+| `gateway.mestumre.dev` | `http://gateway.gateway.svc.cluster.local:80` |
+| `gateway.example.com` | `http://gateway.gateway.svc.cluster.local:80` |
+| `api.example.net` | `http://gateway.gateway.svc.cluster.local:80` |
 
 Each GUI origin that calls Gateway must also be allowed by Gateway CORS and by
 the auth provider:
@@ -171,7 +171,7 @@ Expected:
 
 ```text
 NAME            TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)
-gateway         ClusterIP   ...             <none>        8090/TCP
+gateway         ClusterIP   ...             <none>        80/TCP
 ```
 
 If a public Gateway service exists from an older deployment, patch or redeploy
@@ -275,7 +275,7 @@ In the Cloudflare Tunnel public hostname settings, add:
 ```text
 Public hostname: gateway.mestumre.dev
 Service type:    HTTP
-Service URL:     gateway.gateway.svc.cluster.local:8090
+Service URL:     gateway.gateway.svc.cluster.local:80
 ```
 
 Add additional hostnames for each domain that should share this Gateway:
@@ -283,7 +283,7 @@ Add additional hostnames for each domain that should share this Gateway:
 ```text
 Public hostname: gateway.example.com
 Service type:    HTTP
-Service URL:     gateway.gateway.svc.cluster.local:8090
+Service URL:     gateway.gateway.svc.cluster.local:80
 ```
 
 Cloudflare creates the required DNS records for tunnel hostnames. If creating
@@ -358,4 +358,3 @@ LoadBalancer, release it after confirming no active DNS record uses it.
 ```bash
 gcloud compute addresses list --project "$PROJECT_ID"
 ```
-
