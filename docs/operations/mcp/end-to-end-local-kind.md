@@ -1,5 +1,4 @@
 ---
-id: mcp-end-to-end-local-kind
 title: MCP End-to-End on Local Kind
 sidebar_label: MCP End-to-End (Local Kind)
 sidebar_position: 3
@@ -15,7 +14,7 @@ run dialog. After this guide finishes you'll be able to open
 real cluster state stream back through the GUI.
 
 The architecture this guide deploys is described in detail under
-[NoETL Catalog-Driven MCP Architecture](../architecture/mcp_catalog_architecture).
+[NoETL Catalog-Driven MCP Architecture](../../architecture/mcp_catalog_architecture.md).
 
 ## What you end up with
 
@@ -307,7 +306,7 @@ You're on a noetl image older than v2.28.0. Roll forward.
 
 ## Related documentation
 
-- [MCP catalog architecture overview](../architecture/mcp_catalog_architecture)
-- [GKE deployment guide](mcp-end-to-end-gke)
-- [Local Kind Deployment (general)](local-kind-ops-deploy)
-- [Kubernetes MCP Local Kind Setup (older runbook)](kubernetes-mcp-local-kind)
+- [MCP catalog architecture overview](../../architecture/mcp_catalog_architecture.md)
+- [GKE deployment guide](./end-to-end-gke.md)
+- [Local Kind Deployment (general)](../local-kind/ops-deploy.md)
+- [Kubernetes MCP Local Kind Setup (older runbook)](./kubernetes-local-kind.md)

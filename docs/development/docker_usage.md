@@ -109,4 +109,4 @@ curl -s http://localhost:8082/api/health
 
 - [Automation Playbooks](./automation_playbooks.md)
 - [Kind Kubernetes](./kind_kubernetes.md)
-- [Local Kind Deployment (Ops)](../operations/local-kind-ops-deploy.md)
+- [Local Kind Deployment (Ops)](/docs/operations/local-kind/ops-deploy)

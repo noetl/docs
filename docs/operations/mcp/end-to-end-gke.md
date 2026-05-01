@@ -1,5 +1,4 @@
 ---
-id: mcp-end-to-end-gke
 title: MCP End-to-End on GKE
 sidebar_label: MCP End-to-End (GKE)
 sidebar_position: 4
@@ -8,7 +7,7 @@ sidebar_position: 4
 # MCP End-to-End on GKE
 
 Deploy the same NoETL + MCP architecture you ran locally
-([MCP End-to-End on Local Kind](mcp-end-to-end-local-kind)) onto a
+([MCP End-to-End on Local Kind](./end-to-end-local-kind.md)) onto a
 Google Kubernetes Engine cluster.
 
 The shape of the deployment is identical:
@@ -67,7 +66,7 @@ kubectl get nodes
 ```
 
 For Standard (more control over node pools, persistent volumes,
-RBAC node-affinity), see [GKE Autopilot Full Provisioning](../features/gke_autopilot_full_provisioning)
+RBAC node-affinity), see [GKE Autopilot Full Provisioning](../../features/gke_autopilot_full_provisioning.md)
 for a pre-built playbook.
 
 ## Step 2 — Bootstrap postgres + nats
@@ -90,7 +89,7 @@ kubectl rollout status deployment/postgres -n postgres --timeout=300s
 
 **Cloud SQL with Private IP via PgBouncer** (recommended for
 anything you don't want to lose with `kubectl delete ns`):
-follow [GCP Cloud SQL + PgBouncer Private IP](gcp-cloudsql-pgbouncer-private-ip).
+follow [GCP Cloud SQL + PgBouncer Private IP](../gcp/cloudsql-pgbouncer-private-ip.md).
 The noetl-server's Postgres connection string then points at the
 in-cluster pgbouncer service instead of `postgres.postgres.svc...`.
 
@@ -151,7 +150,7 @@ curl -fsS http://localhost:8082/api/health
 ```
 
 **Ingress + Identity-Aware Proxy (IAP)** (recommended for shared
-dev clusters): follow [GKE User Guide](../iap-gcp/gke_user_guide).
+dev clusters): follow [GKE User Guide](../../iap-gcp/gke_user_guide.md).
 The gateway component then sits behind IAP and the GUI uses its
 session-token flow as normal.
 
@@ -250,6 +249,10 @@ gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
   --member="serviceAccount:${GSA}" \
   --role="roles/container.viewer"
 
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+  --member="serviceAccount:${GSA}" \
+  --role="roles/mcp.toolUser"
+
 gcloud iam service-accounts add-iam-policy-binding "${GSA}" \
   --role="roles/iam.workloadIdentityUser" \
   --member="serviceAccount:${PROJECT_ID}.svc.id.goog[noetl/noetl-worker]"
@@ -269,6 +272,12 @@ status
 tools
 call list_clusters --set parent=projects/<project-id>/locations/-
 ```
+
+`roles/container.viewer` grants read-only GKE access. `roles/mcp.toolUser`
+grants `mcp.tools.call`, which the managed MCP endpoint requires for
+`call <tool>` invocations. If `tools` succeeds but `call list_clusters ...`
+returns a 403 for `mcp.googleapis.com/tools.call`, add `roles/mcp.toolUser`
+and restart `deployment/noetl-worker`.
 
 Use the managed endpoint for cloud-level GKE inventory and
 read-only cluster diagnostics. Use the in-cluster Kubernetes MCP
@@ -409,8 +418,8 @@ stream back through the friendly run dialog.
 
 ## Related documentation
 
-- [MCP catalog architecture overview](../architecture/mcp_catalog_architecture)
-- [MCP End-to-End on Local Kind](mcp-end-to-end-local-kind)
-- [GKE Autopilot Full Provisioning](../features/gke_autopilot_full_provisioning)
-- [GKE User Guide](../iap-gcp/gke_user_guide)
-- [GCP Cloud SQL + PgBouncer Private IP](gcp-cloudsql-pgbouncer-private-ip)
+- [MCP catalog architecture overview](../../architecture/mcp_catalog_architecture.md)
+- [MCP End-to-End on Local Kind](./end-to-end-local-kind.md)
+- [GKE Autopilot Full Provisioning](../../features/gke_autopilot_full_provisioning.md)
+- [GKE User Guide](../../iap-gcp/gke_user_guide.md)
+- [GCP Cloud SQL + PgBouncer Private IP](../gcp/cloudsql-pgbouncer-private-ip.md)

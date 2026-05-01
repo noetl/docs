@@ -211,6 +211,6 @@ starts a playbook execution equivalent to:
 
 The resulting MCP request is made by the NoETL worker using `tool.kind: mcp`, so the activity appears in the execution dashboard, event log, command projection, rerun flow, and reports.
 
-For local cluster setup, see [Kubernetes MCP Local Kind Setup](../operations/kubernetes-mcp-local-kind.md). For playbook syntax, see [MCP Tool](../reference/tools/mcp.md).
+For local cluster setup, see [Kubernetes MCP Local Kind Setup](/docs/operations/mcp/kubernetes-local-kind). For playbook syntax, see [MCP Tool](../reference/tools/mcp.md).
 
 Keep this page updated whenever console commands or command semantics change.

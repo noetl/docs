@@ -1,5 +1,4 @@
 ---
-id: gke-deployment
 title: GKE Deployment Guide
 sidebar_label: GKE Deployment
 sidebar_position: 5
@@ -589,6 +588,6 @@ noetl run automation/iap/gcp/deploy_gke_stack.yaml \
 
 ## See Also
 
-- [Command Reference](./command-reference.md)
-- [Observability Services](../reference/observability_services.md)
-- [Local Development Setup](../development/local_dev_setup.md)
+- [Command Reference](../command-reference.md)
+- [Observability Services](../../reference/observability_services.md)
+- [Local Development Setup](../../development/local_dev_setup.md)

@@ -1,5 +1,4 @@
 ---
-id: gke-cloudsql-end-to-end
 title: GKE End-to-End Deployment with Cloud SQL
 sidebar_label: GKE + Cloud SQL End-to-End
 sidebar_position: 0
@@ -431,8 +430,9 @@ noetl catalog register automation/agents/gcp/templates/mcp_gke_managed.yaml
 ```
 
 Then bind the NoETL worker service account to a Google service account with
-`roles/container.viewer` so the worker can obtain a token through Workload
-Identity. The GUI terminal discovers this as `/mcp/gcp`:
+`roles/container.viewer` and `roles/mcp.toolUser` so the worker can obtain a
+token through Workload Identity and invoke Google-managed MCP tools. The GUI
+terminal discovers this as `/mcp/gcp`:
 
 ```text
 cd /mcp/gcp
@@ -440,6 +440,9 @@ status
 tools
 call list_clusters --set parent=projects/<project-id>/locations/-
 ```
+
+See [Managed GKE MCP Rebuild Runbook](./managed-gke-mcp-rebuild.md)
+for exact IAM, registration, worker restart, and validation commands.
 
 ## Internet Exposure Model
 
@@ -600,8 +603,8 @@ Common causes:
 
 ## Related Documentation
 
-- [Current GCP Setup and System Playbook Architecture](./gcp-current-setup-system-playbooks)
-- [GCP Cloud SQL via PgBouncer and Cloud SQL Proxy](./gcp-cloudsql-pgbouncer-private-ip)
-- [Gateway Auth0 Setup](../gateway/auth0-setup)
-- [Gateway Deployment Guide](../gateway/deployment-guide)
-- [MCP End-to-End on GKE](./mcp-end-to-end-gke)
+- [Current GCP Setup and System Playbook Architecture](./current-setup-system-playbooks.md)
+- [GCP Cloud SQL via PgBouncer and Cloud SQL Proxy](./cloudsql-pgbouncer-private-ip.md)
+- [Gateway Auth0 Setup](../../gateway/auth0-setup.md)
+- [Gateway Deployment Guide](../../gateway/deployment-guide.md)
+- [MCP End-to-End on GKE](../mcp/end-to-end-gke.md)

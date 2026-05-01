@@ -1,5 +1,4 @@
 ---
-id: local-kind-ops-deploy
 title: Local Kind Deployment (Ops)
 sidebar_label: Local Kind Deployment
 sidebar_position: 1
