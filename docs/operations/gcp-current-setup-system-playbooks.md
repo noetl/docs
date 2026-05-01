@@ -256,7 +256,11 @@ NoETL executions for the `mcp/gcp/gke` agent playbook. The worker
 needs Google Cloud credentials through Workload Identity, a
 `GOOGLE_OAUTH_ACCESS_TOKEN` environment override, or a one-off
 `workload.access_token` for local debugging. Prefer Workload Identity
-with `roles/container.viewer`.
+with `roles/container.viewer` and `roles/mcp.toolUser`.
+
+See [Managed GKE MCP Rebuild Runbook](./gke-managed-gcp-mcp-rebuild.md)
+for the full post-cluster-rebuild recipe, validation commands, and
+troubleshooting notes.
 
 ### 4. Validate schema/role data
 

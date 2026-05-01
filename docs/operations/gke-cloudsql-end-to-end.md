@@ -431,8 +431,9 @@ noetl catalog register automation/agents/gcp/templates/mcp_gke_managed.yaml
 ```
 
 Then bind the NoETL worker service account to a Google service account with
-`roles/container.viewer` so the worker can obtain a token through Workload
-Identity. The GUI terminal discovers this as `/mcp/gcp`:
+`roles/container.viewer` and `roles/mcp.toolUser` so the worker can obtain a
+token through Workload Identity and invoke Google-managed MCP tools. The GUI
+terminal discovers this as `/mcp/gcp`:
 
 ```text
 cd /mcp/gcp
@@ -440,6 +441,9 @@ status
 tools
 call list_clusters --set parent=projects/<project-id>/locations/-
 ```
+
+See [Managed GKE MCP Rebuild Runbook](./gke-managed-gcp-mcp-rebuild.md)
+for exact IAM, registration, worker restart, and validation commands.
 
 ## Internet Exposure Model
 

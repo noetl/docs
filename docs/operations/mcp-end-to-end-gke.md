@@ -250,6 +250,10 @@ gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
   --member="serviceAccount:${GSA}" \
   --role="roles/container.viewer"
 
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+  --member="serviceAccount:${GSA}" \
+  --role="roles/mcp.toolUser"
+
 gcloud iam service-accounts add-iam-policy-binding "${GSA}" \
   --role="roles/iam.workloadIdentityUser" \
   --member="serviceAccount:${PROJECT_ID}.svc.id.goog[noetl/noetl-worker]"
@@ -269,6 +273,12 @@ status
 tools
 call list_clusters --set parent=projects/<project-id>/locations/-
 ```
+
+`roles/container.viewer` grants read-only GKE access. `roles/mcp.toolUser`
+grants `mcp.tools.call`, which the managed MCP endpoint requires for
+`call <tool>` invocations. If `tools` succeeds but `call list_clusters ...`
+returns a 403 for `mcp.googleapis.com/tools.call`, add `roles/mcp.toolUser`
+and restart `deployment/noetl-worker`.
 
 Use the managed endpoint for cloud-level GKE inventory and
 read-only cluster diagnostics. Use the in-cluster Kubernetes MCP
