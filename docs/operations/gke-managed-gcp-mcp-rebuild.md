@@ -47,8 +47,19 @@ gcloud container clusters get-credentials "${CLUSTER}" \
 
 ## 1. Restore Cloudflare Edge If Needed
 
-If the cluster was recreated and the gateway tunnel deployment is gone, redeploy
-the Cloudflare edge from `repos/ops`.
+If the cluster was recreated, restore both public edge pieces:
+
+- Cloudflare Pages serves the static GUI at `https://mestumre.dev`.
+- Cloudflare Tunnel routes `https://gateway.mestumre.dev` to the private GKE
+  Gateway service.
+
+The GKE Gateway service must stay private. Do not expose NoETL server, NoETL
+worker, or Gateway directly with a public `LoadBalancer` or `NodePort`.
+
+### 1.1 Token And DNS Inputs
+
+The edge playbook uses Cloudflare API access from your local shell. Export
+tokens locally only; never commit them.
 
 ```bash
 cd /Volumes/X10/projects/noetl/ai-meta/repos/ops
@@ -56,6 +67,39 @@ cd /Volumes/X10/projects/noetl/ai-meta/repos/ops
 export CLOUDFLARE_ACCOUNT_ID=<account-id>
 export CF_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID}"
 # CLOUDFLARE_API_TOKEN must be exported in the shell but must never be committed.
+export CLOUDFLARE_API_TOKEN=<cloudflare-api-token>
+```
+
+Use a Cloudflare API token with enough permissions for the action you run:
+
+| Action | Required Cloudflare capability |
+|---|---|
+| Pages upload | Cloudflare Pages edit on the account |
+| Tunnel create/update | Cloudflare Tunnel or Cloudflare One connector edit |
+| DNS record create/update | DNS edit on the zone |
+
+If the tunnel already exists and DNS is already configured, the Kubernetes
+deployment can use the tunnel token without broad API permissions. If the
+playbook creates or updates the tunnel or DNS records, the API token must
+include those permissions.
+
+Expected DNS shape:
+
+| Hostname | Cloudflare record | Target |
+|---|---|---|
+| `mestumre.dev` | Pages custom domain / proxied CNAME | `noetl-gui.pages.dev` |
+| `gateway.mestumre.dev` | Tunnel public hostname | `noetl-gke-gateway` |
+
+Remove stale records that point `mestumre.dev` to old GKE ingress or
+LoadBalancer IPs. A stale proxied A record can cause Cloudflare `522` after the
+GUI has already been moved to Pages.
+
+### 1.2 Deploy Pages, Tunnel, And Private Gateway
+
+Run the Cloudflare edge playbook:
+
+```bash
+cd /Volumes/X10/projects/noetl/ai-meta/repos/ops
 
 noetl run automation/cloudflare/gke_gateway_edge.yaml \
   --runtime local \
@@ -67,11 +111,45 @@ noetl run automation/cloudflare/gke_gateway_edge.yaml \
   --set gateway_public_url=https://gateway.mestumre.dev
 ```
 
-Validate:
+What this does:
+
+- Builds `repos/gui` with `VITE_API_MODE=gateway`.
+- Uploads the GUI bundle to Cloudflare Pages.
+- Ensures the GKE Gateway service is `ClusterIP`.
+- Creates or updates the Cloudflare tunnel configuration when API permissions
+  allow it.
+- Deploys or refreshes `cloudflared` in GKE.
+
+For tunnel-only recovery after a cluster rebuild:
+
+```bash
+noetl run automation/cloudflare/gke_gateway_edge.yaml \
+  --runtime local \
+  --set action=tunnel \
+  --set cloudflare_account_id="${CLOUDFLARE_ACCOUNT_ID}" \
+  --set gateway_service_port=80 \
+  --set gateway_hostname=gateway.mestumre.dev
+```
+
+For GUI-only redeploy after a GUI release:
+
+```bash
+noetl run automation/cloudflare/gke_gateway_edge.yaml \
+  --runtime local \
+  --set action=pages \
+  --set cloudflare_account_id="${CLOUDFLARE_ACCOUNT_ID}" \
+  --set gui_domain=mestumre.dev \
+  --set gateway_public_url=https://gateway.mestumre.dev
+```
+
+### 1.3 Validate Cloudflare Edge
+
+Validate public endpoints:
 
 ```bash
 curl -fsS https://gateway.mestumre.dev/health
 curl -I https://mestumre.dev
+curl -fsSL https://mestumre.dev/ | grep -o 'assets/index-[A-Za-z0-9_-]*\.js'
 ```
 
 The NoETL gateway service in GKE should stay private:
@@ -82,6 +160,28 @@ kubectl -n gateway get svc gateway
 ```
 
 The gateway service should be `ClusterIP`, not `LoadBalancer` or `NodePort`.
+
+Validate the tunnel pods:
+
+```bash
+kubectl -n cloudflare get deploy,pods
+kubectl -n cloudflare rollout status deployment/noetl-gke-gateway-tunnel --timeout=180s
+```
+
+If `https://gateway.mestumre.dev/health` returns `ok`, the tunnel can reach the
+private Gateway service.
+
+If `https://mestumre.dev` returns Cloudflare `522`, the apex domain is probably
+still pointing at a stale origin. In Cloudflare DNS, remove old proxied A
+records for `mestumre.dev` and attach `mestumre.dev` as a Pages custom domain.
+
+If local `curl https://mestumre.dev` cannot resolve while public resolvers can,
+flush local DNS cache or test with a public resolver:
+
+```bash
+dig @1.1.1.1 mestumre.dev A +short
+dig @1.1.1.1 gateway.mestumre.dev CNAME +short
+```
 
 ## 2. Configure Workload Identity For The Worker
 
@@ -386,4 +486,3 @@ curl -I https://mestumre.dev
 
 The Gateway service should remain private (`ClusterIP`). The public path should
 be Cloudflare Pages for the GUI and Cloudflare Tunnel for Gateway.
-
