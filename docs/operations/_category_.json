@@ -3,6 +3,6 @@
   "position": 2,
   "link": {
     "type": "generated-index",
-    "description": "Technical reference documentation for NoETL DSL, execution model, and advanced features."
+    "description": "Operational runbooks for NoETL deployments, cloud infrastructure, MCP integrations, databases, observability, and maintenance."
   }
 }

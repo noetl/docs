@@ -1,5 +1,4 @@
 ---
-id: gcp-current-setup-system-playbooks
 title: Current GCP Setup and System Playbook Architecture
 sidebar_label: GCP Setup + System Playbooks
 sidebar_position: 1
@@ -258,7 +257,7 @@ needs Google Cloud credentials through Workload Identity, a
 `workload.access_token` for local debugging. Prefer Workload Identity
 with `roles/container.viewer` and `roles/mcp.toolUser`.
 
-See [Managed GKE MCP Rebuild Runbook](./gke-managed-gcp-mcp-rebuild.md)
+See [Managed GKE MCP Rebuild Runbook](./managed-gke-mcp-rebuild.md)
 for the full post-cluster-rebuild recipe, validation commands, and
 troubleshooting notes.
 
@@ -390,8 +389,8 @@ Do not test this path with real user passwords in terminal commands. Use the bro
 
 ## Related docs
 
-- [Cloud SQL + PgBouncer (Private IP)](./gcp-cloudsql-pgbouncer-private-ip)
+- [Cloud SQL + PgBouncer (Private IP)](./cloudsql-pgbouncer-private-ip.md)
 - [GKE Deployment Guide](./gke-deployment)
-- [Gateway Auth0 Setup](../gateway/auth0-setup)
-- [Gateway Deployment Guide](../gateway/deployment-guide)
-- [IAP GKE Quick Start](../iap-gcp/gke_quick_start)
+- [Gateway Auth0 Setup](../../gateway/auth0-setup.md)
+- [Gateway Deployment Guide](../../gateway/deployment-guide.md)
+- [IAP GKE Quick Start](../../iap-gcp/gke_quick_start.md)

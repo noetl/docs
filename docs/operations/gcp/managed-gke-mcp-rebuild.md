@@ -1,6 +1,7 @@
 ---
 title: Managed GKE MCP Rebuild Runbook
 description: Re-enable the Google Cloud managed GKE MCP workspace after rebuilding the GKE cluster.
+sidebar_position: 4
 ---
 
 # Managed GKE MCP Rebuild Runbook
@@ -20,6 +21,9 @@ The current production pattern is:
 - NoETL catalog resources:
   - `mcp/gcp/gke` agent playbook
   - `mcp/gcp` MCP workspace resource
+
+For the service architecture and day-to-day terminal usage, see
+[Google Managed GKE MCP Service](./managed-gke-mcp-service.md).
 
 ## Prerequisites
 

@@ -1,5 +1,4 @@
 ---
-id: kubernetes-mcp-local-kind
 title: Kubernetes MCP Local Kind Setup
 sidebar_label: Kubernetes MCP
 sidebar_position: 2
@@ -57,7 +56,7 @@ noetl run automation/infrastructure/kind.yaml --runtime local --set action=creat
 kubectl config use-context kind-noetl
 ```
 
-Deploy the base NoETL dependencies and components as described in [Local Kind Deployment](./local-kind-ops-deploy.md). For an existing local cluster, the usual refresh path is:
+Deploy the base NoETL dependencies and components as described in [Local Kind Deployment](../local-kind/ops-deploy.md). For an existing local cluster, the usual refresh path is:
 
 ```bash
 cd repos/ops

@@ -9,7 +9,7 @@ sidebar_position: 2
 
 Complete reference for all NoETL automation playbooks and CLI commands.
 
-For a full local deployment runbook, see [Local Kind Deployment](./local-kind-ops-deploy).
+For a full local deployment runbook, see [Local Kind Deployment](./local-kind/ops-deploy.md).
 
 ## Quick Start
 
@@ -427,4 +427,4 @@ automation/
 - [Observability Services](./observability.md)
 - [Automation Playbooks](../development/automation_playbooks.md)
 - [Local Development Setup](../development/local_dev_setup.md)
-- [GKE Deployment Guide](./gke-deployment.md)
+- [GKE Deployment Guide](./gcp/gke-deployment.md)

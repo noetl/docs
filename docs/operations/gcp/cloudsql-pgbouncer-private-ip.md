@@ -1,5 +1,4 @@
 ---
-id: gcp-cloudsql-pgbouncer-private-ip
 title: GCP Cloud SQL via PgBouncer and Cloud SQL Proxy (Private IP)
 sidebar_label: Cloud SQL + PgBouncer (Private IP)
 sidebar_position: 2
@@ -119,5 +118,5 @@ To support both modes cleanly, update `deploy_pgbouncer` so proxy args are condi
 
 ## Related docs
 
-- [Current GCP Setup and System Playbook Architecture](./gcp-current-setup-system-playbooks)
+- [Current GCP Setup and System Playbook Architecture](./current-setup-system-playbooks.md)
 - [GKE Deployment Guide](./gke-deployment)
