@@ -10,7 +10,7 @@ This document outlines the complete development plan for implementing Infrastruc
 
 ## Executive Summary
 
-IaP transforms NoETL into a cloud infrastructure management tool by enhancing the Rust CLI (`noetlctl`) to support:
+IaP transforms NoETL into a cloud infrastructure management tool by enhancing the Rust CLI (`noetl CLI`) to support:
 - GCP authentication via Application Default Credentials (ADC)
 - HTTP calls to cloud provider APIs with automatic token injection
 - DuckDB integration for state management
@@ -23,7 +23,7 @@ IaP transforms NoETL into a cloud infrastructure management tool by enhancing th
 
 | Component | Current State | IaP Requirement |
 |-----------|--------------|-----------------|
-| `noetlctl` CLI | Shell, HTTP (curl), Playbook tools | Add auth, DuckDB, sink handlers |
+| `noetl CLI` CLI | Shell, HTTP (curl), Playbook tools | Add auth, DuckDB, sink handlers |
 | Authentication | None in local mode | ADC token extraction, Bearer injection |
 | State Management | None | DuckDB with snapshot schema |
 | Cloud Storage | None in local mode | GCS read/write via HTTP + auth |
@@ -32,7 +32,7 @@ IaP transforms NoETL into a cloud infrastructure management tool by enhancing th
 ### Files to Modify
 
 ```
-crates/noetlctl/
+repos/cli/
 ├── src/
 │   ├── main.rs              # Add IaP subcommands, tool enum extensions
 │   ├── playbook_runner.rs   # Add DuckDB, auth, sink handlers
@@ -58,7 +58,7 @@ crates/noetlctl/
 
 ### 1.1 GCP ADC Token Handler
 
-**File: `crates/noetlctl/src/auth/gcp.rs`**
+**File: `repos/cli/src/auth/gcp.rs`**
 
 ```rust
 use anyhow::{Context, Result};
@@ -151,7 +151,7 @@ pub enum AuthConfig {
 
 ### 1.2 HTTP Tool Enhancement
 
-**Modifications to `crates/noetlctl/src/playbook_runner.rs`**
+**Modifications to `repos/cli/src/playbook_runner.rs`**
 
 ```rust
 // Add to Tool enum
@@ -248,7 +248,7 @@ workflow:
 
 ### 2.1 DuckDB Tool Handler
 
-**File: `crates/noetlctl/src/tools/duckdb.rs`**
+**File: `repos/cli/src/tools/duckdb.rs`**
 
 ```rust
 use anyhow::{Context, Result};
@@ -510,7 +510,7 @@ CREATE INDEX IF NOT EXISTS idx_drift_resource ON drift_records(resource_id);
 
 ### 3.1 Sink Implementation
 
-**File: `crates/noetlctl/src/tools/sink.rs`**
+**File: `repos/cli/src/tools/sink.rs`**
 
 ```rust
 use anyhow::{Context, Result};
@@ -673,7 +673,7 @@ fn execute_step(&self, playbook: &Playbook, step_name: &str, context: &mut Execu
 
 ### 4.1 New Subcommands
 
-**Modifications to `crates/noetlctl/src/main.rs`**
+**Modifications to `repos/cli/src/main.rs`**
 
 ```rust
 #[derive(Subcommand)]
@@ -1174,7 +1174,7 @@ workflow:
 
 ## Success Criteria
 
-1. **Authentication**: Successfully call GCP APIs using ADC tokens from `noetlctl`
+1. **Authentication**: Successfully call GCP APIs using ADC tokens from `noetl CLI`
 2. **State Management**: Track resources in DuckDB with full CRUD operations
 3. **GCS Sync**: Push/pull state files to GCS buckets
 4. **Drift Detection**: Compare desired vs current state and report differences

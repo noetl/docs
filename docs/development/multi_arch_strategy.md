@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-NoETL has a Rust CLI binary (`noetlctl`) that needs to work across:
+NoETL has a Rust CLI binary (`noetl CLI`) that needs to work across:
 - **Local development**: Mac (arm64/amd64), Linux (amd64/arm64), Windows
 - **Podman containers**: Linux (amd64/arm64)
 - **Kubernetes clusters**: Any node architecture

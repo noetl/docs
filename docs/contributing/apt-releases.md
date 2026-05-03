@@ -62,7 +62,8 @@ build/deb/noetl_2.5.3-1_amd64.deb.sha256
 - Container: Ubuntu 22.04 with build-essential, dpkg-dev, Rust
 - Location: `docker/release/Dockerfile.deb`
 - Uses current branch code (not git clone)
-- Supports both `noetl` and `noetl-cli` package names (for version compatibility)
+- Publishes the maintained Rust CLI binary from `noetl/cli` as the `noetl`
+  Debian package.
 
 #### Option B: Native Linux Build
 
@@ -267,7 +268,7 @@ Makefile for building:
 #!/usr/bin/make -f
 
 override_dh_auto_build:
-	cd crates/noetlctl && cargo build --release
+	cd repos/cli && cargo build --release
 
 override_dh_auto_install:
 	install -D -m 0755 target/release/noetl debian/noetl/usr/bin/noetl
@@ -320,7 +321,7 @@ sudo apt-get install gcc-aarch64-linux-gnu
 
 # Build with cargo
 export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-cargo build --release --target aarch64-unknown-linux-gnu -p noetl-cli
+	cargo build --release --target aarch64-unknown-linux-gnu --bins
 
 # Build .deb for arm64
 ./scripts/build_deb.sh 2.5.3 arm64

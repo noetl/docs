@@ -6,29 +6,33 @@ description: Get NoETL running in minutes
 
 # Quick Start
 
-Get NoETL running quickly with either PyPI installation or a full local development environment.
+Get NoETL running quickly with the maintained Rust CLI or a full local development environment.
 
-## Option 1: PyPI Installation (Simplest)
+## Option 1: Install The NoETL CLI
 
-### Install NoETL CLI
+The NoETL CLI is the Rust binary maintained in `https://github.com/noetl/cli`.
+
+### Homebrew
 
 ```bash
-# Install NoETL CLI (includes Python runtime)
-pip install noetlctl
-
-# Verify installation
+brew tap noetl/tap
+brew install noetl
 noetl --version
 ```
 
-### Install NoETL CLI (Rust Binary)
-
-The `noetl` CLI is a fast, native Rust binary for managing NoETL servers, workers, and playbooks:
+### APT
 
 ```bash
-# Install via Cargo (Rust package manager)
-cargo install noetl
+echo 'deb [trusted=yes] https://noetl.github.io/apt jammy main' | sudo tee /etc/apt/sources.list.d/noetl.list
+sudo apt-get update
+sudo apt-get install noetl
+noetl --version
+```
 
-# Verify CLI installation
+### Cargo
+
+```bash
+cargo install --bins noetl
 noetl --version
 ```
 
@@ -54,8 +58,9 @@ For a complete environment with server, workers, PostgreSQL, and observability s
 git clone https://github.com/noetl/noetl.git
 cd noetl
 
-# Install NoETL CLI
-cargo install --path crates/noetlctl
+# Install NoETL CLI from the separate CLI repository when developing locally
+git clone https://github.com/noetl/cli.git ../cli
+cargo install --path ../cli
 
 # (Optional) Install dev tools - auto-detects macOS vs Linux/WSL2
 noetl run automation/development/setup_tooling.yaml --set action=install-devtools

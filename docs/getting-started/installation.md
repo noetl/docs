@@ -6,7 +6,9 @@ description: Installation options for NoETL
 
 # Installation
 
-NoETL provides multiple installation options across different platforms and package managers.
+NoETL CLI is the native Rust `noetl` binary maintained in
+`https://github.com/noetl/cli`. Use Homebrew or APT for normal installs; use
+Cargo or GitHub release tarballs when a package manager is not available.
 
 ## Quick Install
 
@@ -29,16 +31,10 @@ sudo apt-get install noetl
 
 See [APT Installation Guide](../installation/apt.md) for details.
 
-### PyPI (Python Package)
-
-```bash
-pip install noetlctl
-```
-
 ### Cargo (Rust)
 
 ```bash
-cargo install noetl
+cargo install --bins noetl
 ```
 
 ### Verify Installation
@@ -56,9 +52,8 @@ NoETL is available through multiple distribution channels:
 |---------|---------|---------|----------|
 | **Homebrew** | `noetl/tap/noetl` | `brew install noetl/tap/noetl` | macOS, Linux |
 | **APT** | `noetl` | `sudo apt-get install noetl` | Ubuntu, Debian |
-| **PyPI** | `noetlctl` | `pip install noetlctl` | Cross-platform |
-| **Crates.io** | `noetl` | `cargo install noetl` | Cross-platform |
-| **GitHub** | Binary | Download from [releases](https://github.com/noetl/noetl/releases) | macOS, Linux |
+| **Crates.io** | `noetl` | `cargo install --bins noetl` | Cross-platform |
+| **GitHub** | Binary | Download from [noetl/cli releases](https://github.com/noetl/cli/releases) | macOS, Linux |
 
 ## Kubernetes Deployment
 

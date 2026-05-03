@@ -14,10 +14,10 @@ NoETL supports building container images for multiple CPU architectures (amd64, 
 
 ## Architecture Components
 
-### Rust CLI Binary (`noetlctl`)
+### Rust CLI Binary (`noetl`)
 The Rust CLI is compiled natively within the Podman build process:
 - **Dev image** (`docker/noetl/dev/Dockerfile`): Uses `rust:1.83-slim` builder
-- **Standalone binary** (`noetlctl/Dockerfile`): Uses Alpine with musl static linking
+- **Standalone binary** (`repos/cli/Dockerfile`): Uses Alpine with musl static linking
 
 ### Python Application
 Platform-agnostic Python code with architecture-specific Rust binary embedded.
@@ -121,21 +121,21 @@ The Rust CLI binary (`noetl`) must match your local architecture:
 
 **Mac (arm64)**:
 ```bash
-cd noetlctl
+cd repos/cli
 cargo build --release
 cp target/release/noetl ../bin/noetl
 ```
 
 **Mac (Intel/amd64)**:
 ```bash
-cd noetlctl
+cd repos/cli
 cargo build --release --target x86_64-apple-darwin
 cp target/x86_64-apple-darwin/release/noetl ../bin/noetl
 ```
 
 **Linux (amd64)**:
 ```bash
-cd noetlctl
+cd repos/cli
 cargo build --release --target x86_64-unknown-linux-gnu
 cp target/x86_64-unknown-linux-gnu/release/noetl ../bin/noetl
 ```
@@ -268,6 +268,6 @@ RUN cross build --release --target aarch64-unknown-linux-gnu
 
 ## Related Documentation
 
-- [Rust CLI Migration](./rust_cli_migration)
-- [PyPI Rust Bundling](./pypi_rust_bundling)
+- [CLI Overview](../cli/index.md)
+- [Cargo Installation](../installation/cargo.md)
 - [Podman Usage](/docs/development/docker_usage)
