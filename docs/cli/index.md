@@ -4,9 +4,11 @@ title: Overview
 description: NoETL command-line tool for development and automation
 ---
 
-# noetlctl CLI Overview
+# NoETL CLI Overview
 
-The `noetlctl` CLI (also called `noetl`) is a Rust-based command-line tool that provides a unified interface for executing playbooks either locally or via distributed server-worker architecture.
+The `noetl` CLI is a Rust-based command-line tool maintained in
+`https://github.com/noetl/cli`. It provides a unified interface for executing
+playbooks either locally or via distributed server-worker architecture.
 
 ## Unified Execution Model
 
@@ -261,20 +263,18 @@ sudo apt-get update
 sudo apt-get install noetl
 
 # Rust - Crates.io
-cargo install noetl
-
-# Python - PyPI
-pip install noetlctl
+cargo install --bins noetl
 ```
 
 ### Build from Source
 
 ```bash
-cd crates/noetlctl
+git clone https://github.com/noetl/cli.git
+cd cli
 cargo build --release
 
 # Binary available at:
-# crates/noetlctl/target/release/noetl
+# target/release/noetl
 ```
 
 ### Binary Locations
@@ -562,7 +562,7 @@ noetl run automation/examples/unsupported_tools.yaml --verbose
 
 ## Documentation Structure
 
-- **[Architecture & Usage](./architecture.md)** - When to use noetlctl vs Python direct
+- **[Architecture & Usage](./architecture.md)** - When to use the CLI vs REST/API automation
 - **[Local Execution](./local_execution.md)** - Complete guide with detailed examples and file references
 - **Command Reference** (coming soon) - Full CLI command documentation
 - **Advanced Examples** (coming soon) - Complex automation patterns

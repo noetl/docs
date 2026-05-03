@@ -38,7 +38,7 @@ noetl run automation/setup/bootstrap.yaml
 Performs complete K8s environment setup:
 1. Verify dependencies (Podman, kubectl, kind)
 2. Check ports availability (54321, 3000, 9428, 8082)
-3. Build noetlctl Rust CLI
+3. Build noetl CLI Rust CLI
 4. Build NoETL Podman image
 5. Create kind Kubernetes cluster
 6. Load image into kind

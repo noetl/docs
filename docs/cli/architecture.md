@@ -1,21 +1,21 @@
 ---
 sidebar_position: 1
 title: Architecture & Usage
-description: Understanding when to use noetlctl vs Python direct execution
+description: Understanding when to use noetl CLI vs Python direct execution
 ---
 
-# noetlctl Architecture and Usage Patterns
+# noetl CLI Architecture and Usage Patterns
 
 ## Overview
 
 NoETL provides two ways to run the server and worker:
 
-1. **noetlctl (Rust CLI)** - Process manager and CLI tool for local development
+1. **noetl CLI (Rust CLI)** - Process manager and CLI tool for local development
 2. **Python direct** - Direct execution via `python -m noetl.server` / `python -m noetl.worker`
 
-## What is noetlctl?
+## What is noetl CLI?
 
-`noetlctl` is a Rust-based command-line tool that serves multiple purposes:
+`noetl CLI` is a Rust-based command-line tool that serves multiple purposes:
 
 ### Primary Functions
 
@@ -28,18 +28,18 @@ NoETL provides two ways to run the server and worker:
 ### Implementation Details
 
 ```rust
-// noetlctl server start spawns:
+// noetl CLI server start spawns:
 python -m noetl.server --host 0.0.0.0 --port 8082
 
-// noetlctl worker start spawns:
+// noetl CLI worker start spawns:
 python -m noetl.worker
 ```
 
-**Key Point**: noetlctl is a **wrapper** that spawns Python processes and manages their lifecycle.
+**Key Point**: noetl CLI is a **wrapper** that spawns Python processes and manages their lifecycle.
 
 ## When to Use Each Approach
 
-### Use noetlctl (Local Development)
+### Use noetl CLI (Local Development)
 
 ✅ **Recommended for:**
 - Local development on Mac/Linux/Windows
@@ -125,7 +125,7 @@ python -m noetl.worker
 ┌─────────────────────────────────────────────────────────────┐
 │                     Local Development                        │
 ├─────────────────────────────────────────────────────────────┤
-│  noetlctl (Rust)                                            │
+│  noetl CLI (Rust)                                            │
 │      ↓                                                       │
 │  Spawns & Manages                                           │
 │      ↓                                                       │
@@ -199,8 +199,8 @@ If you need Rust CLI in containers:
 ```dockerfile
 # Optional: Copy pre-compiled Rust binary
 ARG TARGETARCH
-COPY noetlctl/target/x86_64-unknown-linux-gnu/release/noetl /usr/local/bin/noetl || true
-COPY noetlctl/target/aarch64-unknown-linux-gnu/release/noetl /usr/local/bin/noetl || true
+COPY repos/cli/target/x86_64-unknown-linux-gnu/release/noetl /usr/local/bin/noetl || true
+COPY repos/cli/target/aarch64-unknown-linux-gnu/release/noetl /usr/local/bin/noetl || true
 ```
 
 **Important**: Do NOT compile Rust inside Podman builds - it causes QEMU emulation issues on ARM Macs.
@@ -229,7 +229,7 @@ NOETL_SERVER_URL=http://localhost:8082
 
 ## CLI Operations
 
-### Using noetlctl
+### Using noetl CLI
 
 ```bash
 # Register playbook
@@ -262,16 +262,16 @@ curl -X POST http://localhost:8082/api/execute/playbook/my-playbook \
 curl http://localhost:8082/api/execute/12345
 ```
 
-Both approaches are equivalent - use noetlctl for convenience, or REST API for automation.
+Both approaches are equivalent - use noetl CLI for convenience, or REST API for automation.
 
 ## Summary
 
 | Environment | Recommended | Method | Why |
 |------------|------------|--------|-----|
-| Local Mac/Linux | noetlctl | `./bin/noetl server start` | Convenient, PID management |
+| Local Mac/Linux | noetl CLI | `./bin/noetl server start` | Convenient, PID management |
 | Kubernetes | Python direct | `python -m noetl.server` | K8s manages processes |
 | Podman | Python direct | `CMD ["python", "-m", "noetl.server"]` | Container lifecycle |
 | CI/CD | Python direct | `python -m noetl.server` | Simpler, portable |
-| Windows | noetlctl | `noetl.exe server start` | Native Windows binary |
+| Windows | noetl CLI | `noetl.exe server start` | Native Windows binary |
 
-**Key Principle**: Use noetlctl for interactive development, Python direct for production/orchestration.
+**Key Principle**: Use noetl CLI for interactive development, Python direct for production/orchestration.

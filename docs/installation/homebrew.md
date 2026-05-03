@@ -58,11 +58,10 @@ cp target/release/noetl /usr/local/bin/
 
 ## Alternative Installation Methods
 
-- **PyPI**: `pip install noetlctl` (Python-based distribution)
-- **Crates.io**: `cargo install noetl` (Rust-based distribution)
+- **Crates.io**: `cargo install --bins noetl`
 - **APT**: `sudo apt-get install noetl` (Ubuntu/Debian)
 - **Podman**: `podman pull ghcr.io/noetl/noetl:latest`
-- **Manual**: Download binaries from [GitHub Releases](https://github.com/noetl/noetl/releases)
+- **Manual**: Download binaries from [noetl/cli releases](https://github.com/noetl/cli/releases)
 
 ## Next Steps
 
@@ -81,9 +80,9 @@ echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-### Version conflicts with PyPI package
+### Version conflicts
 
-If you have both Homebrew and PyPI versions installed, pyenv/virtualenv may take precedence:
+If an older CLI binary shadows the Homebrew install, check your `PATH`:
 
 ```bash
 # Check which noetl is being used
@@ -92,8 +91,8 @@ which noetl
 # Use Homebrew version explicitly
 /opt/homebrew/bin/noetl --version
 
-# Or uninstall PyPI version
-pip uninstall noetlctl
+# Remove older manually-installed binaries if needed
+rm -f ~/.cargo/bin/noetl /usr/local/bin/noetl
 ```
 
 ### Building from source fails

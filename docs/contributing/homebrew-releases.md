@@ -31,13 +31,13 @@ version = "2.5.3"
 All workspace members should reference workspace version:
 
 ```toml
-# crates/noetlctl/Cargo.toml
+# repos/cli/Cargo.toml
 [package]
 name = "noetl"
 version.workspace = true
 ```
 
-**Note**: The crate is named `noetl` (not `noetl-cli`) for clean cargo install.
+**Note**: The crate is named `noetl` for clean cargo install.
 
 ### 2. Create Git Tag
 
@@ -139,7 +139,7 @@ class Noetl < Formula
   depends_on "rust" => :build
 
   def install
-    cd "crates/noetlctl" do
+    cd "repos/cli" do
       system "cargo", "install", *std_cargo_args
     end
   end
@@ -169,7 +169,7 @@ end
 
 ## Key Points
 
-- **Workspace Build**: Formula builds from `crates/noetlctl` subdirectory in workspace
+- **Workspace Build**: Formula builds from `repos/cli` subdirectory in workspace
 - **Source Distribution**: Installs from GitHub release tarball (not prebuilt binaries)
 - **Rust Dependency**: Requires Rust toolchain at build time
 - **Version Management**: Workspace version in `Cargo.toml` must match Git tag
@@ -209,7 +209,7 @@ brew info rust
 
 # Test local build
 git clone https://github.com/noetl/noetl.git /tmp/noetl-test
-cd /tmp/noetl-test/crates/noetlctl
+cd /tmp/noetl-test/repos/cli
 cargo build --release
 ```
 

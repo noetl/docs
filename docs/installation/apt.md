@@ -90,8 +90,8 @@ Features:
 ## Alternative Installation Methods
 
 - **Homebrew** (macOS): `brew install noetl`
-- **Crates.io**: `cargo install noetl`
-- **PyPI**: `pip install noetlctl`
+- **Crates.io**: `cargo install --bins noetl`
+- **GitHub release tarballs**: https://github.com/noetl/cli/releases
 - **Podman**: `podman pull ghcr.io/noetl/noetl:latest`
 
 ## Troubleshooting

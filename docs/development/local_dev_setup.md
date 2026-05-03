@@ -27,7 +27,7 @@ mkdir -p noetl/core/ui/assets
    - Copies Vite build output to Python package
    
 2. **Builds Rust CLI** for your native architecture
-   - Compiles `noetlctl` binary with `cargo build --release`
+   - Compiles the `noetl` binary from the Rust CLI repository
    - Copies to `bin/noetl` and `noetl/bin/noetl`
    
 3. **Sets up environment** for local development
@@ -67,7 +67,7 @@ cp -r dist/* ../noetl/core/ui/
 
 **Rust CLI changes**:
 ```bash
-cd noetlctl && cargo build --release
+cd repos/cli && cargo build --release
 cp target/release/noetl ../bin/noetl
 ```
 
@@ -153,7 +153,7 @@ See [Multi-Architecture Build Strategy](./multi_arch_strategy.md) for complete d
 **Solution**: Run `./scripts/setup_local_dev.sh` or disable UI with `export NOETL_ENABLE_UI=false`
 
 ### "exec format error" 
-**Solution**: Rebuild Rust binary for your architecture: `cd noetlctl && cargo build --release`
+**Solution**: Rebuild Rust binary for your architecture: `cd repos/cli && cargo build --release`
 
 ### "npm: command not found"
 **Solution**: Install Node.js or disable UI (server works without UI)
@@ -200,7 +200,7 @@ noetl/
 │   └── core/ui/              # UI assets (built from ui-src/)
 │       ├── index.html
 │       └── assets/
-├── noetlctl/                  # Rust CLI source
+├── repos/cli/                  # Rust CLI source
 │   └── target/release/noetl  # Compiled binary
 ├── ui-src/                    # UI source (Vite/React)
 │   └── dist/                 # Build output → copied to noetl/core/ui/
@@ -213,8 +213,8 @@ noetl/
 - [Automation Playbooks](./automation_playbooks.md) - Complete playbook reference
 - [Multi-Architecture Build Strategy](./multi_arch_strategy.md)
 - [Multi-Architecture Builds (Implementation Guide)](./multi_arch_builds.md)
-- [Rust CLI Migration](./rust_cli_migration.md)
-- [PyPI Rust Bundling](./pypi_rust_bundling.md)
+- [CLI Overview](../cli/index.md)
+- [Cargo Installation](../installation/cargo.md)
 
 ## OS-Aware Tooling Setup
 
@@ -244,5 +244,5 @@ noetl run automation/development/setup_tooling.yaml --set action=validate-instal
 | Start worker locally | `./bin/noetl worker start` |
 | Disable UI | `export NOETL_ENABLE_UI=false` |
 | Rebuild UI | `cd ui-src && npm run build && cp -r dist/* ../noetl/core/ui/` |
-| Rebuild CLI | `cd noetlctl && cargo build --release && cp target/release/noetl ../bin/` |
+| Rebuild CLI | `cd repos/cli && cargo build --release && cp target/release/noetl ../bin/` |
 | Full K8s setup | `noetl run automation/setup/bootstrap.yaml` |

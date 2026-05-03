@@ -1035,7 +1035,7 @@ Current local execution does NOT support:
 6. **NATS Integration**: No message queue coordination
 7. **Observability**: No metrics/traces (only stdout)
 
-**Unsupported Tool Handling**: When a playbook uses tools not supported in local mode (postgres, python, duckdb, iterator, etc.), noetlctl will display a warning message and skip the step:
+**Unsupported Tool Handling**: When a playbook uses tools not supported in local mode (postgres, python, duckdb, iterator, etc.), noetl CLI will display a warning message and skip the step:
 
 ```
 ⚠️  Tool not supported in local execution mode
@@ -1390,7 +1390,7 @@ noetl run automation/examples/conditional_flow.yaml \
 
 **File**: [`automation/examples/unsupported_tools.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/unsupported_tools.yaml)
 
-Demonstrates how noetlctl handles tools not supported in local mode:
+Demonstrates how noetl CLI handles tools not supported in local mode:
 
 ```bash
 noetl run automation/examples/unsupported_tools.yaml --verbose
