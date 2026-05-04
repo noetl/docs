@@ -96,6 +96,8 @@ auto-dispatch hooks, CI integrations).
 | `escalate_to`          | `openai`                                           | `openai` / `claude` / `none`           |
 | `openai_credential`    | `openai_token`                                     | keychain entry for OpenAI API key      |
 | `openai_model`         | `gpt-4o-mini`                                      | OpenAI model for escalation            |
+| `anthropic_credential` | `anthropic_token`                                  | keychain entry for Anthropic API key   |
+| `anthropic_model`      | `claude-haiku-4-5`                                 | Anthropic model for escalation         |
 
 ## How callers reach it
 
@@ -155,11 +157,30 @@ On parse failure (small models occasionally return malformed JSON)
 confidence is forced to 0, which guarantees escalation when the
 operator opted into it.
 
+## Escalation targets
+
+Two upstream models are wired:
+
+| `escalate_to` value | Endpoint                             | Default model      | Auth header                   |
+|---------------------|--------------------------------------|--------------------|-------------------------------|
+| `openai`            | `https://api.openai.com/v1/chat/completions` | `gpt-4o-mini`     | `Authorization: Bearer <token>` |
+| `claude`            | `https://api.anthropic.com/v1/messages`     | `claude-haiku-4-5` | `x-api-key: <token>` + `anthropic-version: 2023-06-01` |
+| `none`              | (no escalation; local-only mode)             |                    |                                |
+
+The two paths are mutually exclusive — at most one runs per
+diagnosis. Pick `claude` when you'd rather spend the marginal cost
+on a larger context window or stronger multi-step reasoning; pick
+`openai` for the cheaper / faster path. Either way the parsed
+output shape is identical so downstream consumers don't need to
+branch.
+
+When neither escalation provider is reachable, the diagnostic
+still completes — it just falls back to the local Ollama result
+and sets `diagnosis.escalated = false`. The agent never blocks on
+upstream availability.
+
 ## What's not in scope
 
-- **Anthropic / Claude escalation.** `escalate_to: claude` is in the
-  schema, the handler is OpenAI-only for now. Trivial to add as a
-  sibling step when needed.
 - **Multi-execution batch diagnosis** ("what broke yesterday?") —
   separate workflow shape (loop over executions, cluster by
   category). Out of scope.
