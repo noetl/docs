@@ -178,12 +178,68 @@ The bridge listens on `0.0.0.0:8765` by default (override with
 `OLLAMA_BRIDGE_PORT`). It points at `http://localhost:11434`
 (override with `OLLAMA_URL`).
 
-### As a sidecar in Kubernetes
+### As a sidecar in Kubernetes (Helm)
 
-The catalog template references a `deployment` block of knobs that
-the noetl Helm chart's `ollamaBridge` section will read once it
-lands. For the spike, deploy the bridge as a separate Deployment +
-Service:
+The noetl Helm chart ships an `ollamaBridge` block that deploys the
+bridge as a Deployment + ClusterIP Service in the noetl namespace.
+**Disabled by default** — the chart's optional-dependency contract
+means a NoETL deployment without AI features keeps working
+unchanged. Operators opt in via values:
+
+```yaml
+# values-overrides.yaml
+ollamaBridge:
+  enabled: true
+  ollama:
+    url: http://ollama.noetl.svc.cluster.local:11434
+    timeoutSeconds: 120
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+```
+
+```bash
+helm upgrade --install noetl repos/ops/automation/helm/noetl \
+  -n noetl --create-namespace \
+  -f values-overrides.yaml
+```
+
+What this deploys:
+
+- `Deployment/ollama-bridge` running `python -m noetl.tools.ollama_bridge`
+  out of the same noetl image (no separate image; the bridge ships
+  in `noetl.tools.ollama_bridge`).
+- `Service/ollama-bridge` (ClusterIP, port 8765) reachable in-cluster
+  as `ollama-bridge.noetl.svc.cluster.local:8765`.
+- `/healthz` readiness + liveness probes matching the bridge's
+  built-in healthcheck endpoint.
+
+Override knobs available in the chart values (each falls back to a
+sensible default; see `repos/ops/automation/helm/noetl/values.yaml`
+for the complete list):
+
+| Values key                          | What it controls                                |
+|-------------------------------------|-------------------------------------------------|
+| `ollamaBridge.enabled`              | opt-in flag (default `false`)                   |
+| `ollamaBridge.replicas`             | bridge pod count (default `1`)                  |
+| `ollamaBridge.image.repository`     | override bridge image (default chart image)     |
+| `ollamaBridge.image.tag`            | override bridge tag (default chart tag)         |
+| `ollamaBridge.service.type`         | `ClusterIP` (default) / `NodePort` / `LB`       |
+| `ollamaBridge.service.port`         | bridge port (default `8765`)                    |
+| `ollamaBridge.ollama.url`           | upstream Ollama URL                             |
+| `ollamaBridge.ollama.timeoutSeconds`| upstream call timeout (default `120`)           |
+| `ollamaBridge.resources`            | CPU / memory requests + limits                  |
+| `ollamaBridge.nodeSelector`         | for GPU-pinning or AZ-affinity                  |
+| `ollamaBridge.tolerations`          | for tainted nodes                               |
+| `ollamaBridge.extraEnv`             | extra env vars merged into the container spec   |
+
+### Deploying without Helm (kubectl apply)
+
+If you're not on the chart, the equivalent raw manifests:
 
 ```yaml
 apiVersion: apps/v1
