@@ -34,7 +34,7 @@ local model can classify in 200ms.
 
 \* Most failures (HTTP 5xx, transient timeouts, known patterns) stay
 on the Ollama path. Escalation runs only on novel / interesting
-failures — typically <10% in steady state.
+failures — typically `<10%` in steady state.
 
 At fleet error volumes (O(thousands) per day) this is the difference
 between $0/day and ~$30/day in inference spend.
