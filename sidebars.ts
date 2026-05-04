@@ -27,6 +27,9 @@ const sidebars: SidebarsConfig = {
         'getting-started/semantic-pipeline',
         'architecture/sink_driven_storage',
         'architecture/mcp_catalog_architecture',
+        'architecture/agent_orchestration',
+        'architecture/playbook_as_mcp_server',
+        'architecture/self_troubleshoot_agent',
       ],
     },
     {
