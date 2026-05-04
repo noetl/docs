@@ -178,6 +178,48 @@ Unknown `on_failure` keys are ignored at the troubleshoot dispatch —
 they're filtered to the known set so an arbitrary key doesn't leak
 into the workload silently.
 
+## Optional-dependency contract
+
+**AI features in NoETL are optional.** A deployment can run the
+worker + server without ever touching `tool: kind: agent
+framework=noetl`, the playbook-as-MCP-server endpoint, the Ollama
+bridge, or the self-troubleshoot agent. Core workflow execution
+must keep working when those subsystems are missing.
+
+The contract this enforces:
+
+- **No worker / server crashes when an AI subsystem is missing.**
+  Module-level imports for AI-only paths are stdlib-only;
+  optional packages (`aiohttp`, `fastapi`, `uvicorn`) are
+  lazy-imported inside the functions that need them. A deployment
+  without those packages still loads the noetl modules cleanly.
+- **Playbook steps surface clean error envelopes, not tracebacks.**
+  When `framework: noetl` is invoked but
+  `noetl.core.workflow.playbook` can't be imported, the agent
+  executor returns a structured error with
+  `error.kind = "agent.dependency"` and
+  `error.code = "WORKFLOW_PLUGIN_UNAVAILABLE"`. The worker keeps
+  running; the playbook step fails with a clear "this feature is
+  not available" message; non-AI playbooks are unaffected.
+- **Auto-troubleshoot best-effort.** When the troubleshoot agent
+  itself can't be reached (Ollama down, agent not registered, the
+  workflow plugin failed to import), the original error envelope
+  is returned unchanged. Diagnostics augment failures, never
+  replace them.
+- **Other agent frameworks unaffected.** `framework: adk`,
+  `langchain`, `custom` go through a separate dispatch path that
+  doesn't touch the workflow plugin. A deployment without the
+  AI subsystems can still use Python-loaded agent runtimes.
+
+The smoke test
+[`scripts/optional_ai_smoke.py`](https://github.com/noetl/ai-meta/blob/main/scripts/optional_ai_smoke.py)
+exercises the contract: it loads the executor with
+`noetl.core.workflow.playbook` deliberately missing and verifies
+the structured error envelope; it asserts `execute_playbook_task`
+references are confined to the framework=noetl helpers; it loads
+`noetl.tools.ollama_bridge` and asserts no optional packages
+leaked into `sys.modules`.
+
 ## Configuration reference
 
 ```yaml
