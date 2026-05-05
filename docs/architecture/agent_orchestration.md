@@ -158,6 +158,59 @@ its own failures. If the troubleshoot agent itself fails, the original
 error envelope is returned unchanged — diagnostics augment failures,
 they never replace them.
 
+## Detecting projection regressions
+
+Auto-troubleshoot depends on the worker and server preserving nested
+control metadata through event projection. The important contract is
+that a failed agent envelope can persist nested diagnosis data at:
+
+```text
+result.context.error.diagnosis
+```
+
+When this regresses, the live step response may contain a diagnosis, but
+the persisted terminal events lose the nested object. Operators should
+run the parity smoke any time event projection, worker terminal events,
+or auto-troubleshoot handling changes.
+
+Run the static fixture smoke from the `ai-meta` checkout. It does not
+need a cluster:
+
+```bash
+cd /Volumes/X10/projects/noetl/ai-meta
+python3 scripts/live_vs_persisted_parity_smoke.py
+```
+
+Expected output includes both:
+
+```text
+OK static v2.35.9-shaped fixture preserves nested diagnosis
+OK static v2.35.8-regression fixture detected NESTED_DICT_LOSS at result.context.error.diagnosis
+```
+
+To validate a live cluster, first run a spike or any execution that
+exercises an auto-troubleshoot-enabled failing agent, then pass the
+execution id to the smoke:
+
+```bash
+EXEC_ID=$(noetl exec tests/spike/spike_e2e_test \
+  --runtime distributed \
+  --payload '{"escalate_to":"none"}' \
+  --json | jq -r '.execution_id')
+
+curl -s "http://localhost:8082/api/executions/${EXEC_ID}?page_size=500" \
+  > /tmp/noetl-spike-${EXEC_ID}.json
+
+python3 scripts/spike_e2e_assert.py /tmp/noetl-spike-${EXEC_ID}.json
+python3 scripts/live_vs_persisted_parity_smoke.py --execution-id "${EXEC_ID}"
+```
+
+The parity smoke compares nested dictionary key sets across terminal
+events for each step. A failure such as
+`NESTED_DICT_LOSS at result.context.error.diagnosis` means the diagnosis
+was present in one projection but lost in another, and should block a
+release until the projection path is fixed.
+
 ## Workload pass-through to the troubleshoot agent
 
 `on_failure` accepts the troubleshoot agent's workload knobs:
