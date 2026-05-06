@@ -177,6 +177,12 @@ The successful assertion proves all of these at once:
 - the persisted execution API preserved the nested diagnosis;
 - the report can be consumed by the GUI, CLI, and bridge tasks.
 
+When reading `diagnosis_lookup.attempts`, use the backend-specific
+latency profile. Local Ollama should normally stay at `0` and only
+occasionally hit `1`; cloud backends such as Vertex AI can normally
+range from `0` to `3`, with up to about `5` acceptable on slow
+networks.
+
 Run it from `ai-meta`:
 
 ```bash
