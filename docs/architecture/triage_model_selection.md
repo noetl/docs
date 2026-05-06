@@ -116,6 +116,12 @@ the local diagnosis even when confidence is low.
 
 ## How the choice flows
 
+For GKE deployments that use a cloud-managed backend instead of
+in-cluster Ollama, see
+[Vertex AI Triage Backend](./vertex_ai_triage_backend.md). That page
+documents the MCP pointer-swap contract and the `triage_mcp_server` /
+`triage_model` workload names.
+
 ```mermaid
 flowchart LR
   catalog["Catalog default<br/>diagnose_execution.yaml<br/>ollama_model: gemma3:4b"]
