@@ -234,6 +234,8 @@ mcp/kubernetes :: Read-only Kubernetes runtime agent backed by the Kubernetes MC
 ...
 ```
 
+### Metadata fields
+
 Each button opens a **friendly run dialog** generated from
 `/api/catalog/{path}/ui_schema`. The endpoint walks the
 playbook's `workload:` block and emits a JSON-Schema-shaped
