@@ -25,5 +25,5 @@ PGPASSWORD=demo bin/noetl run automation/setup/rebuild_schema.yaml
 - Playbook path: `automation/setup/rebuild_schema.yaml`
 
 ## Related Topics
-- [Database Management](./noetl_cli_usage#database-management)
+- [Database Management](../cli/usage.md#database-management)
 - [Local Development Setup](../development/local_dev_setup)
