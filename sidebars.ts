@@ -30,6 +30,7 @@ const sidebars: SidebarsConfig = {
         'architecture/agent_orchestration',
         'architecture/playbook_as_mcp_server',
         'architecture/self_troubleshoot_agent',
+        'architecture/triage_model_selection',
       ],
     },
     {

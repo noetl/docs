@@ -123,7 +123,7 @@ dominate.
       query: "{{ user_query }}"
     on_failure:
       troubleshoot: true
-      ollama_model: gemma2:2b
+      ollama_model: gemma3:4b
       confidence_threshold: 0.85
       escalate_to: openai
 ```
@@ -219,7 +219,7 @@ release until the projection path is fixed.
 |------------------------|----------------------------------------------------|----------------------------------------|
 | `troubleshoot`         | `false`                                            | per-task opt-in (overrides env)        |
 | `troubleshoot_path`    | `automation/agents/troubleshoot/diagnose_execution`| catalog path of the diagnostic agent   |
-| `ollama_model`         | `gemma2:2b`                                        | local model for first-pass triage      |
+| `ollama_model`         | `gemma3:4b`                                        | local model for first-pass triage      |
 | `ollama_mcp_server`    | `mcp/ollama`                                       | catalog path of the Ollama MCP bridge  |
 | `confidence_threshold` | `0.7`                                              | escalate when local confidence < this  |
 | `escalate_to`          | `openai`                                           | `openai` / `claude` / `none`           |
@@ -305,7 +305,7 @@ tool:
   on_failure:
     troubleshoot: true
     troubleshoot_path: automation/agents/troubleshoot/diagnose_execution
-    ollama_model: gemma2:2b
+    ollama_model: gemma3:4b
     confidence_threshold: 0.7
     escalate_to: openai
 ```
@@ -318,3 +318,6 @@ tool:
   `on_failure.troubleshoot: true` actually invokes.
 - [Ollama Bridge](../operations/ollama_bridge.md) — deploying the
   cheap-first inference layer the troubleshoot agent uses.
+- [Triage Model Selection](./triage_model_selection.md) — how to choose
+  between `gemma3:4b`, `gemma4:e4b`, and escalation models without
+  changing the catalog default.

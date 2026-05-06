@@ -26,7 +26,7 @@ For the agent contract this bridge participates in, see
 flowchart LR
   Worker["noetl-worker"] -->|tool: kind: mcp<br/>server: mcp/ollama| Bridge["ollama_bridge<br/>(sidecar)"]
   Bridge -->|HTTP /api/chat<br/>/api/generate /api/tags| Ollama["Ollama<br/>(localhost:11434)"]
-  Ollama --> Models["gemma2:2b<br/>qwen2.5:7b<br/>llama3.2"]
+  Ollama --> Models["gemma3:4b<br/>gemma4:e4b<br/>qwen3:32b"]
 ```
 
 Once deployed, a playbook step looks like:
@@ -38,7 +38,7 @@ Once deployed, a playbook step looks like:
     server: mcp/ollama
     tool: chat
     arguments:
-      model: gemma2:2b
+      model: gemma3:4b
       system: "You triage NoETL execution failures. Be terse."
       messages:
         - role: user
@@ -122,7 +122,7 @@ All three tools return the standard MCP content envelope:
   "content": [{ "type": "text", "text": "<assembled output>" }],
   "isError": false,
   "_meta": {
-    "model": "gemma2:2b",
+    "model": "gemma3:4b",
     "ollama_response": {
       "total_duration": 1234567,
       "eval_count": 7,
@@ -166,7 +166,7 @@ back.
 ```bash
 # Install Ollama, pull a model
 brew install ollama
-ollama pull gemma2:2b
+ollama pull gemma3:4b
 ollama serve &
 
 # Run the bridge
@@ -309,14 +309,16 @@ tool exposes what's locally available:
 
 ```bash
 # Inside the Ollama pod (or your local shell):
-ollama pull gemma2:2b
-ollama pull qwen2.5:7b
+ollama pull gemma3:4b
+ollama pull qwen3:32b
 ```
 
-`gemma2:2b` is the spike's default — small enough to be fast (~200ms
-on commodity CPU), large enough to handle structured-output prompts.
-For noisier failures or beefier nodes, `qwen2.5:7b` gives better
-classification at ~1s.
+`gemma3:4b` is the spike's default because it fits in small local
+clusters while still handling structured-output prompts. For production
+nodes with a dedicated Ollama budget, workloads can opt into
+`gemma4:e4b`; for confidence-driven escalation, use `qwen3:32b`.
+See [Triage Model Selection](../architecture/triage_model_selection.md)
+for the sizing tradeoffs and the measured cgroup memory requirements.
 
 ## What's not in scope
 
