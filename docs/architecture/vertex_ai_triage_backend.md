@@ -184,6 +184,42 @@ with governance and cost context. NoETL does not recommend activating a
 specific model automatically; the model choice is a deployment
 decision.
 
+## Cloud latency vs local -- what to expect from `diagnosis_lookup.attempts`
+
+`diagnosis_lookup.attempts` is a regression detector, but its normal
+range depends on the triage backend.
+
+For **local Ollama** backends such as `mcp/ollama` with `gemma3:4b`,
+inference usually takes about 200-500 ms inside the cluster. The
+persisted-diagnosis event normally flushes before the NoETL-side retry
+budget is exhausted. Expect `attempts == 0` in the common case and
+`attempts == 1` occasionally when the noetl#416 retry race catches the
+event just after the first read. Anything above `1` on the local path
+is a regression signal.
+
+For **cloud Vertex AI** backends such as `mcp/vertex-ai` with
+`gemini-2.5-flash`, inference includes a network round trip plus
+Google's processing time and commonly lands in the 1-3s+ range. Expect
+`attempts == 0` through `attempts == 3` as normal operational variance.
+Attempts up to about `5` can be acceptable on a slow network; sustained
+values above `5` are worth investigating.
+
+The 2026-05-06 GKE six-run sweep measured this directly: all six spike
+runs completed with `source=vertex-ai` and `model=gemini-2.5-flash`;
+four of six runs had `diagnosis_lookup.attempts <= 1`; two runs needed
+two to three attempts, specifically executions `620875219263030195`
+and `620877265538122480`.
+
+This happens because the spike fixture has a belt-and-suspenders
+polling loop after the NoETL-side
+`_fetch_persisted_diagnosis_from_doc` retry budget. That retry budget
+was tuned against Ollama timing in v2.35.5 via noetl#416. Cloud
+backends can legitimately need the fixture poll to bridge the extra
+latency until the retry budget is made cloud-aware.
+
+The planned follow-up is captured in the `ai-meta` sync issue
+`sync/issues/2026-05-06-noetl-retry-budget-cloud-aware.md`.
+
 ## Credential Surface Unification
 
 Each MCP backend playbook encapsulates its own credential pattern:

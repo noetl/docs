@@ -35,6 +35,10 @@ e2e workflow, auto-troubleshoot smoke, optional-AI smoke, and
 live-vs-persisted parity smoke all assume this remains safe for
 commodity local clusters.
 
+For this local backend, `diagnosis_lookup.attempts == 0` is typical,
+`1` is an occasional timing race, and anything above `1` should be
+treated as a regression signal.
+
 Do not replace the catalog default just because a larger model is
 available. The default needs to run where NoETL itself is being
 developed and debugged.
@@ -80,6 +84,11 @@ or pod budget. Good fits include GKE node pools with at least 24 GiB
 allocated to Ollama, EKS `m6i.2xlarge`-class nodes or larger, or
 self-managed clusters with dedicated AI nodes.
 
+Because this is still an in-cluster local backend, its persisted
+diagnosis should usually arrive within `0` to `1`
+`diagnosis_lookup.attempts`; sustained values above `1` deserve
+investigation.
+
 Workloads opt in by passing `ollama_model: "gemma4:e4b"`:
 
 ```bash
@@ -114,6 +123,12 @@ The troubleshoot agent escalates when:
 If escalation is disabled with `escalate_to: "none"`, the agent returns
 the local diagnosis even when confidence is low.
 
+Escalation calls can be slower than the local default. Cloud escalation
+backends should be interpreted with the same latency profile documented
+for Vertex AI: `0` to `3` `diagnosis_lookup.attempts` is normal, up to
+about `5` can be acceptable on a slow network, and sustained values
+above `5` should be investigated.
+
 ## How the choice flows
 
 For GKE deployments that use a cloud-managed backend instead of
@@ -125,6 +140,12 @@ for the default tier is `gemini-2.5-flash`; see the
 [Model availability and the 404 troubleshooting note](./vertex_ai_triage_backend.md#model-availability-and-the-404-troubleshooting-note)
 for why earlier `gemini-2.0-flash` examples hit 404 and were retired for this
 project.
+
+When that backend is `mcp/vertex-ai`, the expected polling profile is
+wider than local Ollama: `0` to `3` `diagnosis_lookup.attempts` is
+normal and up to about `5` can be acceptable on slow networks. See
+[Cloud latency vs local](./vertex_ai_triage_backend.md#cloud-latency-vs-local----what-to-expect-from-diagnosis_lookupattempts)
+for the measured GKE evidence.
 
 ```mermaid
 flowchart LR
