@@ -90,7 +90,7 @@ auto-dispatch hooks, CI integrations).
 |------------------------|----------------------------------------------------|----------------------------------------|
 | `execution_id`         | `""` (required)                                    | which failed execution to diagnose     |
 | `noetl_url`            | `http://noetl-server.noetl.svc.cluster.local:8080` | NoETL API base                         |
-| `ollama_model`         | `gemma2:2b`                                        | local model for first-pass             |
+| `ollama_model`         | `gemma3:4b`                                        | local model for first-pass             |
 | `ollama_mcp_server`    | `mcp/ollama`                                       | catalog path of the Ollama bridge      |
 | `confidence_threshold` | `0.7`                                              | escalate when local confidence < this  |
 | `escalate_to`          | `openai`                                           | `openai` / `claude` / `none`           |
@@ -195,5 +195,7 @@ upstream availability.
   and the auto-dispatch hook that calls it on failures.
 - [Ollama Bridge](../operations/ollama_bridge.md) — deployment guide
   for the cheap-first inference layer.
+- [Triage Model Selection](./triage_model_selection.md) — model sizing,
+  overrides, and escalation tradeoffs for the diagnosis path.
 - [Playbook-as-MCP-Server](./playbook_as_mcp_server.md) — how
   external MCP clients reach this agent over the wire.
