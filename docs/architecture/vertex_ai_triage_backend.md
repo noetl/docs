@@ -55,7 +55,7 @@ over HTTP:
   "params": {
     "name": "chat_completion",
     "arguments": {
-      "model": "gemini-2.0-flash",
+      "model": "gemini-2.5-flash",
       "temperature": 0.1,
       "messages": [
         {"role": "user", "content": "{\"execution_id\":\"...\"}"}
@@ -85,7 +85,7 @@ diagnosis fields consumed by `diagnose_execution`:
     "isError": false,
     "_meta": {
       "backend": "vertex-ai-stub",
-      "model": "gemini-2.0-flash",
+      "model": "gemini-2.5-flash",
       "usage": {
         "prompt_tokens": 1234,
         "completion_tokens": 256,
@@ -144,13 +144,45 @@ backend owns provider-specific validation and mapping.
 
 | Local tier | Cloud analogue | Use |
 |---|---|---|
-| `gemma3:4b` | `gemini-2.0-flash` | Default triage tier. Fast, low-cost, suitable for common failures. |
-| `gemma4:e4b` | `gemini-2.0-flash-thinking` | Higher-quality opt-in tier for deeper local or cloud reasoning. |
+| `gemma3:4b` | `gemini-2.5-flash` | Default triage tier. Fast, low-cost, suitable for common failures. |
+| `gemma4:e4b` | `gemini-2.5-flash` | Higher-quality opt-in in this project until a separately approved thinking-capable Vertex model is enabled. |
 | `qwen3:32b` | `gemini-2.5-pro` | Escalation tier for low-confidence diagnoses. |
 
 `gemini-2.0-pro` is also a valid operator choice where that SKU is the
 approved escalation model for a deployment. The NoETL diagnose path
 does not rewrite model names; operators pin the cloud model they want.
+
+## Model availability and the 404 troubleshooting note
+
+During the 2026-05-06 GKE validation for project
+`noetl-demo-19700101`, `gemini-2.0-flash` returned Vertex AI HTTP 404,
+and `gemini-2.0-flash-001` returned Vertex AI HTTP 404, across both
+`us-central1` and `global` endpoint tests. The same Workload Identity
+path succeeded with `gemini-2.5-flash`; execution
+`620639495284589035` is the validation proof for the working
+`mcp/vertex-ai` pointer swap.
+
+Treat a model 404 as an operator-side availability check, not a NoETL
+runtime failure. Common causes include:
+
+- Vertex AI Model Garden activation or access being project-specific.
+- Region availability differences between `us-central1`, `global`, and
+  other Vertex AI locations.
+- Project tier or billing restrictions that limit which publisher
+  models are available.
+- Model lifecycle changes as newer Gemini versions supersede older
+  model names.
+
+Operators can enumerate project-visible models with:
+
+```bash
+gcloud ai models list --region=us-central1 --project=<project-id>
+```
+
+The Vertex AI Model Garden console gives the same availability view
+with governance and cost context. NoETL does not recommend activating a
+specific model automatically; the model choice is a deployment
+decision.
 
 ## Credential Surface Unification
 
@@ -226,7 +258,7 @@ An operator on a v2.35.9-style cluster can move gradually:
    ```json
    {
      "triage_mcp_server": "mcp/vertex-ai",
-     "triage_model": "gemini-2.0-flash",
+     "triage_model": "gemini-2.5-flash",
      "escalate_to": "none"
    }
    ```

@@ -120,7 +120,11 @@ For GKE deployments that use a cloud-managed backend instead of
 in-cluster Ollama, see
 [Vertex AI Triage Backend](./vertex_ai_triage_backend.md). That page
 documents the MCP pointer-swap contract and the `triage_mcp_server` /
-`triage_model` workload names.
+`triage_model` workload names. The validated GKE production analogue
+for the default tier is `gemini-2.5-flash`; see the
+[Model availability and the 404 troubleshooting note](./vertex_ai_triage_backend.md#model-availability-and-the-404-troubleshooting-note)
+for why earlier `gemini-2.0-flash` examples hit 404 and were retired for this
+project.
 
 ```mermaid
 flowchart LR
