@@ -321,3 +321,6 @@ tool:
 - [Triage Model Selection](./triage_model_selection.md) — how to choose
   between `gemma3:4b`, `gemma4:e4b`, and escalation models without
   changing the catalog default.
+- [Agent Failure Diagnostics Contract](./agent_failure_diagnostics.md) —
+  the Gap 1 / Gap 4.1 wait, carve-out, projection, and smoke-test
+  contracts behind failed agent executions.

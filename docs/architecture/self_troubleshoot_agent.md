@@ -197,5 +197,7 @@ upstream availability.
   for the cheap-first inference layer.
 - [Triage Model Selection](./triage_model_selection.md) — model sizing,
   overrides, and escalation tradeoffs for the diagnosis path.
+- [Agent Failure Diagnostics Contract](./agent_failure_diagnostics.md) —
+  how diagnoses are waited for, fetched, projected, and regression-tested.
 - [Playbook-as-MCP-Server](./playbook_as_mcp_server.md) — how
   external MCP clients reach this agent over the wire.

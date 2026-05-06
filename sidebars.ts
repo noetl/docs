@@ -31,6 +31,7 @@ const sidebars: SidebarsConfig = {
         'architecture/playbook_as_mcp_server',
         'architecture/self_troubleshoot_agent',
         'architecture/triage_model_selection',
+        'architecture/agent_failure_diagnostics',
       ],
     },
     {
