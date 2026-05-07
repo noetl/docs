@@ -137,8 +137,14 @@ echo "execution: $EXEC_ID"
 
 # Wait for terminal status — typically 8–15 seconds on local kind.
 sleep 30
-curl -sf "http://localhost:8082/api/executions/$EXEC_ID" > /tmp/spike.json
+noetl status "$EXEC_ID" --json > /tmp/spike.json
 ```
+
+`noetl status` is the canonical way to fetch execution state. It hits the
+same `/api/executions/<id>` endpoint the gateway exposes but goes through
+the CLI's host/port resolution and credential plumbing — keeps your scripts
+portable across local kind, GKE, and any future deployment topology
+without hardcoded URLs.
 
 Run the assertion script to confirm GREEN:
 
