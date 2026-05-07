@@ -195,8 +195,14 @@ echo "execution: $EXEC_ID"
 
 # Wait for terminal — typically 5–10 seconds with warm gemma3:4b.
 sleep 15
-curl -sf "http://localhost:8082/api/executions/$EXEC_ID" > /tmp/canary.json
+noetl status "$EXEC_ID" --json > /tmp/canary.json
 ```
+
+Always go through `noetl status` rather than raw `curl` against
+`/api/executions/<id>`. The CLI handles host/port resolution, gateway
+auth, and JSON shape conventions consistently across local kind, GKE, and
+any future deployment topology — your tutorials and runbooks stay portable
+without hardcoded URLs.
 
 Pull the parent's terminal result:
 
