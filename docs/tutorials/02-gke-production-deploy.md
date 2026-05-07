@@ -23,7 +23,7 @@ Estimated time: 1–2 hours including provisioning.
 
 ## Prerequisites
 
-<!-- TODO: enumerate concretely -->
+{/* TODO: enumerate concretely */}
 - Completed [Quickstart](./01-quickstart.md) so you understand the
   local-cluster baseline.
 - A GCP project with billing enabled and the following APIs on:
@@ -38,20 +38,20 @@ Estimated time: 1–2 hours including provisioning.
 
 ## Step 1 — Provision the cluster
 
-<!-- TODO:
+{/* TODO:
   - Run noetl_gke_fresh_stack with action=provision-deploy
   - Pick autopilot vs standard based on workload sizing
   - The blueprint at automation/gcp_gke/blueprints/noetl-cluster-blueprint.json
     is the source of truth for cluster shape
   - Cite operations/gcp/gke-cloudsql-end-to-end.md for the long-form variant
   - Walk the actual command + expected output
--->
+*/}
 
 Reference: [`automation/gcp_gke/noetl_gke_fresh_stack.yaml`](https://github.com/noetl/ops/blob/main/automation/gcp_gke/noetl_gke_fresh_stack.yaml).
 
 ## Step 2 — Wire Workload Identity for Vertex AI
 
-<!-- TODO:
+{/* TODO:
   - Create GCP service account, bind roles/aiplatform.user
   - Create k8s service account, annotate with Workload Identity binding
   - Patch noetl-worker deployment to use the bound k8s SA
@@ -59,7 +59,7 @@ Reference: [`automation/gcp_gke/noetl_gke_fresh_stack.yaml`](https://github.com/
     cloud-platform scope token can be retrieved
   - Cite architecture/vertex_ai_triage_backend.md for the credential
     surface design
--->
+*/}
 
 The token flow goes through the GKE metadata server with the
 `https://www.googleapis.com/auth/cloud-platform` scope. See
@@ -68,7 +68,7 @@ for why this is preferred over service-account JSON files in pods.
 
 ## Step 3 — Configure Auth0 callbacks
 
-<!-- TODO:
+{/* TODO:
   - Add callback URLs: https://<your-gateway-host>/callback,
     https://<your-gateway-host>/api/auth/callback
   - Add allowed origins
@@ -76,11 +76,11 @@ for why this is preferred over service-account JSON files in pods.
   - Wire gateway deployment to read those secrets via External Secrets
     Operator or CSI Secret Store driver
   - Cite gateway/auth-integration.md and gateway/auth0-setup.md
--->
+*/}
 
 ## Step 4 — Deploy via `bump_image` lifecycle
 
-<!-- TODO:
+{/* TODO:
   - Use noetl exec automation/agents/noetl/lifecycle/bump_image
     payloads for noetl-server, noetl-worker, ollama-bridge OR skip
     ollama-bridge if you're going pure-Vertex with no in-cluster
@@ -88,24 +88,24 @@ for why this is preferred over service-account JSON files in pods.
   - The GHCR availability probe from ops#37 catches release races
     automatically — see operations/bump_image.md
   - Wait for kubectl rollout status on each
--->
+*/}
 
 Reference: [Bump Image Lifecycle](../operations/bump_image.md).
 
 ## Step 5 — Register catalog playbooks on the GKE noetl-server
 
-<!-- TODO:
+{/* TODO:
   - From your workstation, point noetl --server at the GKE URL
   - noetl --server https://gateway.your-domain/api/noetl catalog register ...
   - Required playbooks: tests/spike/spike_e2e_test, the diagnose agent,
     bump_image (for in-cluster lifecycle), mcp/vertex-ai
   - Mention catalog versions on GKE will differ from local — that's
     expected
--->
+*/}
 
 ## Step 6 — Run the spike with Vertex backend
 
-<!-- TODO:
+{/* TODO:
   - noetl --server <gke-url> exec tests/spike/spike_e2e_test
     --payload '{"escalate_to":"none","triage_mcp_server":"mcp/vertex-ai","triage_model":"gemini-2.5-flash"}'
   - Capture exec_id, wait for terminal
@@ -113,21 +113,21 @@ Reference: [Bump Image Lifecycle](../operations/bump_image.md).
   - Walk the _meta.diagnosis_fetch telemetry — should show 1-3 polls
     typical with elapsed_seconds in the 1-3 second range for warm
     Vertex calls
--->
+*/}
 
 ## Step 7 — Validate Workload Identity is in the loop
 
-<!-- TODO:
+{/* TODO:
   - Inspect the diagnose sub-execution events
   - Find the events where the Vertex GenerateContent call was made
   - Confirm no service-account-JSON references in the call shape
   - Confirm token usage telemetry is captured in
     error.diagnosis._meta.usage
--->
+*/}
 
 ## Next steps
 
-<!-- TODO -->
+{/* TODO */}
 - [Frontend onboarding](./04-frontend-onboarding.md) — point a real
   frontend at the deployed gateway.
 - [Add a new MCP backend](./05-add-new-mcp-backend.md) — once Vertex
@@ -135,7 +135,7 @@ Reference: [Bump Image Lifecycle](../operations/bump_image.md).
 
 ## Troubleshooting
 
-<!-- TODO: top 5 GKE-specific gotchas
+{/* TODO: top 5 GKE-specific gotchas
   - aiplatform.googleapis.com not enabled
   - Workload Identity binding missing or scoped to wrong namespace
   - Auth0 callback URL mismatch
@@ -143,4 +143,4 @@ Reference: [Bump Image Lifecycle](../operations/bump_image.md).
     troubleshooting section)
   - Model availability — if gemini-2.5-flash returns 404, see the model
     availability section in vertex_ai_triage_backend.md
--->
+*/}
