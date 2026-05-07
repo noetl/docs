@@ -23,7 +23,7 @@ Estimated time: 45 minutes.
 
 ## Prerequisites
 
-<!-- TODO -->
+{/* TODO */}
 - Completed [Quickstart](./01-quickstart.md) so you have a running
   gateway at `http://localhost:<port>` (local) or `https://gateway.your-domain/`
   (after [GKE production deploy](./02-gke-production-deploy.md)).
@@ -34,26 +34,26 @@ Estimated time: 45 minutes.
 
 ## Step 1 — Setup
 
-<!-- TODO:
+{/* TODO:
   - Either link to a starter template repo OR scaffold from create-vite
     with React + TypeScript
   - Add @auth0/auth0-react and @apollo/client (or urql, or vanilla
     fetch — pick one as canonical)
   - Show the directory layout
   - Reference: gateway/api-usage.md has a vanilla fetch baseline
--->
+*/}
 
 ## Step 2 — Auth0 integration
 
-<!-- TODO:
+{/* TODO:
   - Wrap the app in <Auth0Provider> with domain + client_id + redirect_uri
   - Use the loginWithRedirect / logout / getIdTokenClaims hooks
   - Show the Auth0Provider config inline
--->
+*/}
 
 ## Step 3 — Exchange Auth0 token for gateway session
 
-<!-- TODO:
+{/* TODO:
   - POST /api/auth/login with {auth0_token, auth0_domain,
     session_duration_hours}
   - Capture session_token from the response
@@ -62,11 +62,11 @@ Estimated time: 45 minutes.
     localStorage — explain why.
   - Reference: gateway/api-usage.md "Step 2: Exchange Auth0 Token for
     Session"
--->
+*/}
 
 ## Step 4 — Make a GraphQL `executePlaybook` call
 
-<!-- TODO:
+{/* TODO:
   - Apollo client setup with the session_token in Authorization header
   - The mutation:
     mutation Exec($path: String!, $payload: JSON!) {
@@ -76,22 +76,22 @@ Estimated time: 45 minutes.
     }
   - Capture executionId from the response
   - Note: alternative with vanilla fetch + custom hook
--->
+*/}
 
 ## Step 5 — Poll for completion via `getExecution`
 
-<!-- TODO:
+{/* TODO:
   - Query: getExecution(id: $id) { status result events { ... } }
   - Polling strategy: start at 500ms, exponential backoff to 4s cap,
     stop at terminal status
   - This pattern mirrors the noetl-side adaptive backoff filed in
     sync/issues/2026-05-07-noetl-adaptive-retry-backoff-tail-latency.md
     — same tradeoffs apply
--->
+*/}
 
 ## Step 6 — SSE for live execution updates
 
-<!-- TODO:
+{/* TODO:
   - GET /api/execution/{id}/stream returns a text/event-stream
   - Use EventSource API (or @microsoft/fetch-event-source for cleaner
     auth header handling)
@@ -100,11 +100,11 @@ Estimated time: 45 minutes.
     you want sub-second updates; polling for quick playbooks where
     one round-trip is enough
   - Cite repos/gateway/src/sse.rs for the server-side implementation
--->
+*/}
 
 ## Step 7 — Error handling
 
-<!-- TODO:
+{/* TODO:
   - 401 Unauthorized → session expired → trigger Auth0 re-login
   - 403 Forbidden → check_access denied → surface "permission denied"
     to user with the playbook path
@@ -113,11 +113,11 @@ Estimated time: 45 minutes.
   - Network errors → distinguish from server errors; usually
     indicates the gateway is unreachable
   - Show the try/catch + status switch as a reusable hook
--->
+*/}
 
 ## Step 8 — Production hardening
 
-<!-- TODO:
+{/* TODO:
   - HttpOnly cookies for session_token (server-side proxy required)
   - CORS config (server-side; cite repos/gateway/src/proxy.rs)
   - Token refresh strategy (gateway-side handles it; just refetch on
@@ -127,11 +127,11 @@ Estimated time: 45 minutes.
     the diagnose path of any playbook your frontend invokes —
     operators want to see latency distribution per backend over time
   - CSP headers
--->
+*/}
 
 ## Next steps
 
-<!-- TODO -->
+{/* TODO */}
 - [Self-troubleshooting playbook](./03-self-troubleshooting-playbook.md)
   — call a playbook that diagnoses its own failures from your frontend.
 - [Add a new MCP backend](./05-add-new-mcp-backend.md) — extend the
@@ -140,7 +140,7 @@ Estimated time: 45 minutes.
 
 ## Troubleshooting
 
-<!-- TODO: top 5 frontend-side gotchas
+{/* TODO: top 5 frontend-side gotchas
   - CORS errors: gateway needs the frontend origin in its allowed list
   - Auth0 redirect_uri mismatch: dev URL not registered
   - session_token not propagating: usually missing Authorization
@@ -150,4 +150,4 @@ Estimated time: 45 minutes.
   - "executionId" coming back null: usually means the playbook
     failed validation at the gateway layer; check the GraphQL
     response.errors
--->
+*/}
