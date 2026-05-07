@@ -144,7 +144,7 @@ project.
 When that backend is `mcp/vertex-ai`, the expected polling profile is
 wider than local Ollama: `0` to `3` `diagnosis_lookup.attempts` is
 normal and up to about `5` can be acceptable on slow networks. See
-[Cloud latency vs local](./vertex_ai_triage_backend.md#cloud-latency-vs-local----what-to-expect-from-diagnosis_lookupattempts)
+[Cloud latency vs local](./vertex_ai_triage_backend.md#cloud-latency-vs-local----diagnosis-fetch-telemetry)
 for the measured GKE evidence.
 
 ```mermaid
