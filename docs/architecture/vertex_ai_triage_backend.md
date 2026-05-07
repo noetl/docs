@@ -184,25 +184,42 @@ with governance and cost context. NoETL does not recommend activating a
 specific model automatically; the model choice is a deployment
 decision.
 
-## Cloud latency vs local -- what to expect from `diagnosis_lookup.attempts`
+## Cloud latency vs local -- diagnosis fetch telemetry
 
-`diagnosis_lookup.attempts` is a regression detector, but its normal
-range depends on the triage backend.
+`diagnosis_lookup.attempts` is still useful as a spike-fixture
+regression detector, but operators should monitor the NoETL-side
+diagnosis fetch telemetry first. Since noetl v2.37.0 the
+post-terminal persisted-diagnosis fetch uses adaptive backoff, and
+since noetl v2.37.1 the telemetry is preserved in persisted execution
+events under:
+
+```text
+result.context.error.diagnosis._meta.diagnosis_fetch
+```
+
+The telemetry object contains:
+
+- `poll_count`: how many document reads the NoETL-side fetch loop used.
+- `elapsed_seconds`: wall-clock time spent waiting for the persisted
+  diagnosis event.
+- `deadline_seconds`: the adaptive loop deadline, currently 60 seconds.
+- `hit_deadline`: whether the loop gave up before the diagnosis became
+  visible.
 
 For **local Ollama** backends such as `mcp/ollama` with `gemma3:4b`,
 inference usually takes about 200-500 ms inside the cluster. The
-persisted-diagnosis event normally flushes before the NoETL-side retry
-budget is exhausted. Expect `attempts == 0` in the common case and
-`attempts == 1` occasionally when the noetl#416 retry race catches the
-event just after the first read. Anything above `1` on the local path
-is a regression signal.
+persisted-diagnosis event normally appears on the first fetch. Expect
+`diagnosis_fetch.poll_count == 1` in the common case and a small
+`elapsed_seconds` value. Anything above one or two polls on the local
+path is a regression signal.
 
 For **cloud Vertex AI** backends such as `mcp/vertex-ai` with
 `gemini-2.5-flash`, inference includes a network round trip plus
-Google's processing time and commonly lands in the 1-3s+ range. Expect
-`attempts == 0` through `attempts == 3` as normal operational variance.
-Attempts up to about `5` can be acceptable on a slow network; sustained
-values above `5` are worth investigating.
+Google's processing time and commonly lands in the 1-3s+ range. Warm
+runs can still have `diagnosis_fetch.poll_count == 1`; cold starts can
+take more polls but should remain within the 60-second adaptive
+deadline. `hit_deadline: true` is the signal to investigate the backend
+or event-store path.
 
 The 2026-05-06 GKE six-run sweep measured this directly: all six spike
 runs completed with `source=vertex-ai` and `model=gemini-2.5-flash`;
@@ -210,15 +227,14 @@ four of six runs had `diagnosis_lookup.attempts <= 1`; two runs needed
 two to three attempts, specifically executions `620875219263030195`
 and `620877265538122480`.
 
-This happens because the spike fixture has a belt-and-suspenders
-polling loop after the NoETL-side
-`_fetch_persisted_diagnosis_from_doc` retry budget. That retry budget
-was tuned against Ollama timing in v2.35.5 via noetl#416. Cloud
-backends can legitimately need the fixture poll to bridge the extra
-latency until the retry budget is made cloud-aware.
-
-The planned follow-up is captured in the `ai-meta` sync issue
-`sync/issues/2026-05-06-noetl-retry-budget-cloud-aware.md`.
+That sweep motivated the adaptive fetch loop. A later v2.37.0 GKE run
+proved the algorithm worked but also exposed that nested telemetry was
+being stripped by event projection. noetl v2.37.1 extended the
+`error.diagnosis` projection carve-out recursively, making the canonical
+evidence path visible; execution `621262477380026909` persisted
+`events[15].result.context.error.diagnosis._meta.diagnosis_fetch` with
+`poll_count: 1`, `elapsed_seconds: 0.064`, `deadline_seconds: 60.0`,
+and `hit_deadline: false`.
 
 ## Credential Surface Unification
 
