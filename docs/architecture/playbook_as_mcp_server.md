@@ -25,6 +25,8 @@ tool's `inputSchema`; its result envelope becomes MCP content blocks.
 For the higher-level framing — how this fits with `tool: kind: mcp`
 catalog resources and the lifecycle endpoints — see
 [NoETL Catalog-Driven MCP Architecture](./mcp_catalog_architecture.md).
+For the GUI entry point into those resources, see
+[Catalog UX](../gui/catalog-ux.md).
 
 ## Wire shape — JSON-RPC 2.0
 
@@ -214,5 +216,7 @@ endpoint per playbook keeps each tool's authorization scope distinct.
 - [MCP Catalog Architecture](./mcp_catalog_architecture.md) — the
   bigger picture for `kind: Mcp` catalog resources, lifecycle
   dispatch, discovery.
+- [Widgets in output](../gui/widgets.md) — the GUI-side render
+  contract for playbook results that include `render: { type, args }`.
 - [Self-Troubleshoot Agent](./self_troubleshoot_agent.md) — a worked
   example of a playbook designed to be exposed via this endpoint.

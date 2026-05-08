@@ -523,6 +523,11 @@ Items to address before shipping:
 
 ## Next steps
 
+- **Related GUI surfaces**:
+  [Catalog UX](../gui/catalog-ux.md) explains the kind-aware resource
+  browser a frontend developer will see in NoETL's own GUI, and
+  [Widgets in output](../gui/widgets.md) documents the `render: { type, args }`
+  contract used by terminal-style prompt output blocks.
 - [Self-troubleshooting playbook](./03-self-troubleshooting-playbook.md)
   — call a playbook that diagnoses its own failures from your
   frontend; render the structured diagnosis dict in the UI.

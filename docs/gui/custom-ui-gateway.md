@@ -17,6 +17,12 @@ Client UI must call:
 - `GET /events` (SSE stream for async playbook callbacks)
 - `/{gateway}/noetl/*` (authenticated REST proxy to NoETL `/api/*`)
 
+The browser-facing route is `GUI/custom frontend -> Gateway (port 8090 or
+its ingress host) -> noetl-server (port 8082 inside the cluster)`. Gateway
+validates sessions through its NATS K/V cache fast path, falls back to the
+auth playbooks when needed, and forwards request context such as the gateway
+request ID into async playbook flows.
+
 Canonical execution protocol over gateway proxy:
 - Start: `POST /noetl/execute` with `{ path|catalog_id, workload, resource_kind: "playbook" }`
 - Rerun: `POST /noetl/executions/{execution_id}/rerun` with `{ workload, resource_kind: "playbook" }`
@@ -57,6 +63,9 @@ Set UI and CLI targets:
 export VITE_GATEWAY_URL=http://localhost:8091
 export NOETL_SERVER_URL=http://localhost:8082
 ```
+
+`NOETL_SERVER_URL` is for local CLI registration and direct operator checks in
+this tutorial. Browser code should continue to use `VITE_GATEWAY_URL` only.
 
 Start your frontend locally:
 

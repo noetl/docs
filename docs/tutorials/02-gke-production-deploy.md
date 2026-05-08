@@ -59,9 +59,9 @@ noetl exec automation/gcp_gke/noetl-gke-fresh-stack \
     "create_artifact_registry": true,
     "repository_id": "noetl",
     "build_images": false,
-    "noetl_image": "ghcr.io/noetl/noetl:v2.37.1",
+    "noetl_image": "ghcr.io/noetl/noetl:v2.37.2",
     "gateway_image": "ghcr.io/noetl/gateway:v2.10.0",
-    "gui_image": "ghcr.io/noetl/gui:v1.7.0"
+    "gui_image": "ghcr.io/noetl/gui:v1.8.0"
   }'
 ```
 
@@ -187,7 +187,7 @@ noetl exec noetl/lifecycle/bump_image \
   --payload '{
     "deployment": "noetl-server",
     "namespace": "noetl",
-    "image": "ghcr.io/noetl/noetl:v2.37.1"
+    "image": "ghcr.io/noetl/noetl:v2.37.2"
   }'
 
 # Bump noetl-worker
@@ -196,7 +196,7 @@ noetl exec noetl/lifecycle/bump_image \
   --payload '{
     "deployment": "noetl-worker",
     "namespace": "noetl",
-    "image": "ghcr.io/noetl/noetl:v2.37.1"
+    "image": "ghcr.io/noetl/noetl:v2.37.2"
   }'
 
 # Wait for rollouts
@@ -328,6 +328,11 @@ A few things to confirm:
 If telemetry is missing, the worker's projection layer is stripping
 it — see [Agent Failure Diagnostics → projection contract](../architecture/agent_failure_diagnostics.md)
 and verify your noetl version is at v2.37.1 or later.
+
+If prompt widgets are missing from GUI reports, verify noetl v2.37.2
+or later is deployed. That release preserves `render.args` through the
+same worker projection chokepoint used by diagnosis telemetry, and GUI
+v1.8.0 renders the descriptor inside the terminal-style prompt.
 
 ## Next steps
 

@@ -11,7 +11,9 @@ The NoETL GUI uses a terminal-style console as the primary navigation surface at
 noetl@kind:/execution$
 ```
 
-The context name tells the user which NoETL server or local API is currently in use. In local development, `kind` usually means the GUI is talking directly to the NoETL API running in the local kind cluster.
+The context name tells the user which NoETL server or gateway-backed API is
+currently in use. In local development, `kind` usually means the GUI is using
+the local kind stack's configured API route.
 
 The console replaces the traditional horizontal menu, but the regular dashboard/page views remain available in the lower view window. Users can navigate through commands, clickable console results, or route-specific page actions.
 
@@ -125,6 +127,12 @@ Console output can include clickable actions. For example:
 
 When a command returns structured rows, the terminal can render a compact table instead of plain text. This is useful for Kubernetes resources, catalog entries, execution lists, and future MCP providers.
 
+`report <execution_id>` also looks for a step result `render` descriptor and
+renders the widget below the textual report. The same callback path lets an
+interactive widget button emit `event.key = "command"` and run another prompt
+command. See [Embedding widgets in playbook output](widgets.md) for the
+contract.
+
 Console output rows can also be closed. Longer outputs expose compact/expanded controls so users can keep only the useful command history visible.
 
 ## Navigation Examples
@@ -160,13 +168,15 @@ Values that parse as finite numbers are sent as numbers; other values are sent a
 
 The console is the first GUI shell for NoETL as a distributed business operating system:
 
-- The catalog is the program registry.
+- The [catalog](catalog-ux.md) is the program registry.
 - A playbook execution is a process.
 - `noetl.event` is the event-sourcing log.
 - `noetl.command` is the worker command projection.
 - `noetl.execution` is the execution-state projection.
 - Kubernetes supplies the distributed runtime substrate.
 - The console, CLI, API, and scheduler are user and agent entrypoints into the same workspace.
+- Widget rendering is GUI-side only: a playbook emits `render: { type, args }`
+  in its step result, and the prompt renders it inside the command history.
 
 ## MCP and Kubernetes Commands
 

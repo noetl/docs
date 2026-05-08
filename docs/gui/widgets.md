@@ -194,9 +194,8 @@ execution report from rendering.
 
 ## Related references
 
-- Catalog UX — kind-aware navigation that pairs with widget output
-  (round 1 of the AI-OS roadmap; tracked in the ai-meta sync issue
-  until that page lands in docs).
+- [Catalog UX](catalog-ux.md) — kind-aware navigation that pairs with
+  widget output.
 - [`architecture/agent_orchestration.md`](../architecture/agent_orchestration.md)
   — how step results flow through the event source.
 - [`mlflowio/chatui`](https://github.com/mlflowio/chatui) —

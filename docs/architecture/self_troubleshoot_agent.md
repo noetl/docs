@@ -80,9 +80,9 @@ flowchart LR
 
 The `summary` / `text` / `user_message` fields all carry the same
 friendly one-liner, mirroring the GUI's `extractAgentText` heuristic
-so the run dialog renders it inline. `data.diagnosis` carries the
-structured form for programmatic callers (other playbooks,
-auto-dispatch hooks, CI integrations).
+so prompt and execution views can show a concise result inline.
+`data.diagnosis` carries the structured form for programmatic callers
+(other playbooks, auto-dispatch hooks, CI integrations).
 
 ## Workload knobs
 
@@ -90,8 +90,8 @@ auto-dispatch hooks, CI integrations).
 |------------------------|----------------------------------------------------|----------------------------------------|
 | `execution_id`         | `""` (required)                                    | which failed execution to diagnose     |
 | `noetl_url`            | `http://noetl-server.noetl.svc.cluster.local:8080` | NoETL API base                         |
-| `ollama_model`         | `gemma3:4b`                                        | local model for first-pass             |
-| `ollama_mcp_server`    | `mcp/ollama`                                       | catalog path of the Ollama bridge      |
+| `triage_model`         | `gemma3:4b`                                        | model for first-pass triage            |
+| `triage_mcp_server`    | `mcp/ollama`                                       | catalog path of the triage MCP backend |
 | `confidence_threshold` | `0.7`                                              | escalate when local confidence < this  |
 | `escalate_to`          | `openai`                                           | `openai` / `claude` / `none`           |
 | `openai_credential`    | `openai_token`                                     | keychain entry for OpenAI API key      |
@@ -113,6 +113,8 @@ Three surfaces:
        entrypoint: automation/agents/troubleshoot/diagnose_execution
        payload:
          execution_id: "{{ failed_id }}"
+         triage_mcp_server: mcp/ollama
+         triage_model: gemma3:4b
          confidence_threshold: 0.85
    ```
 
@@ -201,3 +203,6 @@ upstream availability.
   how diagnoses are waited for, fetched, projected, and regression-tested.
 - [Playbook-as-MCP-Server](./playbook_as_mcp_server.md) — how
   external MCP clients reach this agent over the wire.
+- [Catalog UX](../gui/catalog-ux.md) and
+  [Widgets in output](../gui/widgets.md) — how catalog resources and
+  rendered prompt output blocks meet in the GUI.

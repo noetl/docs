@@ -123,7 +123,8 @@ dominate.
       query: "{{ user_query }}"
     on_failure:
       troubleshoot: true
-      ollama_model: gemma3:4b
+      triage_mcp_server: mcp/ollama
+      triage_model: gemma3:4b
       confidence_threshold: 0.85
       escalate_to: openai
 ```
@@ -169,9 +170,12 @@ result.context.error.diagnosis
 ```
 
 When this regresses, the live step response may contain a diagnosis, but
-the persisted terminal events lose the nested object. Operators should
-run the parity smoke any time event projection, worker terminal events,
-or auto-troubleshoot handling changes.
+the persisted terminal events lose the nested object. The same projection
+discipline now covers GUI render descriptors at `result.context.render.args`
+so [prompt widgets](../gui/widgets.md) survive from worker event to persisted
+execution document. Operators should run the parity smoke any time event
+projection, worker terminal events, auto-troubleshoot handling, or render
+descriptor projection changes.
 
 Run the static fixture smoke from the `ai-meta` checkout. It does not
 need a cluster:
@@ -198,8 +202,7 @@ EXEC_ID=$(noetl exec tests/spike/spike_e2e_test \
   --payload '{"escalate_to":"none"}' \
   --json | jq -r '.execution_id')
 
-curl -s "http://localhost:8082/api/executions/${EXEC_ID}?page_size=500" \
-  > /tmp/noetl-spike-${EXEC_ID}.json
+noetl status "${EXEC_ID}" --json > /tmp/noetl-spike-${EXEC_ID}.json
 
 python3 scripts/spike_e2e_assert.py /tmp/noetl-spike-${EXEC_ID}.json
 python3 scripts/live_vs_persisted_parity_smoke.py --execution-id "${EXEC_ID}"
@@ -219,8 +222,8 @@ release until the projection path is fixed.
 |------------------------|----------------------------------------------------|----------------------------------------|
 | `troubleshoot`         | `false`                                            | per-task opt-in (overrides env)        |
 | `troubleshoot_path`    | `automation/agents/troubleshoot/diagnose_execution`| catalog path of the diagnostic agent   |
-| `ollama_model`         | `gemma3:4b`                                        | local model for first-pass triage      |
-| `ollama_mcp_server`    | `mcp/ollama`                                       | catalog path of the Ollama MCP bridge  |
+| `triage_model`         | `gemma3:4b`                                        | model for first-pass triage            |
+| `triage_mcp_server`    | `mcp/ollama`                                       | catalog path of the triage MCP backend |
 | `confidence_threshold` | `0.7`                                              | escalate when local confidence < this  |
 | `escalate_to`          | `openai`                                           | `openai` / `claude` / `none`           |
 | `openai_credential`    | `openai_token`                                     | keychain entry for the API key         |
@@ -229,7 +232,9 @@ release until the projection path is fixed.
 
 Unknown `on_failure` keys are ignored at the troubleshoot dispatch —
 they're filtered to the known set so an arbitrary key doesn't leak
-into the workload silently.
+into the workload silently. `triage_*` is the canonical naming surface;
+the older `ollama_*` aliases were removed after the worker started
+forwarding `triage_*` keys generically.
 
 ## Optional-dependency contract
 
@@ -305,7 +310,8 @@ tool:
   on_failure:
     troubleshoot: true
     troubleshoot_path: automation/agents/troubleshoot/diagnose_execution
-    ollama_model: gemma3:4b
+    triage_mcp_server: mcp/ollama
+    triage_model: gemma3:4b
     confidence_threshold: 0.7
     escalate_to: openai
 ```
@@ -316,6 +322,9 @@ tool:
   expose any playbook as an MCP tool to external clients.
 - [Self-Troubleshoot Agent](./self_troubleshoot_agent.md) — what
   `on_failure.troubleshoot: true` actually invokes.
+- [Catalog UX](../gui/catalog-ux.md) and
+  [Widgets in output](../gui/widgets.md) — how catalog resources and
+  `render: { type, args }` results surface in the terminal-style prompt.
 - [Ollama Bridge](../operations/ollama_bridge.md) — deploying the
   cheap-first inference layer the troubleshoot agent uses.
 - [Triage Model Selection](./triage_model_selection.md) — how to choose
