@@ -82,9 +82,9 @@ playbook from `repos/ops`:
 # From the ai-meta workspace root.
 noetl exec automation/development/noetl --runtime local --payload '{
   "namespace": "noetl",
-  "noetl_image": "ghcr.io/noetl/noetl:v2.37.1",
+  "noetl_image": "ghcr.io/noetl/noetl:v2.37.2",
   "gateway_image": "ghcr.io/noetl/gateway:v2.10.0",
-  "gui_image": "ghcr.io/noetl/gui:v1.7.0"
+  "gui_image": "ghcr.io/noetl/gui:v1.8.0"
 }'
 ```
 
@@ -200,6 +200,12 @@ the noetl-side fetch loop reached its first sleep. See
 [Vertex AI Triage Backend](../architecture/vertex_ai_triage_backend.md) for
 the full cloud-vs-local profile and what cold-start numbers look like.
 
+GUI v1.8.0 also renders step results that include `render: { type, args }`
+inside the terminal-style prompt. See
+[Widgets in output](../gui/widgets.md) for the contract and
+[Catalog UX](../gui/catalog-ux.md) for the kind-aware catalog surface
+that pairs with those prompt outputs.
+
 ## Step 6 — Run the regression smokes
 
 NoETL ships six prepared smoke regression detectors. Run them all to
@@ -240,7 +246,8 @@ NoETL relies on for self-troubleshooting:
   persisted diagnosis from the `persist_diagnosis` step's events.
 - **Event projection preservation** — the worker preserved the full
   nested `error.diagnosis._meta.diagnosis_fetch` dict end-to-end through
-  `_extract_control_context`.
+  `_extract_control_context`. The same projection path preserves
+  `render.args` for GUI prompt widgets in noetl v2.37.2.
 - **Live-vs-persisted parity** — the assertion script and the parity
   smoke both confirm the persisted shape matches the live response.
 

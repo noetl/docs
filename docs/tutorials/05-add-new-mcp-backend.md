@@ -77,6 +77,11 @@ playbook should automate.
 
 Every MCP triage backend implements the same `chat_completion` tool:
 
+`chat_completion` is the protocol-level tool name inherited from the
+MCP backend contract. It does not imply a chat UI; NoETL surfaces the
+diagnosis through execution events, prompt reports, and any structured
+`render` descriptor the playbook emits.
+
 **`tools/list` response shape:**
 
 ```json

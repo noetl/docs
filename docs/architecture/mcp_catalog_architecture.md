@@ -223,6 +223,11 @@ A few things worth noticing:
 The GUI's catalog browser auto-detects `kind: Mcp` entries and
 renders them as workspaces with verb-buttons:
 
+The broader [Catalog UX](../gui/catalog-ux.md) keeps Playbook, MCP,
+and Credential resources in one kind-aware navigation model. Terminal
+commands and prompt widgets then consume those same catalog paths rather
+than inventing a separate GUI-only identifier.
+
 ```
 mcp/kubernetes :: Read-only Kubernetes runtime agent backed by the Kubernetes MCP server
 
@@ -338,3 +343,7 @@ Open follow-ups (none blocking):
 - [MCP End-to-End on GKE](../operations/mcp/end-to-end-gke.md) — same architecture in the cloud
 - [Older Kubernetes MCP runbook](../operations/mcp/kubernetes-local-kind.md) — pre-architecture-PR, kept for context
 - [Sink-driven storage](sink_driven_storage) — the event/projection pattern this builds on
+- [Catalog UX](../gui/catalog-ux.md) — kind-aware catalog navigation
+  in the GUI
+- [Widgets in output](../gui/widgets.md) — structured prompt output
+  rendered from playbook step results
