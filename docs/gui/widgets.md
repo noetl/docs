@@ -13,10 +13,17 @@ JSON as a compact text summary. A playbook step can opt into a
 the GUI's prompt sees the field and dispatches it to the matching
 widget renderer alongside the textual summary.
 
-This is how a step turns its output into a "smart message": a
+This is how a step turns its output into a "smart prompt output": a
 markdown card, a table, an alert, an embedded image, an iframe to a
 CDN-hosted dashboard, an interactive form that posts back into the
 prompt, etc.
+
+The upstream widget descriptions in Confluence use "chat" and
+"message" language because they were written for a chat surface. In
+NoETL, the same `{ type, args }` descriptors render inside the
+terminal-style `NoetlPrompt`: the plain execution report stays as
+prompt text, and the widget appears as the structured output block
+for that command.
 
 ## The contract
 
@@ -65,32 +72,32 @@ prompt walks the execution's result and events looking for a
 
 | `type` | Shape | Purpose |
 |---|---|---|
-| `app:markdown` | `{ text: string }` | Markdown renderer (small dependency-free subset: headings, lists, fenced code, links, **bold**, *italic*, `code`). HTML is escaped. |
+| `app:markdown` | `{ text: string }` | Markdown renderer for reports and explanations. NoETL currently ships a small dependency-free subset: headings, lists, fenced code, links, **bold**, *italic*, `code`. HTML is escaped. |
 | `app:title` | `{ text, size?, color?, boldness?, style? }` | Heading text with inline typography overrides. |
 | `app:text` | `{ title, message, titleColor? }` | Labeled message — small bold title above body. |
 | `app:horizontalline` | `{}` | Thin `<hr>`. |
-| `app:picture` | `{ imageUrl?, imageBase64?, imageType?, maxWidth?, maxHeight?, altText? }` | Image from URL or base64 (`imageType` defaults to `jpeg`). |
-| `app:icon` | `{ name, style?, tooltip? }` | Antd icon resolved by name (e.g. `"CalendarOutlined"`). |
-| `app:profilepicture` | `{ src?, alt?, size?, rounded?, border? }` | Avatar; user glyph fallback when `src` missing. |
-| `app:statusbar` | `{ text, styleKey? }` | Inline status pill (`success`/`error`/`warning`/`info`/`processing`). |
-| `app:alert` | `{ message, variant? }` | Alert box (`success`/`error`/`warning`/`info`/`processing`). |
-| `app:tooltip` | `{ title, placement?, color?, disabled?, iconName?, size?, iconColor?, textColor? }` | Hoverable icon with tooltip. |
-| `app:infotable` | `{ data, fields? }` | Label-value table from a record; booleans render as check/cross. |
-| `app:infogrid` | `{ widgets, border? }` | Auto-fit grid of nested widgets. |
+| `app:picture` | `{ imageUrl?, imageBase64?, imageType?, maxWidth?, maxHeight?, altText? }` | Image from URL or raw base64. `imageUrl` wins when both sources are present; `imageBase64` is the encoded content without the `data:image/...;base64,` prefix; `imageType` defaults to `jpeg`; max dimensions constrain the prompt block. |
+| `app:icon` | `{ name, style?, tooltip? }` | Antd icon resolved by exported component name (for example `"CalendarOutlined"`), with optional inline style and tooltip text. |
+| `app:profilepicture` | `{ src?, alt?, size?, rounded?, border? }` | Avatar/profile image with placeholder fallback, square pixel size, optional circle shape, and optional border/background treatment. |
+| `app:statusbar` | `{ text, styleKey? }` | Inline status pill. Known style keys include `success`, `error`, `warning`, `info`, `processing`, and `default`; unknown values fall back to neutral styling. |
+| `app:alert` | `{ message, variant? }` | Highlighted notice box. Variants match `success`, `error`, `warning`, `info`, `processing`, and `default`; omitted or unknown variants render neutrally. |
+| `app:tooltip` | `{ title, placement?, color?, disabled?, iconName?, size?, iconColor?, textColor? }` | Hoverable icon with tooltip. Placement accepts the Antd placement set (`top`, `bottomRight`, `leftTop`, etc.) plus hyphenated equivalents. |
+| `app:infotable` | `{ data, fields? }` | Label-value table from a record; keys become human-readable labels, and booleans render as check/cross icons. |
+| `app:infogrid` | `{ widgets, border? }` | Responsive two-column grid of nested widgets, useful for grouping related tables, markdown blocks, and status surfaces. |
 | `app:grouped_table` | `{ groups: [{ title, data: [[label, value], ...] }, ...] }` | Multiple labeled label-value blocks. |
-| `app:table` | `{ size?, data: string[][] }` | Simple table; auto headers `Column1..N` (header hidden). |
-| `app:recordtable` | `{ columns, data, width?, pageSize?, disableHeader?, showNull? }` | Antd Table with sort/filter; richer than `app:table`. |
-| `app:filedisplay` | `{ file: { name, metadata?, url } }` | File card with download button. |
+| `app:table` | `{ size?, data: string[][] }` | Simple two-column or small matrix table. `size` controls compactness; header text is generated but visually hidden for label-value use cases. |
+| `app:recordtable` | `{ columns, data, width?, pageSize?, disableHeader?, showNull? }` | Antd Table with sort/filter-capable columns. Rows should include a stable `id` because the underlying table uses it as the React row key. |
+| `app:filedisplay` | `{ file: { name, type?, metadata?, url } }` | File card with preview/download behavior. Images can render a preview; other file types render icon + name and link/download action. |
 
 ### Layout widgets
 
 | `type` | Shape | Purpose |
 |---|---|---|
-| `app:row` | `{ children: WidgetContent[], gap?, align?, justify? }` | Horizontal flexbox of nested widgets. |
-| `app:column` | `{ children: WidgetContent[], gap?, align?, justify? }` | Vertical flexbox of nested widgets. |
+| `app:row` | `{ children: WidgetContent[], gap?, align?, justify? }` | Horizontal flexbox of nested widgets. `gap` is pixels; `align` controls vertical alignment; `justify` controls horizontal distribution. |
+| `app:column` | `{ children: WidgetContent[], gap?, align?, justify? }` | Vertical flexbox of nested widgets. `gap` is pixels; `align` controls horizontal alignment; `justify` controls vertical distribution. |
 | `app:container` | `{ padding?, margin?, child? }` | Spacing wrapper around a single child widget. |
-| `app:carousel` | `{ carouselWidth?, carouselHeight?, widgets }` | Sliding deck of nested widgets. |
-| `app:expandable` | `{ isExpand, minimalContent, fullContent }` | Toggle between two widget views. |
+| `app:carousel` | `{ carouselWidth?, carouselHeight?, widgets }` | Sliding deck of nested widgets with previous/next controls and a position indicator. Width and height may be fixed pixels or omitted for auto layout. |
+| `app:expandable` | `{ isExpand, minimalContent, fullContent }` | Toggle between collapsed and expanded nested widget views. |
 | `app:info_block` | `{ items: [{ title, description }, ...] }` | Accordion of expandable info items. |
 
 ### Interactive widgets
@@ -106,16 +113,16 @@ callback. NoetlPrompt wires that callback to dispatch prompt actions:
 
 | `type` | Shape | Emits | Purpose |
 |---|---|---|---|
-| `app:button` | `{ text, variant?, buttonType?, colorType?, width?, disabled?, forceLoading?, loadingDelay?, event? }` | `onPressEvent(event.key, event.value)` | Clickable button. |
-| `app:calendar` | `{ event?, width?, firstDate?, initialDate?, lastDate? }` | `onChangeEvent(event.key, formatted_date)` | Date picker with bounds. |
-| `app:dropdown` | `{ placeholder?, selectedId?, selectionVariants: [{id, label}, ...] }` | `onDropdownChange("dropdownSelection", id)` | Single select. |
-| `app:radio` | `{ title, selectedId?, radioValues: [{id, label}, ...] }` | `onRadioSelect("radioSelection", id)` | Single-select radio. |
-| `app:checkbox` | `{ title, checkboxValues: [{id, label, defaultChecked?}, ...] }` | `onCheckboxChange("checkboxSelection", string[])` | Multi-select. |
+| `app:button` | `{ text, variant?, buttonType?, colorType?, width?, disabled?, forceLoading?, loadingDelay?, event? }` | `onPressEvent(event.key, event.value)` | Clickable button with Antd-style type/color, optional loading state, and optional prompt event. |
+| `app:calendar` | `{ event?, width?, firstDate?, initialDate?, lastDate? }` | `onChangeEvent(event.key, formatted_date)` | Compact date picker with optional lower/upper bounds and preselected date. `event.valueFormat` controls the emitted date string. |
+| `app:dropdown` | `{ placeholder?, selectedId?, selectionVariants: [{id, label}, ...] }` | `onDropdownChange("dropdownSelection", id)` | Single select with optional placeholder and preselected option. |
+| `app:radio` | `{ title, selectedId?, radioValues: [{id, label}, ...] }` | `onRadioSelect("radioSelection", id)` | Single-select radio group; `title` may be empty when the surrounding prompt text already labels the choice. |
+| `app:checkbox` | `{ title, checkboxValues: [{id, label, defaultChecked?}, ...] }` | `onCheckboxChange("checkboxSelection", string[])` | Multi-select group. The event value is the full array of selected option ids after each toggle. |
 | `app:input` | `{ title?, placeholder?, onChange?: { key }, disabled? }` | `onInputChange(onChange.key, value)` | Text field. |
-| `app:form` | `{ fields: [{ id, title, optional?, validation?, placeholder?, default_value? }, ...], buttons? }` | `onFormSubmit(button.event.key, values)` | Linear validated form. |
-| `app:customform` | `{ fields: FieldDef[][], buttons?, buttonPlacement?, revision?, forceResetSignal? }` | `onFormSubmit(button.event.key, values)` | Multi-column form with grid layout. |
-| `app:quiz` | `{ questionWidth?, finishText?, questions: [{ questionId, questionText, answers: [{ answerId, label }, ...] }, ...] }` | `onQuizAnswer` per pick + `onFinishQuiz` on completion | Multi-question quiz. |
-| `app:draganddrop` | `{ backgroundColor?, icon?, text?, width?, height? }` | `DROP_EVENT("dragAndDrop", JSON.stringify([{ name, type }]))` | File-upload drop zone. |
+| `app:form` | `{ fields: [{ id, title, optional?, validation?, placeholder?, default_value? }, ...], buttons? }` | `onFormSubmit(button.event.key, values)` | Linear validated form. Field ids become keys in the submitted values object; button events can submit, go back, or emit another action. |
+| `app:customform` | `{ fields: FieldDef[][], buttons?, buttonPlacement?, revision?, forceResetSignal? }` | `onFormSubmit(button.event.key, values)` | Multi-column form with grid layout, regex validation, explicit button placement, and reset/revision controls. |
+| `app:quiz` | `{ questionWidth?, finishText?, questions: [{ questionId, questionText, answers: [{ answerId, label }, ...] }, ...] }` | `onQuizAnswer` per pick + `onFinishQuiz` on completion | Multi-question quiz with answer events per question and a final completion event. |
+| `app:draganddrop` | `{ backgroundColor?, icon?, text?, width?, height? }` | `DROP_EVENT("dragAndDrop", JSON.stringify([{ name, type }]))` | File/text drop zone. The emitted payload carries dropped item names and MIME-ish types, not raw file bytes. |
 
 ### NoETL extensions
 
@@ -176,6 +183,14 @@ A widget kind the GUI doesn't recognize falls through to the
 "unsupported widget" preview rather than crashing the prompt — so
 playbook authors can experiment with new kinds locally before the
 GUI knows about them.
+
+For image-like widgets, prefer HTTPS `imageUrl` values for stable
+shared reports. `imageBase64` is supported for generated artifacts,
+but it increases execution document size; keep those payloads small
+and include `altText`. The image-message design notes also call out
+loading, error, and empty states; in NoETL those states should stay
+inside the prompt output block and should not block the textual
+execution report from rendering.
 
 ## Related references
 
