@@ -196,6 +196,9 @@ execution report from rendering.
 
 - [Catalog UX](catalog-ux.md) — kind-aware navigation that pairs with
   widget output.
+- [Render widgets from a playbook](../tutorials/06-widget-rendering.md)
+  — step-by-step tutorial for emitting `result.render`, checking the
+  persisted execution, and viewing it with `report <execution_id>`.
 - [`architecture/agent_orchestration.md`](../architecture/agent_orchestration.md)
   — how step results flow through the event source.
 - [`mlflowio/chatui`](https://github.com/mlflowio/chatui) —
