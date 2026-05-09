@@ -17,6 +17,16 @@ system), see
 [NoETL Catalog-Driven MCP Architecture](./mcp_catalog_architecture.md)
 and [Playbook-as-MCP-Server](./playbook_as_mcp_server.md).
 
+## Authoring rules
+
+The May 2026 travel agent flagship round surfaced 11 generalizable
+rules for playbook authors, spanning keychain templates, handled
+failures, render-as-tail workflow shape, third-party HTTP envelopes,
+Jinja quoting, and GUI widget event handling. They are collected in the
+[Playbook authoring guide](../reference/playbook_authoring_guide.md)
+so new agent playbooks can start from the proven patterns instead of
+repeating the same AMBER to GREEN fixes.
+
 ## The agent envelope
 
 Every `tool: kind: agent` step returns the same shape regardless of
