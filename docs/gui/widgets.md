@@ -169,6 +169,12 @@ sub-passes will also pull `render` into the `mcp status`, `mcp tools`,
 `k8s ...`, and generic `call` paths so the widget appears
 immediately when the agent returns, without an extra `report` step.
 
+For the broader set of design rules learned while building the travel
+agent flagship workflow - render-as-tail playbook shape, side-effect
+audit, Jinja quoting, pluggable provider constraints, and widget button
+event handling - see the
+[Playbook authoring guide](../reference/playbook_authoring_guide.md).
+
 ## Security and graceful degradation
 
 The renderer is wrapped in an error boundary. A widget component that
