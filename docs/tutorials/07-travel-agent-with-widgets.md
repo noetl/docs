@@ -294,6 +294,45 @@ runtime chooses the intent, calls `automation/agents/mcp/amadeus` with
 `tool: agent` / `framework: noetl`, and makes the matching render step
 the workflow tail so `execution.result.render` is the widget payload.
 
+### Refinement forms
+
+Each result widget can also include an `app:form` that lets the
+operator adjust the search without retyping the whole prompt. The
+form's field IDs become placeholders in the button event value. At
+click time, `repos/gui/src/components/widgets/AppForm.tsx`
+substitutes `{fieldId}` with the current form value, then emits the
+result as a normal widget command. The terminal prompt and travel
+canvas already route `key: "command"` events back into the prompt
+runner.
+
+For example, the flights branch appends a form like this:
+
+```python
+{
+    "type": "app:form",
+    "args": {
+        "fields": [
+            {"id": "origin", "title": "Origin (IATA)", "default_value": classification.get("origin") or "SFO"},
+            {"id": "destination", "title": "Destination (IATA)", "default_value": classification.get("destination") or "JFK"},
+            {"id": "departureDate", "title": "Departure date", "default_value": classification.get("departureDate") or "2026-07-15"},
+            {"id": "adults", "title": "Adults", "default_value": str(classification.get("adults") or 1)},
+        ],
+        "buttons": [{
+            "text": "Refine search",
+            "colorType": "primary",
+            "event": {
+                "key": "command",
+                "value": "travel flights from {origin} to {destination} on {departureDate} for {adults} adults",
+            },
+        }],
+    },
+}
+```
+
+The same convention powers the hotel, location, activity, and
+friendly-error refinement forms. Static string events still emit as-is,
+and non-string form events keep the older values-object behavior.
+
 ## Step 5 — Same capability via MCP
 
 The Amadeus MCP server lives at
