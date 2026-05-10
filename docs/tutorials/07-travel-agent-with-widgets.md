@@ -17,9 +17,10 @@ both the terminal-style prompt and the travel canvas.
 The point isn't the travel agent specifically — it's that you can
 build this kind of agentic flow with **NoETL DSL alone**:
 
-- The AI provider switch lives in one Python step. Keychain entries
-  bind unconditionally with bare workload references, and the step
-  chooses OpenAI or Anthropic request/response shapes at runtime.
+- The AI provider switch is a small branch-and-merge graph. Keychain
+  entries bind unconditionally with bare workload references, direct
+  HTTP providers stay in Python, and complex or in-cluster providers
+  route through MCP playbook hops.
 - The Amadeus MCP server is just another playbook —
   `automation/agents/mcp/amadeus.yaml` exposes `tools/list` and
   `tools/call` per the MCP spec, so any MCP client (Claude Desktop,
@@ -41,10 +42,10 @@ templates, HTTP, and a JSON output contract.
 - Amadeus test API credentials in your secret manager
   (`api-key-test-api-amadeus-com`, `api-secret-test-api-amadeus-com`).
 - At least one AI provider path. OpenAI is the default, Anthropic is
-  supported as the second provider when its secret exists, and Vertex
-  AI is supported as the third provider through the
-  `automation/agents/mcp/vertex-ai` playbook. Ollama stays deferred
-  until the in-cluster bridge routing pass.
+  supported when its secret exists, Vertex AI routes through
+  `automation/agents/mcp/vertex-ai`, and Ollama routes through
+  `automation/agents/mcp/ollama` to the in-cluster bridge at
+  `http://ollama-bridge.noetl.svc.cluster.local:8765/jsonrpc`.
 
 ## Step 1 — Register and run the agent
 
@@ -87,15 +88,17 @@ Open `repos/ops/automation/agents/travel/runtime.yaml`. The shape:
 ```yaml
 metadata:
   agent: true
-  capabilities: [mcp:amadeus, mcp:vertex-ai, ai:openai, ai:anthropic, ai:vertex-ai]
+  capabilities: [mcp:amadeus, mcp:vertex-ai, mcp:ollama, ai:openai, ai:anthropic, ai:vertex-ai, ai:ollama]
 
 workload:
-  ai_provider: openai          # openai | anthropic | vertex-ai
+  ai_provider: openai          # openai | anthropic | vertex-ai | ollama
   query: "Help"
   amadeus_env: test
   vertex_project: noetl-demo-19700101
   vertex_region: us-central1
   vertex_model: gemini-2.5-flash
+  ollama_model: gemma3:4b
+  ollama_bridge_url: http://ollama-bridge.noetl.svc.cluster.local:8765/jsonrpc
 
 keychain:
   - name: openai_token
@@ -142,6 +145,20 @@ workflow:
         vertex_project: "{{ workload.vertex_project }}"
         vertex_region: "{{ workload.vertex_region }}"
         vertex_model: "{{ workload.vertex_model }}"
+  - step: classify_via_ollama_mcp
+    tool:
+      kind: agent
+      framework: noetl
+      entrypoint: automation/agents/mcp/ollama
+      payload:
+        method: tools/call
+        tool: chat_completion
+        arguments:
+          model: "{{ workload.ollama_model }}"
+          messages:
+            - role: user
+              content: "{{ workload.query }}"
+          ollama_endpoint: "{{ workload.ollama_bridge_url }}"
   - step: classify_intent
     tool:
       kind: python
@@ -156,9 +173,13 @@ fallback metadata.
 
 The classifier is now a small branch-and-merge graph. The HTTP branch
 handles OpenAI and Anthropic. The Vertex branch calls the Vertex AI
-MCP playbook through `tool: agent` / `framework: noetl`. A final
-`classify_intent` Python step merges whichever branch ran and emits
-the same uniform fields for every downstream branch:
+MCP playbook through `tool: agent` / `framework: noetl`. The Ollama
+branch uses the same NoETL agent hop shape against
+`automation/agents/mcp/ollama`, which wraps the in-cluster
+`ollama-bridge` JSON-RPC endpoint at
+`http://ollama-bridge.noetl.svc.cluster.local:8765/jsonrpc`. A final
+`classify_intent` Python step merges whichever branch ran and emits the
+same uniform fields for every downstream branch:
 `intent`, `origin`, `destination`, `departureDate`, `adults`, `city`,
 `cityCode`, `keyword`, `latitude`, `longitude`,
 `effective_provider`, `provider_fallback_reason`, and `json_str` for
@@ -169,6 +190,10 @@ if requested_provider == "vertex-ai":
     vertex_text = read_text_from_vertex_mcp_child_execution()
     parsed = json.loads(_strip_markdown_fences(vertex_text) or "{}")
     effective_provider = "vertex-ai"
+elif requested_provider == "ollama":
+    ollama_text = read_text_from_ollama_mcp_child_execution()
+    parsed = json.loads(_strip_markdown_fences(ollama_text) or "{}")
+    effective_provider = "ollama"
 else:
     parsed, effective_provider = classify_with_openai_or_anthropic()
 
@@ -188,14 +213,17 @@ Switching among supported classifiers is one workload field:
 travel --provider openai flights from SFO to JFK on July 15
 travel --provider anthropic locations near Boston
 travel --provider vertex-ai flights from SFO to JFK on 2026-07-15
+travel --provider ollama help
+travel --provider ollama flights from SFO to JFK on 2026-07-15
 ```
 
 The `--provider` flag in NoetlPrompt's `travel` verb threads the
 chosen provider into the workload. The rendered status pill shows the
 actual `effective_provider`, so a successful Vertex run says
-`effective_provider=vertex-ai`. If Anthropic is requested but its
-secret is unavailable, or if the Vertex MCP playbook returns a clean
-MCP error envelope, the classifier snaps back to OpenAI and records a
+`effective_provider=vertex-ai` and a successful local-model run says
+`effective_provider=ollama`. If Anthropic is requested but its secret is
+unavailable, or if a provider MCP playbook returns a clean MCP error
+envelope, the classifier snaps back to OpenAI and records a
 `provider_fallback_reason` in the result envelope.
 
 Vertex AI is intentionally routed through
@@ -247,6 +275,12 @@ curl -s http://localhost:8082/api/executions/<execution-id>/events \
 Expected output includes `framework: "noetl"`, the
 `automation/agents/mcp/vertex-ai` entrypoint, and a
 `sub_execution_id`.
+
+Ollama follows the same pattern. The new `automation/agents/mcp/ollama`
+playbook exposes `chat_completion` while translating internally to the
+bridge's raw `chat` tool. That keeps travel's provider surface symmetric
+with Vertex AI while still using the existing in-cluster bridge service
+and local `gemma3:4b` model.
 
 ## Step 4 — Widget output
 
