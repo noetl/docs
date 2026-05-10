@@ -244,6 +244,70 @@ Bad:
 Surfaced in round 3. Evidence:
 `bridge/outbox/20260509-060007-travel-amadeus-urllib-amber-to-green.result.json`.
 
+## Python step authoring
+
+### Republish helpers through globals before calling them from other helpers
+
+NoETL executes `kind: python` step code with separate globals and
+locals dictionaries. Helper functions defined at the top of the code
+body are visible to top-level statements, but sibling helper functions
+cannot reliably call each other by name unless those helpers are
+republished through globals.
+
+Define all helpers first, then call `globals().update({...})` before any
+helper invokes another helper. This is the same pattern used inside the
+existing `automation/agents/mcp/vertex-ai.yaml` playbook and was
+rediscovered across the travel agent provider rounds.
+
+Good:
+
+```python
+def _helper_one():
+    return _helper_two() + 1
+
+def _helper_two():
+    return 42
+
+# Republish helpers so each function can resolve sibling helpers
+# through globals at call time.
+globals().update({
+    "_helper_one": _helper_one,
+    "_helper_two": _helper_two,
+})
+
+result = {"value": _helper_one()}
+```
+
+Bad:
+
+```python
+def _helper_one():
+    # NameError at runtime: _helper_two is not visible inside
+    # _helper_one because NoETL evaluates this snippet with separate
+    # globals and locals.
+    return _helper_two() + 1
+
+def _helper_two():
+    return 42
+
+result = {"value": _helper_one()}
+```
+
+Surfaced in the Phase 3 vertex-ai round and again in the
+hotels/activities round. Evidence:
+`bridge/outbox/20260510-184500-travel-hotels-activities.result.json`.
+
+Why this happens: NoETL passes the user's `code` string to a runner that
+calls `exec(code, globals_dict, locals_dict)` with two separate maps.
+Top-level statements write to locals, which is the step's input scope
+merged with output declarations, but function definitions resolve free
+variables against globals at call time rather than against the locals
+map where sibling helpers were defined. Republishing through
+`globals().update(...)` makes helpers reachable by name from inside
+other helpers. `import` statements inside a step body work without this
+pattern because Python automatically writes imports into globals;
+user-defined functions do not.
+
 ## YAML and SQL quoting
 
 ### Keep integer payload fields as integers
