@@ -254,14 +254,39 @@ search_flights :: completed
 ... offers JSON ...
 ```
 
-Same Amadeus capability, two surfaces — the agent calls the HTTP
-endpoint directly; the MCP server playbook wraps it as an MCP tool.
+In Phase 2, the travel agent uses this MCP playbook internally too.
+The flights and locations branches call
+`automation/agents/mcp/amadeus` through `tool: agent` /
+`framework: noetl`, passing a `tools/call` payload for
+`search_flights` or `search_locations`. External MCP callers and the
+travel agent now share the same Amadeus implementation.
 
-The **important point** isn't that we have two ways to call Amadeus;
-it's that NoETL gives you both for free. Wrap a capability as an
-agent playbook (single coherent flow) when you want it to feel like
-a CLI command. Wrap it as an MCP playbook (`exposes_as_mcp: true`)
-when you want it discoverable as a tool to other agents.
+After running a travel query, inspect the execution events to prove
+the agent-to-MCP hop happened:
+
+```bash
+curl -s http://localhost:8082/api/executions/<execution-id>/events \
+  | jq '.events[]
+      | select(.node_name | test("amadeus_via_mcp"))
+      | select(.event_type == "command.completed")
+      | {
+          step: .node_name,
+          framework: .result.context.framework,
+          entrypoint: .result.context.entrypoint,
+          sub_execution_id: .result.context.execution_id
+        }'
+```
+
+Expected output includes `framework: "noetl"`, the
+`automation/agents/mcp/amadeus` entrypoint, and a `sub_execution_id`,
+showing that the travel runtime delegated to the MCP playbook rather
+than calling Amadeus directly.
+
+The **important point** is that "MCP is just a playbook" is now
+load-bearing. Wrap a capability as an MCP playbook
+(`exposes_as_mcp: true`) when you want it discoverable as a tool to
+other agents; call that same playbook from an agent flow when you
+want a cohesive user-facing command.
 
 ## Step 6 — Travel canvas (rich UI)
 
@@ -286,8 +311,9 @@ separate AI gateway. The DSL is the templating layer:
   local to that step, and downstream branches read the uniform
   classification fields plus `effective_provider`.
 - **Pluggable surfaces**: the agent (single flow) and the MCP server
-  (tool catalog) wrap the same capability. The catalog kinds
-  (`Playbook`, `Mcp`, `Credential`) make discovery uniform.
+  (tool catalog) now share the same Amadeus playbook implementation.
+  The catalog kinds (`Playbook`, `Mcp`, `Credential`) make discovery
+  uniform.
 - **Pluggable rendering**: the result is just JSON. The terminal
   prompt and the travel canvas both render it because both use the
   same WidgetRenderer.
@@ -302,9 +328,6 @@ rendering surface."
 
 ## What's next
 
-- **Phase 2** of this round adds the Amadeus MCP server's
-  agent-to-MCP plumbing so the travel agent can use the MCP tools
-  internally rather than calling Amadeus HTTP directly.
 - **Phase 3** is provider parity smokes — adding Vertex AI and Ollama
   once their auth/routing designs are ready, then running all
   providers through the same intent branches.
