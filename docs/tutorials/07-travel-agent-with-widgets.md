@@ -91,7 +91,7 @@ workload:
   ai_provider: openai          # openai | anthropic | vertex-ai
   query: "Help"
   amadeus_env: test
-  vertex_project: noetl-cluster
+  vertex_project: noetl-demo-19700101
   vertex_region: us-central1
   vertex_model: gemini-2.5-flash
 
