@@ -40,10 +40,11 @@ templates, HTTP, and a JSON output contract.
   cluster.
 - Amadeus test API credentials in your secret manager
   (`api-key-test-api-amadeus-com`, `api-secret-test-api-amadeus-com`).
-- At least one AI provider API key in your secret manager. OpenAI is
-  the default; Anthropic is supported as the second provider. Vertex
-  AI and Ollama are deferred provider rounds because they need
-  different authentication and routing patterns.
+- At least one AI provider path. OpenAI is the default, Anthropic is
+  supported as the second provider when its secret exists, and Vertex
+  AI is supported as the third provider through the
+  `automation/agents/mcp/vertex-ai` playbook. Ollama stays deferred
+  until the in-cluster bridge routing pass.
 
 ## Step 1 — Register and run the agent
 
@@ -84,12 +85,15 @@ Open `repos/ops/automation/agents/travel/runtime.yaml`. The shape:
 ```yaml
 metadata:
   agent: true
-  capabilities: [mcp:amadeus, ai:openai, ai:anthropic]
+  capabilities: [mcp:amadeus, mcp:vertex-ai, ai:openai, ai:anthropic, ai:vertex-ai]
 
 workload:
-  ai_provider: openai          # openai | anthropic
+  ai_provider: openai          # openai | anthropic | vertex-ai
   query: "Help"
   amadeus_env: test
+  vertex_project: noetl-cluster
+  vertex_region: us-central1
+  vertex_model: gemini-2.5-flash
 
 keychain:
   - name: openai_token
@@ -115,7 +119,7 @@ keychain:
       client_secret: "{{ keychain.amadeus_credentials.client_secret }}"
 
 workflow:
-  - step: classify_intent
+  - step: classify_via_http_provider
     tool:
       kind: python
       input:
@@ -123,46 +127,49 @@ workflow:
         requested_provider: "{{ workload.ai_provider }}"
         openai_api_key: "{{ keychain.openai_token.api_key | default('') }}"
         anthropic_api_key: "{{ keychain.anthropic_token.api_key | default('') }}"
-  # ... classify_intent -> branch by intent -> render as workflow tail ...
+  - step: classify_via_vertex_mcp
+    tool:
+      kind: agent
+      framework: noetl
+      entrypoint: automation/agents/mcp/vertex-ai
+      payload:
+        model: "{{ workload.vertex_model }}"
+        messages:
+          - role: user
+            content: "{{ workload.query }}"
+        vertex_project: "{{ workload.vertex_project }}"
+        vertex_region: "{{ workload.vertex_region }}"
+        vertex_model: "{{ workload.vertex_model }}"
+  - step: classify_intent
+    tool:
+      kind: python
+  # ... classify_intent merger -> branch by intent -> render as workflow tail ...
 ```
 
 That's the thesis: keychain stays boring and unconditional, while the
-normal workflow step owns provider selection, response unwrapping, and
+normal workflow steps own provider selection, response unwrapping, and
 fallback metadata.
 
 ## Step 3 — Pluggable AI provider
 
-The classify step is a single Python step. It picks the provider,
-builds the right request shape, unwraps the provider-specific response
-shape, and emits the same uniform fields for every downstream branch:
+The classifier is now a small branch-and-merge graph. The HTTP branch
+handles OpenAI and Anthropic. The Vertex branch calls the Vertex AI
+MCP playbook through `tool: agent` / `framework: noetl`. A final
+`classify_intent` Python step merges whichever branch ran and emits
+the same uniform fields for every downstream branch:
 `intent`, `origin`, `destination`, `departureDate`, `adults`, `city`,
 `keyword`, `effective_provider`, `provider_fallback_reason`, and
 `json_str` for SQL audit.
 
 ```python
-requested = (requested_provider or "openai").strip().lower()
-effective_provider = requested if requested in ("openai", "anthropic") else "openai"
-provider_fallback_reason = None
+if requested_provider == "vertex-ai":
+    vertex_text = read_text_from_vertex_mcp_child_execution()
+    parsed = json.loads(_strip_markdown_fences(vertex_text) or "{}")
+    effective_provider = "vertex-ai"
+else:
+    parsed, effective_provider = classify_with_openai_or_anthropic()
 
-if requested == "anthropic" and not (anthropic_api_key or "").strip():
-    effective_provider = "openai"
-    provider_fallback_reason = "anthropic token missing"
-
-text = _anthropic_text() if effective_provider == "anthropic" else _openai_text()
-parsed = json.loads(_strip_markdown_fences(text) or "{}")
-
-result = {
-    "intent": _normalise_intent(parsed.get("intent")),
-    "origin": _coerce(parsed.get("origin")),
-    "destination": _coerce(parsed.get("destination")),
-    "departureDate": _coerce(parsed.get("departureDate")),
-    "adults": int(parsed.get("adults") or 1),
-    "city": _coerce(parsed.get("city")),
-    "keyword": _coerce(parsed.get("keyword")),
-    "requested_provider": requested,
-    "effective_provider": effective_provider,
-    "provider_fallback_reason": provider_fallback_reason,
-}
+result = normalize_to_travel_contract(parsed, effective_provider)
 result["json_str"] = json.dumps(result, separators=(",", ":"))
 ```
 
@@ -172,26 +179,71 @@ bare keychain references, no keychain `when:` predicates, no Jinja
 conditionals for provider-specific URLs, and pre-serialized JSON for
 SQL audit.
 
-Switching between the two supported classifiers is one workload field:
+Switching among supported classifiers is one workload field:
 
 ```text
 travel --provider openai flights from SFO to JFK on July 15
 travel --provider anthropic locations near Boston
-travel --provider anthropic flights from SFO to JFK on 2026-07-15
+travel --provider vertex-ai flights from SFO to JFK on 2026-07-15
 ```
 
 The `--provider` flag in NoetlPrompt's `travel` verb threads the
 chosen provider into the workload. The rendered status pill shows the
-actual `effective_provider`, so an Anthropic run says
-`effective_provider=anthropic`. If Anthropic is requested but its
-secret is not available in the environment, the classifier snaps back
-to OpenAI and records `provider_fallback_reason="anthropic token
-missing"` in the result envelope.
+actual `effective_provider`, so a successful Vertex run says
+`effective_provider=vertex-ai`. If Anthropic is requested but its
+secret is unavailable, or if the Vertex MCP playbook returns a clean
+MCP error envelope, the classifier snaps back to OpenAI and records a
+`provider_fallback_reason` in the result envelope.
 
-Vertex AI and Ollama stay deferred in
-`sync/issues/2026-05-09-travel-agent-widget-flagship.md`: Vertex needs
-a `gcp_access_token` / ADC design pass, and Ollama needs the in-cluster
-bridge URL wired in the target cluster.
+Vertex AI is intentionally routed through
+`automation/agents/mcp/vertex-ai`, mirroring the Phase 2 Amadeus
+pattern. The travel agent dispatches; the MCP playbook owns GCP auth:
+Workload Identity, metadata server, env-var token, and
+service-account JWT fallback. One auth implementation serves two
+callers: `travel --provider vertex-ai ...` and external MCP clients
+speaking JSON-RPC to
+`/api/mcp/playbook/automation/agents/mcp/vertex-ai/jsonrpc`.
+
+The step shape is the same NoETL agent hop used for Amadeus:
+
+```yaml
+- step: classify_via_vertex_mcp
+  tool:
+    kind: agent
+    framework: noetl
+    entrypoint: automation/agents/mcp/vertex-ai
+    payload:
+      model: "{{ workload.vertex_model }}"
+      messages:
+        - role: user
+          content: "{{ workload.query }}"
+      system: |
+        You are a travel agent classifier. Return only JSON.
+      temperature: 0
+      vertex_project: "{{ workload.vertex_project }}"
+      vertex_region: "{{ workload.vertex_region }}"
+      vertex_model: "{{ workload.vertex_model }}"
+```
+
+After running a Vertex-backed query, inspect the events endpoint to
+prove the MCP hop:
+
+```bash
+curl -s http://localhost:8082/api/executions/<execution-id>/events \
+  | jq '.events[]
+      | select(.node_name == "classify_via_vertex_mcp")
+      | select(.event_type == "command.completed")
+      | {
+          step: .node_name,
+          framework: .result.context.framework,
+          entrypoint: .result.context.entrypoint,
+          sub_execution_id: .result.context.execution_id
+        }'
+```
+
+Expected output includes `framework: "noetl"`, the
+`automation/agents/mcp/vertex-ai` entrypoint, and a
+`sub_execution_id`.
 
 ## Step 4 — Widget output
 
@@ -306,10 +358,11 @@ You can build agentic flows like the travel agent without writing any
 Python plug-ins, without forking NoETL, without standing up a
 separate AI gateway. The DSL is the templating layer:
 
-- **Pluggable providers**: OpenAI and Anthropic share one merged
-  `classify_intent` Python step. Provider-specific shape drift stays
-  local to that step, and downstream branches read the uniform
-  classification fields plus `effective_provider`.
+- **Pluggable providers**: OpenAI and Anthropic share the HTTP
+  provider branch, while Vertex AI is delegated to the Vertex AI MCP
+  playbook. Provider-specific shape drift stays local to those
+  branches, and downstream branches read the uniform classification
+  fields plus `effective_provider`.
 - **Pluggable surfaces**: the agent (single flow) and the MCP server
   (tool catalog) now share the same Amadeus playbook implementation.
   The catalog kinds (`Playbook`, `Mcp`, `Credential`) make discovery
@@ -328,9 +381,10 @@ rendering surface."
 
 ## What's next
 
-- **Phase 3** is provider parity smokes — adding Vertex AI and Ollama
-  once their auth/routing designs are ready, then running all
-  providers through the same intent branches.
+- **Provider parity smokes** continue as environment work: Vertex AI
+  requires the target deployment's Workload Identity or ADC path to
+  reach Vertex AI, Anthropic requires its secret, and Ollama still
+  needs the in-cluster bridge URL wired in the target cluster.
 
 ## Related references
 
