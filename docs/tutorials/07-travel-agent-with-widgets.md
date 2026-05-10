@@ -10,9 +10,12 @@ description: 'Flagship demo — a natural-language travel agent built from playb
 This tutorial walks through a flagship demo: a natural-language travel
 agent built entirely from NoETL playbooks. It takes a free-text query
 ("flights from SFO to JFK on July 15"), classifies intent through
-OpenAI or Anthropic, calls the right Amadeus
+OpenAI, Anthropic, Vertex AI, or Ollama, calls the right Amadeus
 endpoint, and returns the result as a widget tree that renders in
 both the terminal-style prompt and the travel canvas.
+
+For the screenshot-led operator view of the same flow, see
+[Tutorial 8 — Travel agent GUI walkthrough](./08-travel-agent-gui-walkthrough.md).
 
 The point isn't the travel agent specifically — it's that you can
 build this kind of agentic flow with **NoETL DSL alone**:
@@ -526,16 +529,24 @@ rendering surface."
 
 ## What's next
 
-- **Provider parity smokes** continue as environment work: Vertex AI
-  requires the target deployment's Workload Identity or ADC path to
-  reach Vertex AI, Anthropic requires its secret, and Ollama still
-  needs the in-cluster bridge URL wired in the target cluster.
+The flagship arc is now feature-complete across the four canonical AI
+provider paths: OpenAI, Anthropic, Vertex AI, and Ollama. The remaining
+follow-ups are narrower maintenance and hardening work:
+
+- Investigate Amadeus test API 500s and keep user-facing failures as
+  friendly render widgets.
+- Fix the NoETL reference-hydration edge case seen with large
+  agent-to-MCP payloads, especially activities responses.
+- Consider lifting provider model names into workload fields once the
+  current working defaults have settled.
 
 ## Related references
 
 - [`gui/widgets.md`](../gui/widgets.md) — widget rendering contract
 - [`tutorials/06-widget-rendering.md`](./06-widget-rendering.md) —
   prior tutorial on basic widget rendering
+- [`tutorials/08-travel-agent-gui-walkthrough.md`](./08-travel-agent-gui-walkthrough.md) —
+  screenshot-led operator walkthrough of the travel GUI
 - [`architecture/playbook_as_mcp_server.md`](../architecture/playbook_as_mcp_server.md) —
   the pattern the Amadeus MCP server playbook implements
 - [`architecture/agent_orchestration.md`](../architecture/agent_orchestration.md) —
