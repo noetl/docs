@@ -68,9 +68,11 @@ fresh prompt entry below the textual report — a `Travel agent · 6
 flights` carousel with carrier / departure / duration / price per
 card, plus rerun and "open execution detail" buttons.
 
-You can also ask for help or location lookups:
+You can also ask for hotels, activities, locations, or help:
 
 ```text
+travel hotels in Paris on 2026-08-15
+travel activities near Times Square
 travel locations near Boston
 travel help
 ```
@@ -158,8 +160,9 @@ MCP playbook through `tool: agent` / `framework: noetl`. A final
 `classify_intent` Python step merges whichever branch ran and emits
 the same uniform fields for every downstream branch:
 `intent`, `origin`, `destination`, `departureDate`, `adults`, `city`,
-`keyword`, `effective_provider`, `provider_fallback_reason`, and
-`json_str` for SQL audit.
+`cityCode`, `keyword`, `latitude`, `longitude`,
+`effective_provider`, `provider_fallback_reason`, and `json_str` for
+SQL audit.
 
 ```python
 if requested_provider == "vertex-ai":
@@ -277,6 +280,20 @@ shape the [widget rendering tutorial](./06-widget-rendering.md)
 covered — the travel agent just emits richer trees built around real
 Amadeus data.
 
+Each intent branch is now a render-as-tail workflow path:
+
+| Intent | Amadeus MCP tool | Render shape |
+| --- | --- | --- |
+| `flights` | `search_flights` | `app:carousel` of flight offer cards |
+| `hotels` | `search_hotels` | `app:recordtable` with hotel name, chain, city, and geo fields |
+| `locations` | `search_locations` | `app:recordtable` with airport/city lookup fields |
+| `activities` | `search_activities` | `app:recordtable` with activity name, type, geo, and price fields |
+
+All four branches share the same agent-to-MCP hop pattern. The travel
+runtime chooses the intent, calls `automation/agents/mcp/amadeus` with
+`tool: agent` / `framework: noetl`, and makes the matching render step
+the workflow tail so `execution.result.render` is the widget payload.
+
 ## Step 5 — Same capability via MCP
 
 The Amadeus MCP server lives at
@@ -306,12 +323,14 @@ search_flights :: completed
 ... offers JSON ...
 ```
 
-In Phase 2, the travel agent uses this MCP playbook internally too.
-The flights and locations branches call
+In Phase 2 and the hotels/activities follow-up, the travel agent uses
+this MCP playbook internally too. The flights, hotels, locations, and
+activities branches call
 `automation/agents/mcp/amadeus` through `tool: agent` /
 `framework: noetl`, passing a `tools/call` payload for
-`search_flights` or `search_locations`. External MCP callers and the
-travel agent now share the same Amadeus implementation.
+`search_flights`, `search_hotels`, `search_locations`, or
+`search_activities`. External MCP callers and the travel agent now
+share the same Amadeus implementation.
 
 After running a travel query, inspect the execution events to prove
 the agent-to-MCP hop happened:
