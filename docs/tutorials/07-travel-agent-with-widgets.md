@@ -207,6 +207,55 @@ bare keychain references, no keychain `when:` predicates, no Jinja
 conditionals for provider-specific URLs, and pre-serialized JSON for
 SQL audit.
 
+The classifier prompt is also a workload field, so every provider branch
+uses the same schema contract:
+
+```yaml
+workload:
+  classifier_system_prompt: |
+    You are a travel agent classifier. Given a user query, return ONLY
+    a JSON object with these keys:
+    - intent: one of "flights", "hotels", "locations", "activities", "help"
+    - origin: IATA code (or null)
+    - destination: IATA code (or null)
+    - departureDate: YYYY-MM-DD (convert relative dates; or null)
+    - adults: integer, default 1
+    - city: human-readable city name for hotels (or null)
+    - cityCode: IATA city code for hotels, e.g. NYC, PAR, LON (or null)
+    - keyword: free-text filter for locations or activities (or null)
+    - latitude: decimal degrees for activities (or null)
+    - longitude: decimal degrees for activities (or null)
+    Use null for fields that don't apply.
+
+- step: classify_via_http_provider
+  tool:
+    kind: python
+    input:
+      system_prompt: "{{ workload.classifier_system_prompt }}"
+
+- step: classify_via_vertex_mcp
+  tool:
+    kind: agent
+    framework: noetl
+    entrypoint: automation/agents/mcp/vertex-ai
+    payload:
+      system: "{{ workload.classifier_system_prompt }}"
+
+- step: classify_via_ollama_mcp
+  tool:
+    kind: agent
+    framework: noetl
+    entrypoint: automation/agents/mcp/ollama
+    payload:
+      arguments:
+        system: "{{ workload.classifier_system_prompt }}"
+```
+
+That keeps OpenAI, Anthropic, Vertex AI, and Ollama classifications on
+one prompt contract. A caller can override
+`workload.classifier_system_prompt` for A/B testing or domain-specific
+tuning without forking the travel runtime.
+
 Switching among supported classifiers is one workload field:
 
 ```text
@@ -248,8 +297,7 @@ The step shape is the same NoETL agent hop used for Amadeus:
       messages:
         - role: user
           content: "{{ workload.query }}"
-      system: |
-        You are a travel agent classifier. Return only JSON.
+      system: "{{ workload.classifier_system_prompt }}"
       temperature: 0
       vertex_project: "{{ workload.vertex_project }}"
       vertex_region: "{{ workload.vertex_region }}"
