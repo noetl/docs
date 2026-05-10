@@ -74,6 +74,47 @@ keychain:
 Surfaced in round 2. Evidence:
 `bridge/outbox/20260509-054530-travel-keychain-amber-to-green.result.json`.
 
+## Workload defaults
+
+### Match environment-specific workload defaults to where the playbook runs
+
+Workload fields can chain through Jinja, such as
+`vertex_project: "{{ workload.gcp_project }}"`. A default-of-a-default is
+invisible to every caller that does not override it, so concrete project,
+cluster, and region defaults must match the environment where the
+playbook is registered and run, not the developer's local sandbox.
+
+Good:
+
+```yaml
+workload:
+  # GKE project - used by every downstream Jinja chain.
+  gcp_project: "noetl-demo-19700101"
+  vertex_project: "{{ workload.gcp_project }}"
+  vertex_region: "us-central1"
+```
+
+Bad:
+
+```yaml
+workload:
+  # Local kind sandbox name - silently misroutes every GKE caller.
+  gcp_project: "noetl-cluster"
+  vertex_project: "{{ workload.gcp_project }}"
+  vertex_region: "us-central1"
+```
+
+Surfaced in Phase 3 vertex-ai re-smoke. Evidence:
+`bridge/outbox/20260510-040000-travel-vertex-ai-resmoke.result.json`.
+
+When a playbook truly serves multiple environments, prefer making the
+field required with no default and failing fast at registration time, or
+set the default to the production environment and require sandbox/local
+callers to override it. The inverse, defaulting to local, silently
+breaks production. This pairs with the bare-keychain-references rule
+above: both expose how Jinja template chains in workload binding can
+hide a misconfiguration that only manifests at request time.
+
 ## Step semantics
 
 ### Use semantic fields instead of `status: failed` for handled failures
