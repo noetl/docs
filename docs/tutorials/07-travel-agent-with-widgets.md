@@ -293,6 +293,11 @@ All four branches share the same agent-to-MCP hop pattern. The travel
 runtime chooses the intent, calls `automation/agents/mcp/amadeus` with
 `tool: agent` / `framework: noetl`, and makes the matching render step
 the workflow tail so `execution.result.render` is the widget payload.
+The travel audit table follows the same rule: each render step writes
+its `travel_agent_events` row as a best-effort side effect inside the
+rendering Python code. That preserves the round-6 render-as-tail
+contract; a trailing `kind: postgres` audit step would become the last
+step and overwrite the widget result.
 
 ### Refinement forms
 
