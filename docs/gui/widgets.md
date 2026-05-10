@@ -205,6 +205,9 @@ execution report from rendering.
 - [Render widgets from a playbook](../tutorials/06-widget-rendering.md)
   — step-by-step tutorial for emitting `result.render`, checking the
   persisted execution, and viewing it with `report <execution_id>`.
+- [Travel agent GUI walkthrough](../tutorials/08-travel-agent-gui-walkthrough.md)
+  — screenshot-led walkthrough of prompt widgets, the travel canvas,
+  provider pills, and refinement forms.
 - [`architecture/agent_orchestration.md`](../architecture/agent_orchestration.md)
   — how step results flow through the event source.
 - [`mlflowio/chatui`](https://github.com/mlflowio/chatui) —
