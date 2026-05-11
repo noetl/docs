@@ -48,7 +48,7 @@ Every later section derives from these. A change proposal that violates one of t
 │  ├─ noetl.event             (partitioned, append-only)              │
 │  ├─ noetl.result_ref        (+ parent_ref_id ← the linked list)     │
 │  ├─ noetl.manifest(_part)   (aggregate / compacted manifests)       │
-│  ├─ object store            (MinIO / PVC / GCS / S3 for payloads)   │
+│  ├─ object store            (S3-compatible object store / PVC / GCS / S3 for payloads)   │
 │  ├─ noetl.execution         (projection, eventually consistent)     │
 │  ├─ noetl.execution_shard   (ownership / topology)                  │
 │  ├─ noetl.checkpoint        (epoch boundaries)                      │
@@ -68,7 +68,7 @@ No worker-to-worker traffic. No WebSocket. NATS KV is a pure read-through cache 
 | Meta node | Shard Manager + Reaper + Checkpointer + Compactor (any server instance; leader-elected per role via `noetl.runtime` lease) |
 | Compute node | Server instance running `ProjectionWorker` for owned shards |
 | Compactor node | `compactor.py` background task (shared or dedicated server) |
-| Hummock (LSM tree on S3) | `noetl.result_ref` + `noetl.manifest` + object store (MinIO/GCS/PVC); reference chain via `parent_ref_id` |
+| Hummock (LSM tree on S3) | `noetl.result_ref` + `noetl.manifest` + object store (S3-compatible object store/GCS/PVC); reference chain via `parent_ref_id` |
 | Chandy-Lamport barrier | `checkpoint.committed` event every 1 s per shard |
 | Epoch | `meta.epoch_id` snowflake stamped on every stateful event |
 | Fragment → actor | Server-side handler → ProjectionWorker per shard |
@@ -307,7 +307,7 @@ Old partitions are collapsed and dropped to keep event-table I/O bounded:
 
 `GET /api/executions/{id}/trace/{step}` falls through to the `manifest` + `result_ref` lookup when events are absent, so historical traces remain reconstructable after retention.
 
-Throughput target: ≥ 10k events/s/shard against MinIO/GCS tier.
+Throughput target: ≥ 10k events/s/shard against S3-compatible object store/GCS tier.
 
 ## 10. Phase Plan
 
@@ -335,7 +335,7 @@ Phases are delivered sequentially because each builds on the prior's contract (A
 | `NOETL_CHECKPOINT_INTERVAL_MS` | 1000 | Epoch barrier cadence |
 | `NOETL_RETENTION_DAYS` | 30 | Compactor retention horizon |
 | `NOETL_COMPACTOR_ENABLED` | `false` | Compactor opt-in during rollout |
-| `NOETL_DEFAULT_STORE_TIER` | `gcs` prod / `minio` dev | Default backend for persist-before-emit |
+| `NOETL_DEFAULT_STORE_TIER` | `gcs` prod / `object-store` dev | Default backend for persist-before-emit |
 
 All phases are backwards-compatible via these flags; individual phases are rolled out by flipping the relevant flag once the deploy is verified.
 
@@ -394,7 +394,7 @@ After:  Postgres tool → TempStore.put(rows) → {status, reference, context: {
 - `noetl_enhancement_session_2026_04_14.md` §4 "Schema Analysis", §7 "Worker Communication Architecture Decisions" (re-affirmed), §8 Phase 1/P1.2 trigger-maintained `execution.state` — **superseded by §6 here**.
 - `noetl_distributed_processing_plan.md` Phase 1 trigger-extension material — **superseded by §6 + §8 here**.
 - `noetl_schema_enhancements.md` §6 Full Trigger and §4 `execution.state` trigger-driven updates — **superseded by §6 here**.
-- What remains authoritative from the April 14 session: P0.1 atomic command dedup (shipped); P0.2 atomic `loop.done` via unique index (shipped); P0.3 `loop.started` event (shipped); P0.4 reaper (shipped); Phase 2 storage tier work (MinIO/PVC — shipped); Q1/Q2/Q3 worker communication decisions (NATS/HTTP split, no worker-to-worker, no WebSocket).
+- What remains authoritative from the April 14 session: P0.1 atomic command dedup (shipped); P0.2 atomic `loop.done` via unique index (shipped); P0.3 `loop.started` event (shipped); P0.4 reaper (shipped); Phase 2 storage tier work (object storage/PVC — shipped); Q1/Q2/Q3 worker communication decisions (NATS/HTTP split, no worker-to-worker, no WebSocket).
 
 ## 16. Related Documents
 

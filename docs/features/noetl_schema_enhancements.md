@@ -9,7 +9,7 @@ description: Complete DDL for event table indexes, projection table extensions, 
 :::warning Partially superseded
 Section 4 ("`noetl.execution.state` Schema" — trigger-driven) and Section 6 ("Extended Trigger — Full Replacement") are **superseded by [noetl_async_sharded_architecture.md](./noetl_async_sharded_architecture.md)**. The `trg_execution_state_upsert` trigger is **dropped**; `noetl.execution.state` is now written by the async `ProjectionWorker`. The JSON shape shown in §4 is preserved — only the producer changes.
 
-Sections 1 (unique/query indexes), 2 (query-support indexes), 3 (new loop event types), 5 (`result_ref.store_tier` with `minio`/`pvc`), and 7 (reconstruction function) remain authoritative. Additional tables introduced by the async/sharded design — `noetl.projection_checkpoint`, `noetl.execution_shard`, `noetl.checkpoint`, and `noetl.result_ref.parent_ref_id` — are specified in the async/sharded doc.
+Sections 1 (unique/query indexes), 2 (query-support indexes), 3 (new loop event types), 5 (`result_ref.store_tier` with `object-store`/`pvc`), and 7 (reconstruction function) remain authoritative. Additional tables introduced by the async/sharded design — `noetl.projection_checkpoint`, `noetl.execution_shard`, `noetl.checkpoint`, and `noetl.result_ref.parent_ref_id` — are specified in the async/sharded doc.
 :::
 
 This document is the authoritative DDL reference for Phase 1 of the distributed processing enhancement plan. All changes are **additive and idempotent** (`IF NOT EXISTS`, `DO NOTHING`, `ADD COLUMN IF NOT EXISTS`). No existing columns, tables, or indexes are removed.
@@ -127,7 +127,7 @@ Written by the server when a loop step is first entered and the collection is ma
 | `node_name` | step name |
 | `node_type` | `'loop'` |
 | `meta` | `{"loop_id": "<snowflake_id>", "collection_size": N, "mode": ["sequential", "parallel", "fanout"]}` |
-| `context` | `{"collection_ref": "<MinIO/GCS/S3 URI>"}` — only when collection is externalized (size > threshold) |
+| `context` | `{"collection_ref": "<S3-compatible object store/GCS/S3 URI>"}` — only when collection is externalized (size > threshold) |
 | `current_index` | `0` |
 | `status` | `'started'` |
 
@@ -295,14 +295,14 @@ ALTER TABLE noetl.result_ref
 ALTER TABLE noetl.result_ref
     ADD CONSTRAINT result_ref_store_tier_check
     CHECK (store_tier IN (
-        'memory', 'kv', 'disk', 'object', 's3', 'gcs', 'db', 'duckdb', 'eventlog', 'minio', 'pvc'
+        'memory', 'kv', 'disk', 'object', 's3', 'gcs', 'db', 'duckdb', 'eventlog', 'object-store', 'pvc'
     ));
 
 COMMENT ON COLUMN noetl.result_ref.store_tier IS
     'Storage backend: memory (in-process), kv (NATS KV), '
-    'disk (local SSD cache + async cloud spill), s3 (Amazon S3 / MinIO), '
+    'disk (local SSD cache + async cloud spill), s3 (Amazon S3 / S3-compatible object store), '
     'gcs (Google Cloud Storage), db (PostgreSQL), duckdb (local DuckDB), '
-    'eventlog (inline in event), minio (alias for s3 w/ endpoint override), '
+    'eventlog (inline in event), object-store (alias for s3 w/ endpoint override), '
     'pvc (k8s PVC or FUSE mount). "object" retained for in-flight rows; '
     'auto-remapped to "disk" on read (phase 0 RisingWave alignment).';
 
@@ -556,7 +556,7 @@ ALTER TABLE noetl.result_ref
 ALTER TABLE noetl.result_ref
     ADD CONSTRAINT result_ref_store_tier_check
     CHECK (store_tier IN (
-        'memory','kv','object','s3','gcs','db','duckdb','eventlog','minio','pvc'
+        'memory','kv','object','s3','gcs','db','duckdb','eventlog','object-store','pvc'
     ));
 
 -- Phase 1: extended trigger (see Section 6 above for full function body)

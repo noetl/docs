@@ -9,7 +9,7 @@ description: Full record of the architectural analysis and planning session cove
 :::warning Partially superseded
 Sections 4 ("Schema Analysis" — trigger-maintained `execution.state`) and 8 Phase 1 / P1.2 ("`noetl.execution.state` loop progress via trigger") are **superseded by [noetl_async_sharded_architecture.md](./noetl_async_sharded_architecture.md)**. The row-level trigger `trg_execution_state_upsert` is removed; projections are computed by an async `ProjectionWorker` per shard.
 
-Still authoritative from this session: P0.1 atomic command dedup (shipped), P0.2 atomic `loop.done` via unique index (shipped), P0.3 `loop.started` event (shipped), P0.4 reaper (shipped), Phase 2 storage tier work (MinIO/PVC — shipped), and the §7 worker communication decisions (NATS/HTTP split, no worker-to-worker, no WebSocket).
+Still authoritative from this session: P0.1 atomic command dedup (shipped), P0.2 atomic `loop.done` via unique index (shipped), P0.3 `loop.started` event (shipped), P0.4 reaper (shipped), Phase 2 storage tier work (object storage/PVC — shipped), and the §7 worker communication decisions (NATS/HTTP split, no worker-to-worker, no WebSocket).
 :::
 
 This document records the full analysis, decisions, and outputs of the April 14 2026 architectural planning session. It covers the comparison with streaming processing system architecture concepts, the analysis of NoETL's distributed bugs, the `test_pft_flow` workload review, the shared storage decision, and the 5-phase enhancement plan.
@@ -80,7 +80,7 @@ NoETL's architecture (event-sourced orchestration + NATS + PostgreSQL) is sound 
 1. **Atomic deduplication** — replace read-check-write with `INSERT ... ON CONFLICT DO NOTHING`
 2. **Event-table as state authority** — loop state belongs in `noetl.event`, not volatile NATS KV
 3. **Projection tables** — `noetl.execution` already is one; extend it with loop progress
-4. **Object storage for all durable data** — MinIO for local, GCS/S3 for cloud
+4. **Object storage for all durable data** — S3-compatible object store for local, GCS/S3 for cloud
 
 ---
 
@@ -141,7 +141,7 @@ CREATE INDEX idx_event_loop_id_type
 
 ## 5. Shared Kubernetes Storage for Worker Data Exchange
 
-### Decision: MinIO (kind/local) + gcsfuse-csi (GCP)
+### Decision: S3-compatible object store (kind/local) + gcsfuse-csi (GCP)
 
 **Raw NFS PVCs rejected** because: concurrent write locking issues, metadata latency for glob patterns, zone locality constraints, incompatibility with object storage workflows.
 
@@ -149,13 +149,13 @@ CREATE INDEX idx_event_loop_id_type
 
 | Tier | Kind/local | GCP |
 |---|---|---|
-| Large intermediate files | MinIO (S3-compatible, RWO PVC-backed) | gcsfuse-csi (GCS bucket as local FS) |
+| Large intermediate files | S3-compatible object store (S3-compatible, RWO PVC-backed) | gcsfuse-csi (GCS bucket as local FS) |
 | Static reference datasets | hostPath or NFS RWX PVC | Filestore NFS RWX PVC |
 | Small results (&lt;10MB) | NATS KV / Object Store | NATS KV / Object Store |
 
 **`StoreTier` extension:**
 ```python
-MINIO = "minio"   # MinIO endpoint (S3-compatible); physical_uri = s3://bucket/key
+S3    = "s3"      # S3-compatible object-store endpoint; physical_uri = s3://bucket/key
 PVC   = "pvc"     # Local mount path; physical_uri = /data/exec/{eid}/step/name.parquet
 ```
 
@@ -274,11 +274,11 @@ Full details in `noetl_distributed_processing_plan.md`.
 
 ### Phase 1 — Schema
 
-New indexes (3 unique + 1 query), new loop event types (7), extended trigger for `execution.state`, `result_ref` extended for `minio`/`pvc`.
+New indexes (3 unique + 1 query), new loop event types (7), extended trigger for `execution.state`, `result_ref` extended for `object-store`/`pvc`.
 
 ### Phase 2 — Storage
 
-MinIO Helm chart for kind, `StoreTier.MINIO`/`PVC` in Python + `result_store.py`, PVC Kubernetes volume config, DuckDB direct Parquet reads.
+S3-compatible object store Helm chart for kind, `StoreTier.S3`/`PVC` in Python + `result_store.py`, PVC Kubernetes volume config, DuckDB direct Parquet reads.
 
 ### Phase 3 — Distributed Fan-out
 
@@ -298,7 +298,7 @@ Server-side NATS consumer for worker events. Worker `NOETL_EVENT_TRANSPORT=nats`
 P0.1 + P0.2 + P0.3 ──→ P1.1 (indexes) ──→ P1.2 (trigger) ──→ P5.1 (status API)
                                                               ──→ P3.1 (fan-out)
 P0.4 (reaper)                                                        │
-P1.3 (store_tier) ──→ P2.1 (MinIO) ──→ P2.2 (backend)            ├──→ P3.2 (fan-in)
+P1.3 (store_tier) ──→ P2.1 (S3-compatible object store) ──→ P2.2 (backend)            ├──→ P3.2 (fan-in)
                    ──→ P2.3 (PVC)                                  └──→ P3.3 (retry)
 P4.1 (NATS) ──→ P4.2 (capacity) ──→ P4.3 (targeted dispatch)
 P5.2 (call.partial) — independent
@@ -336,4 +336,4 @@ P5.2 (call.partial) — independent
 - Start implementation branch for P0.2 (atomic `loop.done`) — directly fixes `test_pft_flow` patient loss
 - Decide: implement P0.3 and P0.4 in same PR as P0.1/P0.2 or separate PRs
 - Review `noetl_distributed_processing_plan.md` with team before starting P1
-- Provision MinIO in kind cluster (P2.1) — unblocks local development without GCS credentials
+- Provision S3-compatible object store in kind cluster (P2.1) — unblocks local development without GCS credentials

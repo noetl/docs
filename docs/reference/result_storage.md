@@ -1,7 +1,7 @@
 ---
 sidebar_position: 6
 title: Result Storage & References (standard)
-description: Reference-first result storage for NoETL DSL — NATS KV for small state, MinIO/S3 for payloads, Postgres, manifests, and event-sourced access
+description: Reference-first result storage for NoETL DSL — NATS KV for small state, S3-compatible for payloads, Postgres, manifests, and event-sourced access
 ---
 
 # Result Storage & References — current DSL
@@ -11,7 +11,7 @@ This document **merges and supersedes** the older result/TempRef docs and update
 - No `sink` concept: **“sink” is a pattern**, not a tool kind.
 - No `eval:` / `expr:`. Outcome handling uses **`spec.policy.rules` with `when`**.
 - Events and step context pass **reference envelopes only** (status + optional `reference` + optional bounded `context`), never raw output bodies.
-- Storage backends: **NATS KV**, **MinIO / S3-compatible object storage**, **Google Cloud Storage**, **Postgres**.
+- Storage backends: **NATS KV**, **S3-compatible object storage**, **Google Cloud Storage**, **Postgres**.
 
 See also:
 - current DSL runtime results model: `documentation/docs/reference/dsl/runtime_results.md`
@@ -29,7 +29,7 @@ See also:
    - per-page (pagination) results
    - per-iteration (loop) results
    - combined results via **manifests** (streamable)
-4. **Pluggable storage**: store results in Postgres / NATS KV / MinIO / GCS, and keep only refs in events.
+4. **Pluggable storage**: store results in Postgres / NATS KV / S3-compatible object store / GCS, and keep only refs in events.
 5. **Streaming-friendly**: combine via manifests; avoid giant merged arrays.
 
 ---
@@ -56,7 +56,7 @@ The event log stores: metadata + ResultRef + extracted fields + preview.
 {
   "kind": "result_ref",
   "ref": "noetl://execution/123/step/fetch/task/fetch_page/run/abc123",
-  "store": "nats_kv|minio|gcs|postgres",
+  "store": "nats_kv|object-store|gcs|postgres",
   "scope": "step|execution|workflow|permanent",
   "expires_at": "2026-02-01T13:00:00Z",
   "meta": {
@@ -94,7 +94,7 @@ Use for:
 Recommended ResultRef meta:
 - `meta.bucket`, `meta.key`
 
-### 3.2 MinIO / S3-compatible object storage (medium and large)
+### 3.2 S3-compatible object storage (medium and large)
 Use for:
 - multi-MB payloads
 - page payloads and streamed chunks that should not live in KV
@@ -104,7 +104,7 @@ Recommended ResultRef meta:
 - `meta.bucket`, `meta.key`, optional `meta.etag`
 
 Guidance:
-- Prefer MinIO / S3 / GCS once payloads exceed about 1 MB.
+- Prefer S3-compatible object store / S3 / GCS once payloads exceed about 1 MB.
 - The NATS Object Store tier (`store: "object"`) was removed in the
   phase 0 RisingWave-alignment release; payloads that referenced it are
   auto-remapped to `store: "disk"` (local SSD cache + async cloud
@@ -137,7 +137,7 @@ A runtime SHOULD support `store.kind: auto` with size-aware selection:
 
 - `<= inline_max_bytes` → inline
 - `<= kv_max_bytes` → NATS KV
-- `<= minio_threshold_bytes` → MinIO
+- `<= object_store_threshold_bytes` → S3-compatible object store
 - else → GCS (or Postgres table when queryability is required)
 
 Thresholds are runtime config, but the **tier model** is stable.
@@ -159,7 +159,7 @@ Result storage config is per-task under `task.spec.result`.
         inline_max_bytes: 65536
         preview_max_bytes: 2048
         store:
-          kind: auto                 # auto|nats_kv|minio|gcs|postgres
+          kind: auto                 # auto|nats_kv|object-store|gcs|postgres
           scope: execution           # step|execution|workflow|permanent
           ttl: "1h"
           compression: gzip
@@ -201,7 +201,7 @@ They are small, safe for:
 ### 6.2 Storage
 Manifests are stored reference-first like any other result:
 - inline if tiny
-- else MinIO / GCS / Postgres
+- else S3-compatible object store / GCS / Postgres
 
 ---
 
@@ -311,7 +311,7 @@ Use `scope` + `ttl`:
 
 Backend-specific deletes:
 - NATS KV: delete key
-- MinIO / S3-compatible object storage: delete object
+- S3-compatible object storage: delete object
 - GCS: delete object
 - Postgres: delete rows (or partition retention)
 

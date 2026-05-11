@@ -61,7 +61,7 @@ recovery / scaling story without rebuilding one from scratch.
 | `MEMORY` | in-process dict | `< 10 KB` | step | No |
 | `KV` | NATS JetStream KV | `< 1 MB` | execution | Yes (distributed) |
 | **`DISK` (new)** | local NVMe/SSD cache (PVC) | `1 MB – 10 MB` primary; larger with spill | execution / workflow | Yes (warm-start via `recover_mode=Quiet`) |
-| `S3` | S3 / MinIO (S3 endpoint) | any | execution / workflow / forever | Yes (durable) |
+| `S3` | S3 / S3-compatible object store (S3 endpoint) | any | execution / workflow / forever | Yes (durable) |
 | `GCS` | Google Cloud Storage | any | execution / workflow / forever | Yes (durable) |
 | `DB` | PostgreSQL | queryable | workflow / forever | Yes |
 | `DUCKDB` | local DuckDB | analytics | step / execution | No (step) |
@@ -114,11 +114,11 @@ Each pool has its own:
 One env var picks the durable backend:
 
 ```
-NOETL_STORAGE_CLOUD_TIER=s3   # default; MinIO uses this with NOETL_S3_ENDPOINT override
+NOETL_STORAGE_CLOUD_TIER=s3   # default; S3-compatible object store uses this with NOETL_S3_ENDPOINT override
 NOETL_STORAGE_CLOUD_TIER=gcs
 ```
 
-MinIO is not a separate tier — it is S3 with a custom endpoint. Existing
+S3-compatible object store is not a separate tier — it is S3 with a custom endpoint. Existing
 `NOETL_S3_BUCKET`, `NOETL_S3_REGION`, and (new) `NOETL_S3_ENDPOINT`
 variables configure it.
 
@@ -255,7 +255,7 @@ framework drains the source and runs the MV incrementally per arrival.
 - Introduce and document env vars:
   - `NOETL_STORAGE_CLOUD_TIER` — **active** (`s3` default, `gcs`
     alternative).
-  - `NOETL_S3_ENDPOINT` — active; enables MinIO.
+  - `NOETL_S3_ENDPOINT` — active; enables S3-compatible object store.
   - `NOETL_STORAGE_LOCAL_CACHE_DIR` — reserved.
   - `NOETL_STORAGE_LOCAL_META_CACHE_CAPACITY_MB` — reserved.
   - `NOETL_STORAGE_LOCAL_DATA_CACHE_CAPACITY_MB` — reserved.
@@ -312,7 +312,7 @@ and `repos/noetl/ci/manifests/noetl/configmap-worker.yaml`):
 
 ```yaml
 NOETL_STORAGE_CLOUD_TIER: "s3"         # or "gcs"
-NOETL_S3_ENDPOINT: "http://minio.minio.svc.cluster.local:9000"
+NOETL_S3_ENDPOINT: "http://object-store.object-store.svc.cluster.local:9000"
 NOETL_STORAGE_LOCAL_CACHE_DIR: "/opt/noetl/data/disk_cache"
 NOETL_STORAGE_LOCAL_DATA_CACHE_CAPACITY_MB: "2048"
 NOETL_STORAGE_LOCAL_META_CACHE_CAPACITY_MB: "256"

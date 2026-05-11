@@ -34,7 +34,7 @@ The server is the sole routing authority. Workers must never synthesize routing 
 3. **Observability gap.** Server-side event persistence is the audit trail. Worker-to-worker messages that bypass the event table are invisible to monitoring, replay, and debugging.
 4. **Fan-out design is already correct without it.** The fan-in count query against `noetl.event` is a single-partition indexed scan — it is fast and requires no inter-worker coordination.
 
-**The one case where it might seem necessary — aggregation:** If shards need to aggregate results (e.g., a running sum), the correct pattern is for each shard to write its partial result to a shared store (MinIO/PostgreSQL) and the fan-in step to aggregate after completion. This is already supported via the `manifest` + `manifest_part` tables.
+**The one case where it might seem necessary — aggregation:** If shards need to aggregate results (e.g., a running sum), the correct pattern is for each shard to write its partial result to a shared store (S3-compatible object store/PostgreSQL) and the fan-in step to aggregate after completion. This is already supported via the `manifest` + `manifest_part` tables.
 
 ---
 
@@ -194,7 +194,7 @@ NATS request-reply could replace this, but:
 - The server already handles HTTP GET efficiently
 - No measurable performance gain justifies the added complexity
 
-**Alternative for very large command contexts:** Instead of HTTP fetch, the worker can read the command context directly from MinIO/GCS when `context_key` is a storage URI. The HTTP endpoint remains the same but returns only the URI, and the worker fetches from storage in parallel. This is already partially implemented via `context_key` column.
+**Alternative for very large command contexts:** Instead of HTTP fetch, the worker can read the command context directly from S3-compatible object store/GCS when `context_key` is a storage URI. The HTTP endpoint remains the same but returns only the URI, and the worker fetches from storage in parallel. This is already partially implemented via `context_key` column.
 
 ---
 

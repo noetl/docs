@@ -33,7 +33,7 @@ All phases below are independently deliverable. Phases 0 and 1 are prerequisites
 - **Event table is the authoritative source of truth.** NATS KV and in-memory state are caches. Any state that must survive server restart must be in `noetl.event` or a projection table.
 - **Workers do not communicate with each other directly.** All coordination flows through the server (via NATS subject or HTTP API).
 - **Command dispatch is idempotent.** A `command.issued` event for a given `(execution_id, command_id)` must exist at most once. The unique index enforces this at the DB level.
-- **Loop collection is never stored in volatile memory as the only copy.** Large collections go to object storage (GCS/S3/MinIO); a reference is stored in the `loop.started` event.
+- **Loop collection is never stored in volatile memory as the only copy.** Large collections go to object storage (GCS/S3-compatible); a reference is stored in the `loop.started` event.
 
 ---
 
@@ -112,7 +112,7 @@ New event types to introduce (see schema doc for full field specification):
 
 | `event_type` | Trigger | Key `meta` fields | `context` fields |
 |---|---|---|---|
-| `loop.started` | Server, on first loop command | `loop_id`, `collection_size` | `collection_ref` (GCS/S3/MinIO URI) |
+| `loop.started` | Server, on first loop command | `loop_id`, `collection_size` | `collection_ref` (GCS/S3-compatible URI) |
 | `loop.item` | Server, per iteration | `loop_id`, `iter_index` | — |
 | `loop.done` | Server, atomic | `loop_id`, `collection_size` | — |
 
@@ -178,7 +178,7 @@ stale_commands = await db.fetch("""
 
 ## Phase 1: Schema Enhancements
 
-**Goal:** Extend `noetl.event`, add projection tables, and update `noetl.execution` trigger to support loop progress tracking, fan-in tracking, and the new `pvc`/`minio` storage tier — all without breaking existing event consumers.
+**Goal:** Extend `noetl.event`, add projection tables, and update `noetl.execution` trigger to support loop progress tracking, fan-in tracking, and the new `pvc`/`object-store` storage tier — all without breaking existing event consumers.
 
 See companion document `noetl_schema_enhancements.md` for full DDL.
 
@@ -248,7 +248,7 @@ Trigger handles: `loop.started`, `loop.item`, `loop.done`, `loop.fanout.started`
 - [ ] `GET /api/executions/{id}` can return loop progress from `execution.state` without scanning event table.
 - [ ] Reconstruction test: delete `noetl.execution` row for a completed execution, replay its events through the trigger, verify `state` matches expected.
 
-### P1.3 — `result_ref.store_tier` extension for MinIO/PVC
+### P1.3 — `result_ref.store_tier` extension for object storage/PVC
 
 ```sql
 ALTER TABLE noetl.result_ref
@@ -257,64 +257,64 @@ ALTER TABLE noetl.result_ref
 ALTER TABLE noetl.result_ref
     ADD CONSTRAINT result_ref_store_tier_check
     CHECK (store_tier IN (
-        'memory', 'kv', 'object', 's3', 'gcs', 'db', 'duckdb', 'eventlog', 'minio', 'pvc'
+        'memory', 'kv', 'object', 's3', 'gcs', 'db', 'duckdb', 'eventlog', 'pvc'
     ));
 ```
 
-- `minio`: MinIO endpoint (S3-compatible); `physical_uri` = `s3://bucket/key` with MinIO endpoint configured via env.
+- `s3`: S3-compatible object-store endpoint; `physical_uri` = `s3://bucket/key` with endpoint configured via env.
 - `pvc`: Kubernetes PVC or FUSE-mounted volume; `physical_uri` = absolute local path (e.g., `/data/exec/{eid}/step/name.parquet`).
 
 **Acceptance criteria:**
 - [ ] Constraint updated; existing rows unaffected.
-- [ ] `StoreTier` Python enum updated with `MINIO = "minio"` and `PVC = "pvc"`.
-- [ ] `result_store.py` dispatches `StoreTier.MINIO` to MinIO S3-compatible client.
+- [ ] `StoreTier` Python enum updated with `S3 = "s3"` and `PVC = "pvc"`.
+- [ ] `result_store.py` dispatches `StoreTier.S3` to an S3-compatible client.
 - [ ] `result_store.py` dispatches `StoreTier.PVC` to local filesystem read/write.
 
 ---
 
-## Phase 2: Storage Layer — MinIO and PVC
+## Phase 2: Storage Layer — S3-compatible object store and PVC
 
-**Goal:** Add MinIO as an S3-compatible local storage backend for kind/local Kubernetes deployments, eliminating the need for GCS/S3 credentials in development. Add PVC/FUSE-mounted volume support for large file exchange between workers.
+**Goal:** Add S3-compatible object store as an S3-compatible local storage backend for kind/local Kubernetes deployments, eliminating the need for GCS/S3 credentials in development. Add PVC/FUSE-mounted volume support for large file exchange between workers.
 
-### P2.1 — MinIO Kubernetes deployment for local kind
+### P2.1 — S3-compatible object store Kubernetes deployment for local kind
 
-Deploy MinIO in the kind cluster as part of the NoETL stack:
+Deploy S3-compatible object store in the kind cluster as part of the NoETL stack:
 
 ```yaml
-# ops/helm/noetl/templates/minio.yaml
+# ops/helm/noetl/templates/object-store.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: noetl-minio
+  name: noetl-object-store
   namespace: noetl
 spec:
   replicas: 1
   template:
     spec:
       containers:
-        - name: minio
-          image: minio/minio:latest
+        - name: object-store
+          image: object-store/object-store:latest
           args: ["server", "/data", "--console-address", ":9001"]
           env:
-            - name: MINIO_ROOT_USER
+            - name: OBJECT_STORE_ACCESS_KEY
               value: noetl
-            - name: MINIO_ROOT_PASSWORD
+            - name: OBJECT_STORE_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: noetl-minio-secret
+                  name: noetl-object-store-secret
                   key: password
           volumeMounts:
-            - name: minio-data
+            - name: object-store-data
               mountPath: /data
       volumes:
-        - name: minio-data
+        - name: object-store-data
           persistentVolumeClaim:
-            claimName: noetl-minio-pvc
+            claimName: noetl-object-store-pvc
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: noetl-minio-pvc
+  name: noetl-object-store-pvc
   namespace: noetl
 spec:
   accessModes: [ReadWriteOnce]
@@ -325,7 +325,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: noetl-minio
+  name: noetl-object-store
   namespace: noetl
 spec:
   ports:
@@ -334,58 +334,58 @@ spec:
     - name: console
       port: 9001
   selector:
-    app: noetl-minio
+    app: noetl-object-store
 ```
 
-Worker/server environment variables for MinIO:
+Worker/server environment variables for S3-compatible object store:
 
 ```bash
-NOETL_MINIO_ENDPOINT=http://noetl-minio.noetl.svc.cluster.local:9000
-NOETL_MINIO_ACCESS_KEY=noetl
-NOETL_MINIO_SECRET_KEY=<secret>
-NOETL_MINIO_BUCKET=noetl-results
-NOETL_MINIO_REGION=us-east-1          # MinIO ignores this but boto3 requires it
-NOETL_DEFAULT_STORE_TIER=minio         # Override default from gcs/s3 for kind
+NOETL_S3_ENDPOINT=http://noetl-object-store.noetl.svc.cluster.local:9000
+NOETL_S3_ACCESS_KEY=noetl
+NOETL_S3_SECRET_KEY=<secret>
+NOETL_S3_BUCKET=noetl-results
+NOETL_S3_REGION=us-east-1          # S3-compatible object store ignores this but boto3 requires it
+NOETL_DEFAULT_STORE_TIER=s3         # Override default from gcs/generic object for kind
 ```
 
 **Acceptance criteria:**
-- [ ] `noetl` Helm chart includes optional MinIO deployment controlled by `minio.enabled: true`.
-- [ ] MinIO deploys successfully on local kind cluster.
-- [ ] MinIO bucket `noetl-results` created automatically at startup (via init container or SDK).
-- [ ] `noetl run` playbooks in kind cluster successfully externalize results to MinIO when `NOETL_DEFAULT_STORE_TIER=minio`.
-- [ ] MinIO console accessible via `kubectl port-forward svc/noetl-minio 9001:9001`.
+- [ ] `noetl` Helm chart includes optional S3-compatible object store deployment controlled by `object-store.enabled: true`.
+- [ ] S3-compatible object store deploys successfully on local kind cluster.
+- [ ] S3-compatible object store bucket `noetl-results` created automatically at startup (via init container or SDK).
+- [ ] `noetl run` playbooks in kind cluster successfully externalize results to S3-compatible object store when `NOETL_DEFAULT_STORE_TIER=object-store`.
+- [ ] S3-compatible object store console accessible via `kubectl port-forward svc/noetl-object-store 9001:9001`.
 
-### P2.2 — MinIO backend in `result_store.py`
+### P2.2 — S3-compatible object store backend in `result_store.py`
 
 ```python
-elif store == StoreTier.MINIO:
-    endpoint = os.getenv("NOETL_MINIO_ENDPOINT")
-    bucket   = os.getenv("NOETL_MINIO_BUCKET", "noetl-results")
+elif store == StoreTier.S3:
+    endpoint = os.getenv("NOETL_S3_ENDPOINT")
+    bucket   = os.getenv("NOETL_S3_BUCKET", "noetl-results")
     key      = f"exec/{temp_ref.execution_id}/{temp_ref.source_step}/{temp_ref.name}"
-    client   = _get_minio_client()          # cached boto3 client with endpoint_url
+    client   = _get_s3_client(endpoint_url=endpoint)  # cached boto3 client
     await asyncio.to_thread(
         client.put_object, Bucket=bucket, Key=key, Body=data_bytes
     )
     temp_ref.physical_uri = f"s3://{bucket}/{key}"
-    temp_ref.store = StoreTier.MINIO
+    temp_ref.store = StoreTier.S3
     return temp_ref.ref
 ```
 
 Resolve:
 ```python
-elif store == StoreTier.MINIO:
+elif store == StoreTier.S3:
     bucket, key = _parse_s3_uri(ref.physical_uri)
     response = await asyncio.to_thread(
-        _get_minio_client().get_object, Bucket=bucket, Key=key
+        _get_s3_client().get_object, Bucket=bucket, Key=key
     )
     return json.loads(response["Body"].read())
 ```
 
 **Acceptance criteria:**
-- [ ] `StoreTier.MINIO` store/resolve round-trip works for JSON and binary payloads.
-- [ ] Fallback chain: `MINIO → KV → OBJECT` when MinIO is unavailable.
-- [ ] Unit test with MinIO testcontainer or mock: store 15MB dataset, resolve, verify content.
-- [ ] DuckDB tool can read Parquet from MinIO via `s3_url` with MinIO endpoint override.
+- [ ] `StoreTier.S3` store/resolve round-trip works for JSON and binary payloads.
+- [ ] Fallback chain: `S3 → KV → OBJECT` when S3-compatible object store is unavailable.
+- [ ] Unit test with S3-compatible object store testcontainer or mock: store 15MB dataset, resolve, verify content.
+- [ ] DuckDB tool can read Parquet from S3-compatible object store via `s3_url` with S3-compatible object store endpoint override.
 
 ### P2.3 — PVC/FUSE-mounted volume store tier
 
@@ -460,7 +460,7 @@ DuckDB steps access PVC-stored Parquet directly:
 When a step has `spec.loop_mode: fanout`, the server's `handle_event()` on the step entry event:
 
 1. Evaluates `loop.in` to get the collection.
-2. Stores collection in MinIO/GCS/PVC via `result_ref` and writes a `loop.fanout.started` event with `meta = {loop_id, total_shards: N}`.
+2. Stores collection in S3-compatible object store/GCS/PVC via `result_ref` and writes a `loop.fanout.started` event with `meta = {loop_id, total_shards: N}`.
 3. Generates N independent `command.issued` events, each carrying `meta = {loop_id, shard_id, iter_index, iter_key}` and a single-item `input` (the iteration element or a reference to it).
 4. Publishes N NATS notifications.
 
@@ -715,7 +715,7 @@ DSL: steps can react to `call.partial` via arc condition `on: call.partial`.
 | P0 | `tooling_non_blocking` (existing) | `issued == terminal == 5` per tool |
 | P0.3 | New: `loop_state_recovery` | Loop resumes after server kill at 50% |
 | P1 | `test_pft_flow` with state query | `execution.state.loop` matches actual counts |
-| P2 | New: `minio_large_result` | 500MB round-trip store/resolve in kind |
+| P2 | New: `object_store_large_result` | 500MB round-trip store/resolve in kind |
 | P2 | New: `pvc_worker_exchange` | Worker A writes Parquet, Worker B reads DuckDB |
 | P3 | New: `fanout_basic` (100 shards) | All 100 shards complete, fan-in fires once |
 | P3 | New: `fanout_partial_failure` | 2/10 shards fail, `fanin.status=partial` |
@@ -733,7 +733,7 @@ P0.3 (loop state)┘                                        ──→ P3.1 (fan-
                                                                     │
 P0.4 (reaper)                                                       ├──→ P3.2 (fan-in)
                                                                     └──→ P3.3 (retry)
-P1.3 (store_tier) ──→ P2.1 (MinIO k8s) ──→ P2.2 (backend)
+P1.3 (store_tier) ──→ P2.1 (S3-compatible object store k8s) ──→ P2.2 (backend)
                   ──→ P2.3 (PVC)
 
 P4.1 (NATS transport) ──→ P4.2 (capacity) ──→ P4.3 (targeted dispatch)
