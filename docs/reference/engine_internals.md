@@ -61,7 +61,7 @@ noetl://execution/<eid>/result/<step>/<uuid>
 |---|---|---|---|
 | `memory` | In-process cache | tiny | Local previews and very small values |
 | `kv` | NATS KV | up to about 1 MB | Fast execution-scoped scalars and small JSON |
-| `minio` | MinIO / S3-compatible object storage | above 1 MB | Preferred backend for medium and large execution data |
+| `object-store` | S3-compatible object storage | above 1 MB | Preferred backend for medium and large execution data |
 | `pvc` | PVC / mounted volume | very large files | Local large-file exchange and DuckDB-readable artifacts |
 | `s3` / `gcs` | Cloud object storage | large and durable | Cross-system durable artifacts |
 | `db` | PostgreSQL | queryable | Relational intermediate tables and projections |
@@ -70,7 +70,7 @@ noetl://execution/<eid>/result/<step>/<uuid>
 
 For execution payloads larger than about 1 MB, the router selects
 `StoreTier.DISK` — a local SSD/NVMe cache per worker with async spill
-to the configured cloud tier (S3/MinIO or GCS via
+to the configured cloud tier (S3-compatible or GCS via
 `NOETL_STORAGE_CLOUD_TIER`). This mirrors
 [RisingWave's disk cache architecture](https://docs.risingwave.com/get-started/disk-cache).
 
@@ -94,9 +94,9 @@ See [Storage and Streaming Alignment with RisingWave](../features/noetl_storage_
 |---|---|
 | Small scalars | `state.variables` or compact `step_results.context` |
 | Small SQL row sets | NATS KV |
-| Medium and large row sets / payloads | MinIO |
-| Large files | MinIO, PVC, or cloud object storage |
-| Loop collections | reference-backed storage; prefer MinIO once collections exceed KV-friendly size |
+| Medium and large row sets / payloads | S3-compatible object store |
+| Large files | S3-compatible object store, PVC, or cloud object storage |
+| Loop collections | reference-backed storage; prefer S3-compatible object store once collections exceed KV-friendly size |
 | Execution lineage and metadata | Postgres `noetl.event` and `noetl.execution` |
 
 ## 4. Context Variables and Template Access
@@ -228,7 +228,7 @@ Recommended policy:
 - keep NATS KV for small execution-scoped control-plane state (< 1 MB)
 - route payloads above 1 MB to `StoreTier.DISK` (local SSD cache + async
   cloud spill); in phase 0 this spills directly to the cloud tier
-  selected by `NOETL_STORAGE_CLOUD_TIER` (S3/MinIO or GCS)
+  selected by `NOETL_STORAGE_CLOUD_TIER` (S3-compatible or GCS)
 - use PVC mounts for the disk cache directory
   (`NOETL_STORAGE_LOCAL_CACHE_DIR`) — phase 1
 - treat the NATS Object Store tier as removed; envelopes with

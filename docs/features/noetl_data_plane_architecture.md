@@ -37,7 +37,7 @@ Inspired by [RisingWave's streaming architecture](https://docs.risingwave.com/ge
 │                                                                  │
 │  TempStore (noetl.core.storage.result_store)                     │
 │  ├─ NATS KV    (<1MB, execution-scoped, fast control-plane data) │
-│  ├─ MinIO/S3   (>1MB, preferred for result payloads)             │
+│  ├─ S3-compatible   (>1MB, preferred for result payloads)             │
 │  ├─ PVC        (large files, DuckDB-readable)                    │
 │  └─ Postgres   (queryable, relational)                           │
 │                                                                  │
@@ -80,7 +80,7 @@ Postgres SELECT → result_data = [{...}, ...]
     ↓
 _externalize_rows_to_store(result_data, execution_id, step_name)
     ↓
-TempStore.put(rows) → TempRef {kind: "temp_ref", ref: "noetl://exec/.../rows", store: "kv|minio"}
+TempStore.put(rows) → TempRef {kind: "temp_ref", ref: "noetl://exec/.../rows", store: "kv|object-store"}
     ↓
 event.result = {status: "ok", reference: {kind, ref, store}, context: {row_count: 100, columns: [...]}}
     ↓
@@ -181,7 +181,7 @@ Guidance:
 - NATS KV remains appropriate for small loop collections and scalar execution metadata.
 - Loop collections or row payloads above about 1 MB route to the new
   `StoreTier.DISK` tier — a local SSD/NVMe cache with async spill to
-  MinIO/S3/GCS (phase 1). In phase 0, DISK writes transparently spill
+  S3-compatible/GCS (phase 1). In phase 0, DISK writes transparently spill
   directly to the configured cloud tier (`NOETL_STORAGE_CLOUD_TIER`).
 - The NATS Object Store tier was removed in phase 0 of the RisingWave
   alignment. Envelopes referencing `store: "object"` are auto-remapped

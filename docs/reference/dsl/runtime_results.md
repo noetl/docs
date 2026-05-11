@@ -35,7 +35,7 @@ See also:
   - in-process memory (step-scoped, &lt;10KB)
   - NATS KV (execution-scoped, &lt;1MB)
   - local disk cache with async cloud spill (`disk`, &gt;=1MB)
-   - S3 / MinIO / Google Cloud Storage (durable, large)
+   - S3 / S3-compatible object store / Google Cloud Storage (durable, large)
    - Postgres (queryable intermediate tables)
 
    and keep only **references + extracted fields** in events/context.
@@ -135,7 +135,7 @@ Recommended ResultRef meta:
 
 ### 4.4 DISK tier (medium artifacts, >= 1 MB)
 Local SSD/NVMe cache on the worker with async spill to the configured
-cloud tier (S3/MinIO or GCS via `NOETL_STORAGE_CLOUD_TIER`). Replaces
+cloud tier (S3-compatible or GCS via `NOETL_STORAGE_CLOUD_TIER`). Replaces
 the removed NATS Object Store tier.
 
 Use for:

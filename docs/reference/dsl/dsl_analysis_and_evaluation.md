@@ -105,7 +105,7 @@ Example policy rules (conceptual):
 There is no special sink mechanism. To persist results you add storage tasks:
 - `postgres` tool task (write rows / return ref)
 - `gcs` tool task (write object / return ref)
-- `s3` tool task / MinIO (write object / return ref)
+- `s3` tool task / S3-compatible object store (write object / return ref)
 - artifact task backed by the `disk` tier (local SSD + async cloud spill)
 - etc.
 
@@ -203,7 +203,7 @@ current DSL provides:
   - unbounded loop via backward routing arcs (server scheduling)
   - retry/polling loops via task policy (`do: retry`) and cursor/page updates
 - **unbounded storage**:
-  - external storage backends (Postgres / S3 (MinIO) / GCS / local disk cache)
+  - external storage backends (Postgres / S3-compatible / GCS / local disk cache)
   - reference passing via ResultRef
 
 Additionally, `python` tools can perform arbitrary computation, making the system computationally complete for practical purposes.
