@@ -111,9 +111,11 @@ echo "Deploying ${NOETL_TAG}"
 
 # Apply namespace + RBAC + manifests
 kubectl apply -f ci/manifests/noetl/namespace/
-if ! kubectl get secret gcs-credentials -n noetl >/dev/null 2>&1; then
-  kubectl create secret generic gcs-credentials -n noetl --from-literal=gcs-key.json='{}'
-fi
+# Note: no GCP credentials are provisioned by default on kind.
+# The worker deployment no longer mounts a gcs-credentials secret.
+# If a playbook requires GCP API access from a kind worker, mount a
+# real SA JSON key as a secret and add GOOGLE_APPLICATION_CREDENTIALS
+# back to the deployment out-of-band — Workload Identity is GKE-only.
 kubectl apply -f ci/manifests/noetl/rbac.yaml
 
 # Substitute the image placeholder and apply

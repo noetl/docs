@@ -111,12 +111,10 @@ NOETL_TAG=$(gh release list --repo noetl/noetl --limit 1 --json tagName -q '.[0]
 TARGET_IMAGE="ghcr.io/noetl/noetl:${NOETL_TAG}"
 
 kubectl apply -f ci/manifests/noetl/namespace/
-if ! kubectl get secret gcs-credentials -n noetl >/dev/null 2>&1; then
-  # Real GCS credentials live here in production. The placeholder
-  # is only good enough for non-GCS-backed playbooks.
-  kubectl create secret generic gcs-credentials -n noetl \
-    --from-literal=gcs-key.json='{}'
-fi
+# GKE uses Workload Identity for GCP API access — no key file or
+# gcs-credentials secret is needed. The worker deployment does not
+# mount GOOGLE_APPLICATION_CREDENTIALS; google.auth.default() picks
+# up the GKE metadata-server token automatically.
 kubectl apply -f ci/manifests/noetl/rbac.yaml
 
 for manifest in ci/manifests/noetl/*.yaml; do
