@@ -594,6 +594,27 @@ load-bearing. Wrap a capability as an MCP playbook
 other agents; call that same playbook from an agent flow when you
 want a cohesive user-facing command.
 
+## Event-sourced storage (Round 3)
+
+Round 3 adds `automation/agents/mcp/firestore`, a generic Firestore MCP
+playbook for the trip-planner storage layer. It exposes exactly six
+tools: `set_doc`, `get_doc`, `query_collection`, `delete_doc`,
+`append_event`, and `replay_events`. The first four are plain document
+CRUD and query helpers. The event tools are the important new primitive:
+`append_event` writes to a caller-provided `{thread_path}/events`
+subcollection with a transactional monotonic `seq`, while
+`replay_events` reads the event stream back in order with optional range
+and type filters.
+
+The Firestore playbook does not bake in a travel or trip-planner data
+model. Round 4's agent will choose paths such as
+`chat_threads/{threadId}/events` and use the same generic MCP tools to
+persist chat turns, tool calls, widget submissions, and itinerary
+projections. Sensitive request headers are redacted in `append_event`
+before they enter the audit log, and the operator helper
+`scripts/firestore_replay.sh` in `ai-meta` can inspect the same streams
+offline.
+
 ## Step 7 — Travel canvas (rich UI)
 
 The travel canvas at `/travel` (`GatewayAssistant.tsx`) renders the
