@@ -10,9 +10,10 @@ description: 'Flagship demo — a natural-language travel agent built from playb
 This tutorial walks through a flagship demo: a natural-language travel
 agent built entirely from NoETL playbooks. It takes a free-text query
 ("flights from SFO to JFK on July 15"), classifies intent through
-OpenAI, Anthropic, Vertex AI, or Ollama, calls the right Amadeus
-endpoint, and returns the result as a widget tree that renders in
-both the terminal-style prompt and the travel canvas.
+OpenAI, Anthropic, Vertex AI, or Ollama, calls Duffel or Amadeus for
+flights and Amadeus for the other travel intents, and returns the
+result as a widget tree that renders in both the terminal-style prompt
+and the travel canvas.
 
 For the screenshot-led operator view of the same flow, see
 [Tutorial 8 — Travel agent GUI walkthrough](./08-travel-agent-gui-walkthrough.md).
@@ -24,11 +25,13 @@ build this kind of agentic flow with **NoETL DSL alone**:
   entries bind unconditionally with bare workload references, direct
   HTTP providers stay in Python, and complex or in-cluster providers
   route through MCP playbook hops.
-- The Amadeus MCP server is just another playbook —
+- The Amadeus and Duffel MCP servers are just playbooks —
   `automation/agents/mcp/amadeus.yaml` exposes `tools/list` and
-  `tools/call` per the MCP spec, so any MCP client (Claude Desktop,
-  another agent playbook, the prompt's `cd /mcp/amadeus`) talks to it
-  the same way.
+  `tools/call` per the MCP spec, and
+  `automation/agents/mcp/duffel.yaml` follows the same shape for
+  search-only flight offers. Any MCP client (Claude Desktop, another
+  agent playbook, the prompt's `cd /mcp/amadeus` or `cd /mcp/duffel`)
+  talks to them the same way.
 - The widget output is a JSON discriminator union. The same
   `result.render` shape that round 2's
   [widget renderer](../gui/widgets.md) consumes in the terminal
@@ -44,6 +47,9 @@ templates, HTTP, and a JSON output contract.
   cluster.
 - Amadeus test API credentials in your secret manager
   (`api-key-test-api-amadeus-com`, `api-secret-test-api-amadeus-com`).
+- Duffel test API token in Secret Manager as `duffel-api-test` if you
+  want the default flights provider path. The first integration cut is
+  search-only and test-environment only.
 - At least one AI provider path. OpenAI is the default, Anthropic is
   supported when its secret exists, Vertex AI routes through
   `automation/agents/mcp/vertex-ai`, and Ollama routes through
@@ -91,12 +97,14 @@ Open `repos/ops/automation/agents/travel/runtime.yaml`. The shape:
 ```yaml
 metadata:
   agent: true
-  capabilities: [mcp:amadeus, mcp:vertex-ai, mcp:ollama, ai:openai, ai:anthropic, ai:vertex-ai, ai:ollama]
+  capabilities: [mcp:amadeus, mcp:duffel, mcp:vertex-ai, mcp:ollama, ai:openai, ai:anthropic, ai:vertex-ai, ai:ollama]
 
 workload:
   ai_provider: openai          # openai | anthropic | vertex-ai | ollama
+  flight_provider: duffel      # duffel | amadeus
   query: "Help"
   amadeus_env: test
+  duffel_env: test
   vertex_project: noetl-demo-19700101
   vertex_region: us-central1
   vertex_model: gemini-2.5-flash
@@ -278,6 +286,37 @@ unavailable, or if a provider MCP playbook returns a clean MCP error
 envelope, the classifier snaps back to OpenAI and records a
 `provider_fallback_reason` in the result envelope.
 
+## Step 4 — Choosing a flights provider
+
+Flights have their own provider selector:
+
+```yaml
+workload:
+  flight_provider: duffel  # duffel | amadeus
+  duffel_env: test
+  amadeus_env: test
+```
+
+`duffel` is the default for the flights intent. The first Duffel
+integration is search-only and test-environment only: it calls
+`automation/agents/mcp/duffel` for `search_offers`, caps the returned
+offers at 10, and normalizes Duffel offers into the same shape the
+flight widget already renders. Booking, order creation, seat maps, and
+payments are intentionally not wired yet.
+
+Amadeus remains available as an explicit opt-out for flights:
+
+```text
+travel --workload-override '{"flight_provider":"amadeus"}' flights from SFO to JFK on 2026-07-15 for 1 adult
+```
+
+Locations, hotels, and activities do not use Duffel. They continue to
+route through `automation/agents/mcp/amadeus`; Duffel's `search_places`
+tool is only for flight origin/destination autocomplete. Duffel test
+search is free; Amadeus production search is paid per call. The
+decision rationale and deferred booking scope live in
+`sync/issues/2026-05-12-duffel-travel-api-integration.md`.
+
 Vertex AI is intentionally routed through
 `automation/agents/mcp/vertex-ai`, mirroring the Phase 2 Amadeus
 pattern. The travel agent dispatches; the MCP playbook owns GCP auth:
@@ -333,7 +372,7 @@ bridge's raw `chat` tool. That keeps travel's provider surface symmetric
 with Vertex AI while still using the existing in-cluster bridge service
 and local `gemma3:4b` model.
 
-## Step 4 — Widget output
+## Step 5 — Widget output
 
 The agent's render steps build a `result.render` widget tree per
 intent:
@@ -349,6 +388,7 @@ render = {
             {"type": "app:row", "args": {"children": [
                 {"type": "app:statusbar", "args": {"text": f"intent=flights", "styleKey": "success"}},
                 {"type": "app:statusbar", "args": {"text": f"effective_provider={provider}", "styleKey": "info"}},
+                {"type": "app:statusbar", "args": {"text": f"flight_provider={flight_provider}", "styleKey": "info"}},
             ]}},
             {"type": "app:carousel", "args": {"widgets": [_offer_card(o) for o in offers]}},
             {"type": "app:row", "args": {"children": [
@@ -363,19 +403,19 @@ The widget renderer (`repos/gui/src/components/widgets/`) dispatches
 on `type` to the matching `App<Kind>` component. This is the same
 shape the [widget rendering tutorial](./06-widget-rendering.md)
 covered — the travel agent just emits richer trees built around real
-Amadeus data.
+travel provider data.
 
 Each intent branch is now a render-as-tail workflow path:
 
-| Intent | Amadeus MCP tool | Render shape |
+| Intent | MCP tool | Render shape |
 | --- | --- | --- |
-| `flights` | `search_flights` | `app:carousel` of flight offer cards |
-| `hotels` | `search_hotels` | `app:recordtable` with hotel name, chain, city, and geo fields |
-| `locations` | `search_locations` | `app:recordtable` with airport/city lookup fields |
-| `activities` | `search_activities` | `app:recordtable` with activity name, type, geo, and price fields |
+| `flights` | Duffel `search_offers` by default; Amadeus `search_flights` by override | `app:carousel` of flight offer cards |
+| `hotels` | Amadeus `search_hotels` | `app:recordtable` with hotel name, chain, city, and geo fields |
+| `locations` | Amadeus `search_locations` | `app:recordtable` with airport/city lookup fields |
+| `activities` | Amadeus `search_activities` | `app:recordtable` with activity name, type, geo, and price fields |
 
 All four branches share the same agent-to-MCP hop pattern. The travel
-runtime chooses the intent, calls `automation/agents/mcp/amadeus` with
+runtime chooses the intent, calls the selected MCP playbook with
 `tool: agent` / `framework: noetl`, and makes the matching render step
 the workflow tail so `execution.result.render` is the widget payload.
 The travel audit table follows the same rule: each render step writes
@@ -474,7 +514,7 @@ executions per day stays within demo and low-traffic production usage.
 For the one-time GCP setup recipe, see
 `playbooks/google-maps-platform-setup-pattern-c.md` in `ai-meta`.
 
-## Step 5 — Same capability via MCP
+## Step 6 — Same capability via MCP
 
 The Amadeus MCP server lives at
 `repos/ops/automation/agents/mcp/amadeus.yaml`. It exposes the same
@@ -539,7 +579,7 @@ load-bearing. Wrap a capability as an MCP playbook
 other agents; call that same playbook from an agent flow when you
 want a cohesive user-facing command.
 
-## Step 6 — Travel canvas (rich UI)
+## Step 7 — Travel canvas (rich UI)
 
 The travel canvas at `/travel` (`GatewayAssistant.tsx`) renders the
 same result. Visit it in the GUI, type a query, and the assistant
