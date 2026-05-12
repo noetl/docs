@@ -423,6 +423,57 @@ The same convention powers the hotel, location, activity, and
 friendly-error refinement forms. Static string events still emit as-is,
 and non-string form events keep the older values-object behavior.
 
+### Enrichment via Google Places
+
+Amadeus remains the source of travel and booking-grade data. Google
+Places and Maps can be added as a supplementary presentation layer for
+content Amadeus does not carry: photos, ratings, review counts, opening
+hours, and richer addresses.
+
+The enrichment layer is off by default. Enable it per execution with a
+workload override:
+
+```yaml
+workload:
+  enrich_with_google_places: true
+```
+
+When enabled, the locations, hotels, and activities branches call
+`automation/agents/mcp/google-places` after the Amadeus MCP hop and
+before the render step. The enrichment is capped at 10 items per
+execution and is best effort. If Google Places is unavailable, quota
+limited, or the widget image key cannot build photo URLs, the renderer
+falls back to the original Amadeus-only widget instead of failing the
+execution.
+
+The enriched widget adds Google fields to the existing table and, when
+available, an `app:picture` hero image:
+
+```python
+{"type": "app:picture", "args": {
+    "imageUrl": item["_google"]["image_url"],
+    "altText": item["_google"]["name"],
+    "maxWidth": 420,
+    "maxHeight": 260,
+}}
+```
+
+Pattern C keeps the auth paths separate:
+
+- Backend Places calls use Workload Identity on
+  `noetl-worker-mcp@noetl-demo-19700101.iam.gserviceaccount.com` and
+  send `Authorization: Bearer ...` plus `X-Goog-User-Project`.
+- Browser-fetched Maps Static and Place Photos URLs embed the restricted
+  `google-maps-widget-key` API key from Secret Manager. That key is
+  restricted to the widget image APIs, HTTP referrers for the deployed
+  GUI domains, and daily quotas.
+
+The budget model is intentionally small. With the Google Maps Platform
+monthly credit, 10 enrichments per execution at roughly 30 enriched
+executions per day stays within demo and low-traffic production usage.
+For the one-time GCP setup recipe, see
+`playbooks/google-maps-platform-setup-pattern-c.md` in `ai-meta`.
+
 ## Step 5 — Same capability via MCP
 
 The Amadeus MCP server lives at
