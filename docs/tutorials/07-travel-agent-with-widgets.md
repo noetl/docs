@@ -297,12 +297,11 @@ workload:
   amadeus_env: test
 ```
 
-`duffel` is the default for the flights intent. The first Duffel
-integration is search-only and test-environment only: it calls
-`automation/agents/mcp/duffel` for `search_offers`, caps the returned
-offers at 10, and normalizes Duffel offers into the same shape the
-flight widget already renders. Booking, order creation, seat maps, and
-payments are intentionally not wired yet.
+`duffel` is the default for the flights intent. The first Duffel search
+integration calls `automation/agents/mcp/duffel` for `search_offers`,
+caps the returned offers at 10, and normalizes Duffel offers into the
+same shape the flight widget already renders. The travel runtime still
+only searches; it does not create orders.
 
 Amadeus remains available as an explicit opt-out for flights:
 
@@ -316,6 +315,22 @@ tool is only for flight origin/destination autocomplete. Duffel test
 search is free; Amadeus production search is paid per call. The
 decision rationale and deferred booking scope live in
 `sync/issues/2026-05-12-duffel-travel-api-integration.md`.
+
+### Test-env orders
+
+The Duffel MCP playbook also exposes test-environment order tools for
+the trip-planner project: `create_order`, `get_order`, and
+`list_orders`. They use `duffel_env: test` and Duffel wallet `balance`
+payments, so the orders are synthetic: no real money, no real ticketing,
+and no live-token path. These tools are intentionally not called by this
+one-shot travel runtime; the multi-turn itinerary agent decides when a
+traveller has selected an offer and is ready to create a test order.
+
+`create_order` accepts one selected offer, passenger details, and an
+optional payment amount/currency override. It fetches the offer first,
+uses the offer passenger ids when the caller omits them, checks expiry,
+and returns the order id plus booking reference. The full smoke details
+are in `bridge/outbox/20260512-220000-duffel-test-orders.result.json`.
 
 Vertex AI is intentionally routed through
 `automation/agents/mcp/vertex-ai`, mirroring the Phase 2 Amadeus
