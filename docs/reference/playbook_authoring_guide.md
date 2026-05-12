@@ -496,6 +496,64 @@ runCommand(`rerun ${executionId}`);
 Surfaced in round 8. Evidence:
 `bridge/outbox/20260509-155138-canvas-widget-rerun-green.result.json`.
 
+## Deployment parity
+
+### Every kind deploy needs a chained GKE-parity round
+
+Local kind is a fast acceptance surface, not proof that the production
+surface is current. Any round that registers playbooks, deploys GUI
+assets, or changes infrastructure on kind should either include an
+explicit GKE phase in the same bridge task or queue a chained parity
+round immediately afterward. The parity phase should check catalog
+versions, image tags, external surfaces, and the smallest smoke that
+proves the same user workflow works in GKE.
+
+Do not close a production-facing round on local GREEN alone unless GKE
+is intentionally out of scope and the result file says so. Otherwise,
+drift accumulates quietly: the local cluster has the new catalog or
+asset, while the gateway, GKE API, or storage tier still serves the old
+state until a user rediscovers the gap.
+
+Good:
+
+```yaml
+# Bridge task explicitly chains GKE parity after kind acceptance.
+phases:
+  5_smoke_kind:
+    objective: Verify the change on kind
+  6_deploy_to_gke:
+    objective: Apply the same change to GKE and smoke the user path
+  7_close_out:
+    objective: Document both kind and GKE evidence
+```
+
+```yaml
+# Or queue a follow-up when GKE ownership/credentials are separate.
+phases:
+  5_smoke_kind:
+    objective: Verify the change on kind
+  6_queue_gke_parity:
+    objective: Write a bridge task for GKE deploy + smoke
+```
+
+Bad:
+
+```yaml
+# Round assumes local GREEN is the production success criterion.
+phases:
+  5_smoke_kind:
+    objective: Verify on kind. Done.
+
+# Result: GKE drift accumulates silently until a user reports it.
+```
+
+Rediscovered during the GKE parity, gateway terminal, and storage
+rollout rounds. Evidence:
+`bridge/outbox/20260511-110000-gke-parity-sync.result.json`,
+`bridge/outbox/20260511-130000-gateway-terminal-surface-and-gui-bump.result.json`,
+and
+`bridge/outbox/20260511-150000-eliminate-minio-add-seaweedfs-rustfs-chooser.result.json`.
+
 ## See also
 
 - [Agent orchestration](../architecture/agent_orchestration.md)
