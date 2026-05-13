@@ -302,14 +302,6 @@ The capstone is intentionally honest about the first pass:
 - **Google Calendar sync is intentionally absent.** Calendar data is
   Firestore-only in this scope. No Google Calendar API and no ICS export
   are included.
-- **Place and hotel photos are placeholders.** The widget schemas and
-  Maps Static key path exist, but the captured card photos are grey
-  placeholders.
-- **Party display needs formatting polish.** The itinerary summary shows
-  `Party: {"adults":2}` instead of a human string such as `2 adults`.
-- **The booking reference in the screenshot is synthetic.** Real Duffel
-  test references such as `XKQAYC` are present in the event/order audit
-  path, but the v1 card still displays a placeholder reference.
 - **The captured dates are not fully consistent.** The date picker shows
   `07/01/2026` to `07/05/2026`, while the sample schedule shows
   `Jul 15, 2026`. That is a demo-data polish issue, not a widget
