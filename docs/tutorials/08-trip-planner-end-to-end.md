@@ -112,7 +112,8 @@ Open `http://127.0.0.1:5173/`.
 
 The initial Muno shell has three working areas:
 
-- The left rail shows guest mode and navigation for searches and orders.
+- In local demo mode, the left rail can show guest mode and navigation for
+  searches and orders. The production site shows a sign-in pane first.
 - The center thread holds the assistant turns and widgets.
 - The right pane mirrors current trip state.
 
@@ -294,9 +295,10 @@ The capstone is intentionally honest about the first pass:
 - **Mobile responsive polish is deferred.** The current screenshots are
   desktop-first. Figma has mobile variants, but they are not the scope of
   this walkthrough.
-- **Multi-user authentication is not covered.** The screenshots show
-  Guest mode. Firebase Auth and per-user access hardening are future
-  work.
+- **Per-user Firestore rules are not covered.** Production playbook execution
+  is gated by Auth0 plus the NoETL gateway `session_token`, but Firestore live
+  reads still use the v1 permissive frontend rules. Per-uid Firestore
+  tightening is a future auth-hardening round.
 - **Google Calendar sync is intentionally absent.** Calendar data is
   Firestore-only in this scope. No Google Calendar API and no ICS export
   are included.
@@ -341,6 +343,7 @@ cd repos/travel
 npm install
 
 VITE_NOETL_API_BASE_URL=http://localhost:8082/api \
+VITE_ALLOW_GUEST=true \
 VITE_GOOGLE_MAPS_KEY="<restricted-widget-api-key>" \
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
@@ -350,6 +353,17 @@ Open:
 ```text
 http://127.0.0.1:5173/
 ```
+
+For the production site, open:
+
+```text
+https://travel.mestumre.dev/
+```
+
+The first screen is now a sign-in pane. Complete Auth0 sign-in with an allowed
+account, then Muno links that Auth0 identity to the NoETL gateway session before
+showing the chat shell. Local development can preserve the old guest-mode flow
+with `VITE_ALLOW_GUEST=true`; production leaves that variable unset.
 
 Then try a simple starting prompt:
 
@@ -385,4 +399,3 @@ ai-meta to inspect the thread's event log.
   [`noetl/travel`](https://github.com/noetl/travel)
 - Figma exports:
   `/Volumes/X10/projects/adiona/figma/Adiona_material/`
-
