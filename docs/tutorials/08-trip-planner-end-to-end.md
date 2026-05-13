@@ -100,7 +100,7 @@ pointed at the GKE NoETL service through a port-forward:
 ```bash
 kubectl -n noetl port-forward svc/noetl 8082:8082
 
-cd /Volumes/X10/projects/noetl/ai-meta/repos/muno
+cd /Volumes/X10/projects/noetl/ai-meta/repos/travel
 VITE_NOETL_API_BASE_URL=http://localhost:8082/api \
 VITE_GOOGLE_MAPS_KEY="<restricted-widget-api-key>" \
 npm run dev -- --host 127.0.0.1 --port 5173
@@ -337,7 +337,7 @@ kubectl -n noetl port-forward svc/noetl 8082:8082
 Start Muno locally:
 
 ```bash
-cd repos/muno
+cd repos/travel
 npm install
 
 VITE_NOETL_API_BASE_URL=http://localhost:8082/api \
@@ -382,7 +382,7 @@ ai-meta to inspect the thread's event log.
 - Calendar view result:
   [`bridge/outbox/20260513-020000-firestore-calendar-view.result.json`](https://github.com/noetl/ai-meta/blob/main/bridge/outbox/20260513-020000-firestore-calendar-view.result.json)
 - Muno repository:
-  [`noetl/muno`](https://github.com/noetl/muno)
+  [`noetl/travel`](https://github.com/noetl/travel)
 - Figma exports:
   `/Volumes/X10/projects/adiona/figma/Adiona_material/`
 
