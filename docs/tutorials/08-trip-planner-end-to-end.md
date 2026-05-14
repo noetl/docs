@@ -115,7 +115,9 @@ The initial Muno shell has three working areas:
 - In local demo mode, the left rail can show guest mode and navigation for
   searches and orders. The production site shows a sign-in pane first.
 - The center thread holds the assistant turns and widgets.
-- The right pane mirrors current trip state.
+- The right pane mirrors current trip state, including destination,
+  dates, party, budget, star rating, bed type, and amenities as those
+  slots become known.
 
 The traveler starts with a simple free-form request: "Find flights to
 Paris." In the live agent, that user message is appended to Firestore
@@ -306,9 +308,6 @@ The capstone is intentionally honest about the first pass:
   `07/01/2026` to `07/05/2026`, while the sample schedule shows
   `Jul 15, 2026`. That is a demo-data polish issue, not a widget
   contract issue.
-- **The right pane is not fully surfaced.** It shows destination and
-  dates in the capture. The slot accumulator can grow to party, budget,
-  star rating, amenities, and other search parameters.
 - **Filter-narrowing widgets are not yet agent-emitted.** The contract
   includes filters, but v1 does not yet drive star-rating sliders,
   budget ranges, or amenities checkboxes as a complete refinement loop.
