@@ -56,6 +56,39 @@ callback URL, logout URL, and allowed web-origin configuration explicit per
 domain. Do not use a wildcard unless the deployment is intentionally
 multi-tenant and the auth policy is designed for that.
 
+:::caution Adding a new domain? Pass the full CORS list, not just the new one
+
+When deploying via the `noetl_gke_fresh_stack.yaml` playbook in `repos/ops`,
+the `gateway_cors_allowed_domains` workload variable is a single string.
+Passing `--set gateway_cors_allowed_domains='new.example.com'` **replaces**
+the playbook's default and drops every other production frontend that was in
+the list (for example, `travel.mestumre.dev`). The browser symptom is
+`NetworkError when attempting to fetch resource` on every Gateway call — the
+preflight returns HTTP 200 but without an `access-control-allow-origin`
+header for the dropped origin.
+
+To add a new browser-callable domain safely:
+
+1. Read the current default for `gateway_cors_allowed_domains` in
+   `automation/gcp_gke/noetl_gke_fresh_stack.yaml`.
+2. Append the new domain and pass the **full** comma-separated list to
+   `--set gateway_cors_allowed_domains=...`.
+3. After the rollout, confirm the deployment env contains every expected
+   origin:
+
+   ```bash
+   kubectl get deploy -n gateway gateway \
+     -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="CORS_ALLOWED_ORIGINS")].value}'
+   ```
+
+If a deployment has already shipped without a required origin, the
+in-cluster hotfix is `kubectl set env -n gateway deployment/gateway
+CORS_ALLOWED_ORIGINS="..."` followed by a rollout. The patch only lasts
+until the next `helm upgrade`; always follow it with a playbook re-deploy
+that bakes the corrected list into the release.
+
+:::
+
 ## Cloudflare API Tokens
 
 Use Cloudflare **API tokens**, not the Global API Key.
