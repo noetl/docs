@@ -14,6 +14,7 @@ This document describes all components in the NoETL platform, their responsibili
 - NoETL Server: Accessible at http://localhost:30082
 - NoETL Workers: All 3 worker pools running (cpu-01, cpu-02, gpu-01)
 - NATS JetStream: Message bus for command notifications (event-driven). See operations/nats_integration.md
+- Runtime reaper / doctor: monitoring-callable self-healing surface around the server-side command reaper. See operations/runtime-reaper-doctor.md
 - Grafana: Accessible at http://localhost:3000 (admin/admin)
 - VictoriaMetrics: Running and accessible at http://localhost:8428/vmui/
 - VictoriaLogs: Running and accessible at http://localhost:9428
