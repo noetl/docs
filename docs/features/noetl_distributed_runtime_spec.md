@@ -191,6 +191,80 @@ Snapshots are performance accelerators. They are never the authority. A snapshot
 
 Replay verification becomes a release gate for every phase after Phase 0: run live execution, rebuild projections from events, and compare checksums for execution state, frame state, loop progress, and configured business projections.
 
+### 3.3 Visual component diagram
+
+The diagram below maps all named components to their roles, storage tiers, and primary data flows. Solid arrows are runtime data paths; dashed arrows are control or fallback paths.
+
+```mermaid
+graph TD
+    subgraph TENANT["Tenant / Organization Boundary"]
+
+        subgraph CP["Control Plane"]
+            SRV["Server / Planner\nStage scheduling · Frame lease minting\nClaim / Heartbeat / Commit endpoints\nFrame reaper"]
+        end
+
+        subgraph KERNEL["Event Kernel — Append-Only Temporal Authority"]
+            PG[("Canonical Log\nPostgres noetl.event\npartitioned by tenant / time / execution")]
+            DIST[("Distribution Stream\nNATS JetStream · Kafka · Pub/Sub\nEvent Hubs · Kinesis\nfan-out transport — not canonical authority")]
+        end
+
+        subgraph OBJSTORE["Immutable Payload Store — Port/Adapter"]
+            PAY[("Content-Addressed Objects\nS3 · GCS · Azure Blob · SeaweedFS\nsha256-keyed · immutable on write\nstreaming upload / download")]
+        end
+
+        subgraph FABRIC["Shared-State Fabric — Rebuildable from Events"]
+            T1["Tier 1\nIn-process LRU\nper process"]
+            T15["Tier 1.5\nApache Arrow IPC shm / memfd\nsame-node zero-copy"]
+            T2["Tier 2\nNVMe disk cache\nper node"]
+            NKV["NATS K/V\nLeases · counters · coordination"]
+        end
+
+        subgraph EXEC["Execution Layer — StatefulSet"]
+            W["Worker / Frame Executor\nClaims N-row frames from stage\nRuns inner DSL block in-process\nArrow RecordBatch to Tier 1.5 + Tier 3\n1 canonical event per frame committed"]
+            PROJ["Projector — N shards\nDurable NATS pull consumer per shard\nPayloadRef resolved via cache hierarchy\nHorizontally scalable · shard-stable across restarts"]
+        end
+
+        subgraph PSTORES["Projection Stores — Derived · Replayable — Port/Adapter"]
+            OP[("Operational\nPostgres\nExecution status · API reads")]
+            AN[("Columnar Analytical\nEvent lake · billing facts · org audit timeline")]
+            MV[("Streaming MV\nBarrier-aligned incremental aggregations\nWork-queue derived state")]
+            SV[("Search / Vector\nRetrieval shapes only\nRebuilt from event / payload source")]
+        end
+
+        PG -->|mirror| DIST
+        SRV -->|stage.opened · frame lease events| PG
+        SRV -->|frame claim dispatch| W
+        DIST -->|durable pull consumer| W
+        DIST -->|durable pull consumer| PROJ
+
+        W -->|Tier 3 — always durable| PAY
+        W -->|Tier 1.5 — best-effort fast path| T15
+        W -->|1 canonical event per frame| PG
+
+        T1 -. miss .-> T15
+        T15 -. miss .-> T2
+        T2 -. miss .-> PAY
+
+        PROJ -->|resolve PayloadRef| T1
+        PROJ -->|write| OP
+        PROJ -->|write| AN
+        PROJ -->|write| MV
+        PROJ -->|write| SV
+
+        SRV -. Replay API as_of_position .-> PG
+        SRV -. Replay API resolve payload refs .-> PAY
+
+    end
+```
+
+Key observations from the diagram:
+
+- **Event Kernel is the single append authority.** The canonical log is the only target for durable writes. The distribution stream mirrors it for low-latency fan-out but carries no replay authority.
+- **Payload Store and Canonical Log are the correctness pair.** Losing either breaks replay. Every other tier and store can be dropped and rebuilt from these two.
+- **Shared-state fabric follows a strict miss chain.** Tier 1 → 1.5 → 2 → Tier 3 (Payload Store). Writers always write Tier 3 first; higher tiers are best-effort and admission-controlled.
+- **Projectors are the sole writers to projection stores.** After Phase 2, the server never writes projection state directly.
+- **Port/Adapter boundaries** (labeled on subgraphs) mark where backend substitutions happen at deploy time; the runtime image does not change.
+
 ---
 
 ## 4. Workload baseline (instrument before refactor)
@@ -929,3 +1003,78 @@ The original `event-store-design-prompt.md` (now archived) framed the problem as
 5. **A staged additive rollout** with frame-shaped cursor loops in Phase 1, before Arrow IPC and before pluggable backends. This lets us ship a measurable performance win in two weeks rather than waiting for a multi-quarter abstraction overhaul.
 
 Other elements (three-layer model, backend adapters, content-addressed payloads, configuration schema) carry over from the original with edits to match the existing TempStore and projection-worker code that has shipped since the original was drafted. Product-specific analytical or streaming engines are intentionally not named as dependencies; NoETL adopts the underlying algorithms and contracts.
+
+---
+
+## 17. Implementation Roadmap
+
+This section complements §12 (the phased refactor plan) with a phase dependency graph, per-phase acceptance checklist, replay parity gate, and operational readiness criteria. Section 12 defines *what* each phase builds; this section defines *when* each phase is ready to ship and what to do if it needs to be rolled back.
+
+### 17.1 Phase dependency graph
+
+Phases 1 and 2 can run in parallel once the Phase 0 baseline is captured. Phase 3 requires both because it depends on frame-shaped Arrow output (Phase 1) and colocated projectors (Phase 2).
+
+```mermaid
+graph LR
+    P0["Phase 0\nInstrumentation\n1 week"] --> P1 & P2
+    P1["Phase 1\nFrame-shaped\ncursor loops\n2 weeks"] --> P3
+    P2["Phase 2\nDecentralized\nprojection\n2 weeks"] --> P3
+    P3["Phase 3\nArrow IPC\nTier 1.5\n3 weeks"] --> P4
+    P4["Phase 4\nCloud OS\nsurfaces\n3 weeks"] --> P5
+    P5["Phase 5\nPluggable\nadapters\nrolling PRs"] --> P6
+    P6["Phase 6\nFan-out / Reduce\n4 weeks"]
+```
+
+### 17.2 Pre-flight checklist (before Phase 0 begins)
+
+These conditions must be true before work begins on Phase 0:
+
+- [ ] `noetl.stage` and `noetl.frame` DDL reviewed and approved by database owner.
+- [ ] Grafana / VictoriaMetrics dashboards provisioned with the §4 metric tile set (empty panels are acceptable at this stage).
+- [ ] A reproducible trigger for a full PFT v2 run exists as an ops runbook entry and has been tested by a team member who did not write it.
+- [ ] `NOETL_TENANT_ID`, `NOETL_ORGANIZATION_ID`, `NOETL_CLUSTER_ID` env vars injectable via Helm values in the target cluster.
+- [ ] Replay harness skeleton (even a no-op stub) runs to completion without error against the current `noetl.event` table.
+- [ ] Schema registry mount path (`/etc/noetl/schemas`) is provisionable from a ConfigMap.
+- [ ] On-call alert routing confirmed for `frame_reaper_republish_rate` and `pg_pool_depth_highwatermark`.
+
+### 17.3 Per-phase acceptance criteria
+
+| Phase | Ship gate | Replay parity required | Rollback procedure |
+|---|---|---|---|
+| **0 — Instrumentation** | All §4 metrics non-null on dashboard from a complete PFT v2 run; baseline values pinned to memory | Replay harness exits 0; checksum report attached to memory entry | Drop `noetl.stage` / `noetl.frame` via inverse Alembic migration; zero runtime impact |
+| **1 — Frame loops** | Total `command.*` count < 20k on PFT v2; wall time not regressed vs Phase 0 baseline | Frame state, loop progress, and execution status checksums match live projection | Set `frame_policy: null` on PFT v2 steps; disable frame claim endpoint; legacy command path unchanged |
+| **2 — Decentralized projection** | Postgres pool depth < 30 sustained during MDS burst; per-shard projection lag metric visible on dashboard | Projection checksums match single-writer baseline | Re-enable in-process server projection loop; scale `noetl-projector` StatefulSet to 0 |
+| **3 — Arrow IPC Tier 1.5** | `tier15_hit_ratio` > 60% on colocated consumer; PFT v2 wall time ≤ Phase 0 baseline ÷ 2 | Payload digest and projection checksums unchanged vs Phase 2 | Set `tier_15_node_budget_mb: 0`; admission control skips Tier 1.5 with no data-path change |
+| **4 — Cloud OS surfaces** | Unified resource locator present on all event envelopes; KEDA scaler responds to frame backlog signal within 30 s | Locator fields do not alter event content digest; replay checksum unchanged | Disable KEDA scaler; revert locator injection to no-op middleware; locator fields are additive |
+| **5 — Pluggable adapters** | Each adapter passes compliance + replay parity suite; Docker-compose local dev environment validated end-to-end | Python and Rust parity corpus checksums identical for each adapter under test | Revert backend config values to previous setting; no code removal required |
+| **6 — Fan-out / reduce** | Stage `kind='fanout'` and `kind='reduce'` pass all PFT v2 fan-out phases; `distributed_fanout_mode_spec.md` superseded | Reduce-frame output checksums match single-partition baseline | Revert fan-out DSL steps to `mode: parallel`; stage/frame tables remain intact |
+
+### 17.4 Replay parity release gate
+
+Every phase after Phase 0 must pass all of the following before any merge to `main`:
+
+```
+[ ] Event envelope validation passes for 100% of events emitted in the phase's PFT v2 run.
+[ ] Every snapshot records: event position, projection code version, upcaster versions,
+    payload digest set, tenant encryption context, and deterministic fold checksum.
+[ ] Replay harness runs start-to-finish against the phase's full event log and payload refs.
+[ ] Execution state checksum (frame rows committed, loop progress) matches live projection.
+[ ] At least one configured business projection type checksum matches live projection.
+[ ] Python and Rust replay paths produce identical fold checksums on the golden corpus.
+[ ] No event references an IpcHint path as its only payload copy
+    (grep for events missing a Tier 3 payload_ref.uri).
+[ ] Idempotency key present on 100% of externally retried transitions in the phase's events.
+```
+
+Replay parity failures block the phase merge. They are not deferred to the next phase.
+
+### 17.5 Operational readiness (per phase shipped to production)
+
+Before enabling any phase for a production tenant:
+
+- [ ] Runbook exists in `repos/ops/automation/` covering: how to trigger a replay, how to compare checksums, how to roll back the phase, and how to scale the projector StatefulSet.
+- [ ] On-call alerts live for `frame_reaper_republish_rate > 0.1/s` and `tier15_budget_exhaustion_total > 0`.
+- [ ] Frame budget defaults reviewed against the tenant's actual execution profile (not only PFT v2).
+- [ ] Tenant encryption context set and verified for all payload refs in the phase's event schema version.
+- [ ] Retention and TTL policy for Tier 3 objects confirmed with legal / compliance for the tenant.
+- [ ] Cross-tenant projection isolation verified: no query returns rows from a different `(tenant_id, organization_id)` pair without explicit operator permission.
