@@ -647,6 +647,19 @@ Adapters (priority order):
 5. **Azure Event Hubs** — Kafka-compat mode reuses Kafka adapter; native mode uses Event Hubs SDK + Blob checkpoint store.
 6. **Amazon Kinesis Data Streams** — partition key per aggregate, DynamoDB for version tracking, KCL for consumer coordination.
 
+Implementation status:
+
+- The first backend-neutral event-store port is present in `repos/noetl/noetl/core/event_store`.
+- `EventRecord` defines the canonical append envelope used by adapters.
+- `canonical_event_checksum()` serializes JSON deterministically with sorted keys and compact separators.
+- `PostgresEventStore` is the reference adapter for `noetl.event`.
+- The adapter currently supports:
+  - `append(stream_id, events, expected_version=...)`
+  - `read(stream_id, from_version=..., limit=...)`
+  - per-stream expected-version conflict detection;
+  - mapping to additive event envelope columns (`stream_id`, `stream_version`, aggregate/schema/tenant fields, `payload_ref`, `envelope_checksum`).
+- NATS/Kafka/cloud-native stream adapters and projection-store ports remain tracked by `noetl/noetl#439`.
+
 Adapter design constraints:
 
 - Idempotent handlers as baseline; assume at-least-once delivery. Do not try to abstract exactly-once differences.
