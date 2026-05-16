@@ -189,6 +189,7 @@ Implementation status:
 - The endpoint returns a deterministic `sha256` checksum over the folded state.
 - The live reader tolerates pre-migration event tables during rolling rollout. If the additive tenant/org envelope columns are not present yet, replay treats only `tenant_id=default` and `organization_id=default` as visible legacy events.
 - A core replay upcaster registry now exists in Phase 0 (`noetl.core.replay.EventUpcasterRegistry`) and is wired into `ReplayService.replay_state`. The default registry preserves legacy events as `schema_name=noetl.event`, `schema_version=1`.
+- Replay state includes `upcaster_registry_digest`, a stable SHA-256 digest of the registered `(schema_name, from_version)` transitions used for the fold.
 - Snapshot selection, payload resolution, registered production upcasters for future schema revisions, and business-object projection folds remain tracked by `noetl/noetl#440`.
 
 Replay reconstructs state by:
@@ -203,7 +204,7 @@ Snapshots are performance accelerators. They are never the authority. A snapshot
 
 - event position covered;
 - projection code version;
-- schema upcaster versions and registry digest;
+- schema upcaster versions and registry digest, matching the replay state's `upcaster_registry_digest`;
 - payload digest set or Merkle root;
 - tenant encryption context;
 - deterministic fold checksum.
