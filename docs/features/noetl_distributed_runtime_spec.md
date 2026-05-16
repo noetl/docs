@@ -606,6 +606,19 @@ class ProjectionStorePort(Protocol):
 
 Adapters: Postgres (reference), cloud/serverless document and key-value stores, wide-column stores, columnar analytical stores, search stores, vector stores, and streaming materialized-view engines. Specific products are deployment choices, not architectural dependencies.
 
+Implementation status:
+
+- The first projection-store port is present in `repos/noetl/noetl/core/projection_store`.
+- `ProjectionRecord` and `ProjectionSnapshot` define idempotent projection and snapshot writes.
+- `projection_checksum()` provides deterministic JSON checksums for replay parity.
+- `PostgresProjectionStore` is the reference adapter and writes to additive `noetl.projection` and `noetl.projection_snapshot` tables.
+- The adapter currently supports:
+  - `save_projection(record)` with version-monotonic upsert semantics;
+  - `load_projection(projection_id)`;
+  - `save_snapshot(snapshot)` with version-monotonic upsert semantics;
+  - `load_snapshot(aggregate_id, aggregate_type=...)`.
+- Non-Postgres projection adapters remain tracked by `noetl/noetl#439`.
+
 Projection backend roles:
 
 - **Operational projection stores** serve execution status, current frame state, user-facing API reads, and transactional admin surfaces.
