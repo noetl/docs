@@ -1,10 +1,10 @@
 ---
-title: NoETL Distributed Runtime + Event Store Spec
-description: Worker-side loop batching, Arrow IPC zero-copy data plane, decentralized projection, and cloud-agnostic event store / payload store / projection store abstractions for the NoETL distributed runtime.
+title: NoETL Distributed Runtime + Event-Sourced Shared Memory Spec
+description: Event-sourced system state, worker-side loop batching, Arrow IPC shared-memory data plane, decentralized projection, and cloud-agnostic event / payload / projection store abstractions for the NoETL distributed runtime.
 sidebar_position: 30
 ---
 
-# NoETL Distributed Runtime + Event Store Spec
+# NoETL Distributed Runtime + Event-Sourced Shared Memory Spec
 
 Status: design proposal, ready for staged refactoring.
 Owner: NoETL core (`repos/noetl`).
@@ -18,7 +18,7 @@ Companion specs that this revision builds on (do not re-spec):
 - `distributed_fanout_mode_spec.md` — designed but not shipped; this spec absorbs it.
 - `nats_kv_distributed_cache.md` — NATS K/V scope.
 
-Not in scope here: DSL surface changes, the playbook authoring guide, or the existing event-sourcing invariants. Those stay as is.
+Not in scope here: DSL surface changes or the playbook authoring guide. Event-sourcing invariants are in scope because they are the contract that lets the distributed runtime reproduce system state at a requested point in time.
 
 ---
 
@@ -39,14 +39,19 @@ Even after the cursor-loop refactor (`noetl_cursor_loop_design.md`) eliminated p
 
 The 2026-05-15 GKE amber run (`memory/archive/2026/05/20260515-193100-gke-runtime-reaper-pft-v2-amber.md`) saw both the NoETL API DB pool and NATS get into pressure during facility-1 MDS, confirming the central path is the bottleneck.
 
-This spec proposes the next reduction step:
+This spec proposes the next reduction step, but with one correction to the mental model: **the event log is not an implementation detail or a backend adapter concern. It is the temporal kernel of the NoETL business operating system.** Frames, Arrow IPC, distributed caches, local indexes, streaming materialized views, analytical projections, and object storage are accelerators around that kernel. They must never become the only source of state.
 
-1. **Worker-side batched loop execution.** Workers claim and execute *frames* (multi-row windows) instead of single cursor rows. Per-fragment events drop by a factor equal to the frame size.
-2. **Arrow IPC zero-copy data plane (Tier 1.5).** Co-located producers and consumers exchange large record batches via shared memory; remote consumers fall back to Tier 3 (S3/GCS/SeaweedFS).
-3. **Decentralized projection.** Projection workers become pluggable, sharded, and horizontally scalable, with NATS consumer groups for fan-out and a stable identity scheme so they can re-attach to their shard after restart.
-4. **Cloud-agnostic event store + payload store + projection store abstractions.** Port/adapter architecture for NATS JetStream / Kafka / Pub/Sub / Event Hubs / Kinesis; for S3 / GCS / Azure Blob / SeaweedFS; and for Postgres / DynamoDB / Firestore / Cosmos / Cassandra / ClickHouse / Elasticsearch / Vector DBs.
+That means every durable state transition must be representable as an append-only event with a deterministic serialization contract. Projections, caches, materialized views, local shared memory regions, analytical tables, streaming state, and distributed indexes are all rebuildable derived state. Given an execution id, tenant id, and timestamp or event position, NoETL must be able to replay the canonical event stream and reconstruct the system's command state, frame state, loop progress, projection outputs, and payload references as they existed then.
 
-The end state is a **cloud-distributed operating system** in the NoETL sense: every compute, queue, and payload addressable via a unified resource locator; workers scale on real backlog signals; loops collapse to map-reduce style stages whose data plane uses shared memory whenever colocated and durable storage otherwise.
+The implementation priorities are:
+
+1. **Event-sourced state reproduction.** `noetl.event` remains the canonical append-only ledger. Every frame, lease, cursor, payload reference, projection checkpoint, and tenant-visible business state transition is replayable from event data plus immutable payload objects.
+2. **Shared memory as a core advantage.** The runtime uses a tiered shared-state fabric: in-process memory, node-local Arrow IPC, local disk/NVMe, NATS K/V for small distributed coordination state, and durable object storage. This fabric makes colocated execution fast without weakening replay.
+3. **Worker-side batched loop execution.** Workers claim and execute *frames* (multi-row windows) instead of single cursor rows. Per-fragment events drop by a factor equal to the frame size.
+4. **Decentralized projection.** Projection workers become pluggable, sharded, and horizontally scalable, with NATS consumer groups for fan-out and a stable identity scheme so they can re-attach to their shard after restart.
+5. **Cloud-agnostic event / payload / projection store abstractions.** Port/adapter architecture for NATS JetStream / Kafka / Pub/Sub / Event Hubs / Kinesis; for S3 / GCS / Azure Blob / SeaweedFS; and for operational, analytical, search, vector, and streaming projection backends.
+
+The end state is a **distributed business operating system** in the NoETL sense: every tenant, organization, execution, compute actor, queue, stream, cache object, projection, and payload is addressable via a unified resource locator; workers scale on real backlog signals; loops collapse to map-reduce style stages whose data plane uses shared memory whenever colocated and durable storage otherwise; and auditors/operators can reproduce the state of the organization at a given event position.
 
 ---
 
@@ -55,7 +60,7 @@ The end state is a **cloud-distributed operating system** in the NoETL sense: ev
 - This is not a rewrite of the NoETL DSL. Existing `next.arcs[]`, `set:`, `mode:` semantics stay.
 - This does not replace Postgres as the default projection store. Postgres remains the reference; new backends are opt-in.
 - This is not a new Arrow distribution mechanism. We use `pyarrow` and `arrow-rs` as-is.
-- This is not a green-field event sourcing platform. We keep `noetl.event` as the source of truth; new layers wrap or complement it, they do not replace it.
+- This is not a green-field event sourcing platform. We keep `noetl.event` as the canonical source of truth; new layers wrap, distribute, cache, mirror, and project it, but they do not replace it.
 
 ---
 
@@ -74,8 +79,10 @@ The end state is a **cloud-distributed operating system** in the NoETL sense: ev
        │  Event Store (Tier A)   │  │  Projection Store (B)    │
        │  NATS JS / Kafka /      │  │  Postgres / DynamoDB /   │
        │  Pub/Sub / Event Hubs / │  │  Firestore / Cassandra / │
-       │  Kinesis                │  │  ClickHouse / ES         │
-       │  (port + adapters)      │  │  (port + adapters)       │
+       │  Kinesis                │  │  analytical / search /   │
+       │                         │  │  operational backends    │
+       │  (append-only ledger +  │  │  (derived, replayable    │
+       │   stream adapters)      │  │   state)                 │
        └──────────┬──────────────┘  └────────────┬─────────────┘
                   │ subscribe                     │ project
                   ▼                               ▼
@@ -101,9 +108,88 @@ The end state is a **cloud-distributed operating system** in the NoETL sense: ev
 
 Three core moves vs today:
 
+- **Event stream as the kernel.** Append-only events plus immutable payload objects are the durable operating-system journal. Everything else is an index, cache, materialized view, or delivery stream derived from that journal.
 - **Stage-shaped scheduling.** The server no longer thinks in cursor rows; it thinks in *frames*. A frame is a unit of work a worker can execute end-to-end, of bounded duration and bounded result size, and is independently recoverable.
 - **Worker as the loop interpreter.** The inner DSL block of a loop step is interpreted inside the worker that owns the frame, not via N round-trips to the server.
 - **Data plane separate from control plane.** Frame outputs flow as Arrow record batches over shared memory when possible and as content-addressed objects in Tier 3 always. The event store only ever carries lightweight manifests.
+
+### 3.1 Event-sourced state contract
+
+NoETL has one canonical state rule:
+
+> If it must be reproduced, audited, routed, billed, retried, or explained later, it must be represented by an event and any referenced immutable payload objects.
+
+The event stream is the durable timeline for a multitenant organization. Projections are allowed to be fast, denormalized, and backend-specific, but they must be disposable. A projection rebuild from `(tenant_id, organization_id, execution_id, from_position, to_position)` must produce the same state as the original run, modulo explicitly declared non-deterministic external side effects.
+
+Required event envelope fields:
+
+```json
+{
+  "event_id": "snowflake-or-ulid",
+  "tenant_id": "tenant-123",
+  "organization_id": "org-456",
+  "execution_id": "987654321",
+  "stream_id": "execution/987654321/stage/fetch_patients",
+  "aggregate_id": "frame/123",
+  "aggregate_type": "frame",
+  "event_type": "frame.committed",
+  "schema_name": "noetl.frame.committed",
+  "schema_version": 1,
+  "event_time": "2026-05-16T12:34:56.789Z",
+  "ingest_time": "2026-05-16T12:34:56.812Z",
+  "producer": "noetl://tenant/tenant-123/org/org-456/cluster/prod-1/.../worker/cpu-01",
+  "causation_id": "event-that-caused-this-event",
+  "correlation_id": "execution-or-business-flow-id",
+  "idempotency_key": "tenant/org/execution/frame/event-kind/attempt",
+  "payload_ref": {
+    "uri": "noetl://tenant/tenant-123/org/org-456/payloads/sha256/...",
+    "sha256": "...",
+    "media_type": "application/vnd.apache.arrow.stream"
+  },
+  "meta": {}
+}
+```
+
+Envelope invariants:
+
+- `tenant_id` and `organization_id` are mandatory on every event and payload reference. They are the isolation boundary for routing, replay, retention, encryption, and billing.
+- `event_id` is globally unique and monotonic enough for local ordering, but replay correctness depends on `(stream_id, stream_version)` or backend position, not wall-clock time.
+- `expected_version` is enforced per aggregate/stream where the backend supports it. Where the transport cannot enforce it directly, a side index records stream versions.
+- `idempotency_key` is mandatory for externally retried transitions. Duplicate delivery may occur; duplicate durable effects must not.
+- `payload_ref` points to immutable content. Events never point to mutable cache paths as their only copy.
+
+### 3.2 Time-travel and replay
+
+The replay API is a first-class implementation target, not a diagnostic afterthought:
+
+```text
+GET /api/replay/state
+  query:
+    tenant_id
+    organization_id
+    execution_id
+    as_of_event_id | as_of_position | as_of_time
+    projection = execution | frame | loop | business_object | all
+```
+
+Replay reconstructs state by:
+
+1. Loading the latest validated snapshot at or before the requested position.
+2. Reading canonical events from that snapshot position through the requested cutoff.
+3. Resolving immutable payload references through the payload store.
+4. Applying schema upcasters in deterministic order.
+5. Folding events with the same projection code used by live projectors.
+
+Snapshots are performance accelerators. They are never the authority. A snapshot must record:
+
+- event position covered;
+- projection code version;
+- schema upcaster versions;
+- payload digest set or Merkle root;
+- tenant encryption context;
+- deterministic fold checksum.
+
+Replay verification becomes a release gate for every phase after Phase 0: run live execution, rebuild projections from events, and compare checksums for execution state, frame state, loop progress, and configured business projections.
 
 ---
 
@@ -231,6 +317,20 @@ The current `command_reaper` repurposes to **frame reaper**: it scans `noetl.fra
 
 ## 6. Data plane: Arrow IPC zero-copy (Tier 1.5)
 
+Tier 1.5 is part of a broader shared-state fabric, not a one-off optimization. The design target is a proven distributed-data pattern: keep durable state in an append-only log and immutable payload objects; keep hot execution state in rebuildable shared caches, indexes, and materialized views.
+
+| Layer | Backends | Purpose | Rebuildable from events? |
+|---|---|---|---|
+| Canonical log | `noetl.event` Postgres partitions; optional mirrored JetStream/Kafka/Pub/Sub/Event Hubs/Kinesis streams | Durable timeline and replay authority | Source |
+| Immutable payloads | S3 / GCS / Azure Blob / SeaweedFS / local durable store | Large event data, Arrow batches, files | Referenced by log |
+| Hot shared memory | in-process LRU + Arrow IPC shm/memfd | Same-process and same-node zero-copy reads | Yes |
+| Warm node cache | local NVMe/PVC disk cache | Reuse payload blocks after restart or reschedule | Yes |
+| Small distributed cache | NATS K/V | Lease hints, loop counters, small coordination state | Yes |
+| Streaming materialization | source/table/materialized-view/sink engine with barriers | Incremental state over event streams and work queues | Yes |
+| Analytical materialization | columnar analytical projection store | High-volume queryable facts, metrics, audit/event lake views | Yes |
+
+Only the first two layers are required for correctness. The rest are latency, throughput, and serving-shape advantages. This is the core product advantage: NoETL can run like a low-latency distributed shared-memory system while remaining reproducible from an append-only event log.
+
 ### 6.1 Where it fits in TempStore
 
 The existing `repos/noetl/noetl/core/storage/result_store.py` already tiers payloads as `MEMORY → KV → DISK → S3/GCS/DB`. We insert a new tier between `MEMORY` and `DISK`:
@@ -265,9 +365,9 @@ This is intentionally simpler than the Plasma object store: NoETL workers are co
 ```python
 @dataclass
 class PayloadReference:
-    tier3_uri: str           # noetl://payloads/<sha256>
+    tier3_uri: str           # noetl://tenant/<tenant>/org/<org>/payloads/sha256/<sha256>
     sha256: str
-    media_type: str          # "application/x-arrow+stream"
+    media_type: str          # "application/vnd.apache.arrow.stream"
     rows: int
     bytes: int
 
@@ -276,7 +376,7 @@ class PayloadReference:
 
 @dataclass
 class IpcHint:
-    node_id: str             # noetl://cluster/<id>/node/<id>
+    node_id: str             # noetl://tenant/<tenant>/org/<org>/cluster/<id>/node/<id>
     shm_name: str            # /noetl-<execution>-<frame>-<seq>
     schema_digest: str       # quick sanity check before attach
     valid_until: datetime    # writer-promised minimum lifetime
@@ -305,11 +405,26 @@ The consumer **never** trusts the IPC hint blindly. It validates `schema_digest`
 - Workers track a per-node `tier15_bytes_in_use` counter. New shm writes are admission-controlled by a configurable budget (default 1 GB per node). On budget exhaustion the writer skips Tier 1.5 and emits only the durable Tier 3 reference. No data plane stall.
 - For multi-process per pod (future): introduce a `noetl-node-broker` sidecar that owns the shm namespace and brokers lifetimes via Unix-socket RPC. Not required for the current one-process-per-pod deployment shape.
 
-### 6.6 Why Arrow, not raw bytes
+### 6.6 Serialization contract
 
-- Columnar layout is the right shape for the heavy paths (Postgres bulk reads, DuckDB joins, fanout reducers, projection writes to ClickHouse).
+Serialization is part of the replay contract. If two runtimes read the same event stream and payload objects, they must fold the same state.
+
+Rules:
+
+- **Event envelopes:** canonical JSON for the persisted envelope metadata. Writers must emit stable field names, UTC timestamps, explicit nulls only where schema allows them, and deterministic map key ordering before signing/checksumming.
+- **Large tabular payloads:** Apache Arrow IPC stream, media type `application/vnd.apache.arrow.stream`. Every payload records `schema_digest`, `row_count`, `byte_length`, compression codec, and content SHA-256.
+- **Nested business payloads:** JSON Schema / OpenAPI-compatible payloads for small objects; Arrow `struct`, `list`, and `map` types for large repeated data. Avoid pickle, language-native binary serialization, or runtime-specific object graphs.
+- **Decimals and time:** decimals carry precision/scale; timestamps are UTC with explicit unit; local time zones are data fields, not implicit runtime settings.
+- **Schema evolution:** every event has `schema_name` and `schema_version`. Upcasters are pure functions registered by `(schema_name, from_version, to_version)` and covered by replay tests.
+- **Cross-language parity:** Python and Rust compliance tests read the same golden event/payload corpus and compare fold checksums.
+
+The durable payload digest is computed over the exact serialized bytes. The projection checksum is computed over a canonical projection serialization, not over backend-specific storage bytes.
+
+### 6.7 Why Arrow, not raw bytes
+
+- Columnar layout is the right shape for the heavy paths (Postgres bulk reads, DuckDB joins, fanout reducers, projection writes to analytical stores).
 - Zero-copy between Python and Rust workers via the C Data Interface comes for free with Arrow. Important once we run a mix of `pyarrow`-using Python workers and `arrow-rs` Rust workers on the same pod.
-- The wire schema is self-describing; no separate registry needed.
+- The wire schema is self-describing enough for payload reads, while the event envelope still records schema identity/version for governance and replay.
 
 ---
 
@@ -383,7 +498,16 @@ class ProjectionStorePort(Protocol):
     ) -> AsyncIterator[Mapping[str, Any]]: ...
 ```
 
-Adapters: Postgres (reference), DynamoDB, Firestore, Cosmos DB, Cassandra/ScyllaDB, ClickHouse (analytical projections only), Elasticsearch/OpenSearch (search projections only), Qdrant/Milvus/Weaviate (vector projections only).
+Adapters: Postgres (reference), cloud/serverless document and key-value stores, wide-column stores, columnar analytical stores, search stores, vector stores, and streaming materialized-view engines. Specific products are deployment choices, not architectural dependencies.
+
+Projection backend roles:
+
+- **Operational projection stores** serve execution status, current frame state, user-facing API reads, and transactional admin surfaces.
+- **Columnar analytical projection stores** are the high-volume analytical memory of the system: event lake tables, tenant/org audit timelines, PFT metrics, cost/billing facts, and queryable business histories. They are append-friendly and rebuildable from the event stream; they must not own unreplayable state.
+- **Streaming materialized-view engines** maintain source/table/materialized-view/sink pipelines, incremental aggregations, work-queue state, and barrier-aligned derived state. They consume canonical events or table sources and emit derived updates, never replacing the canonical log.
+- **Search/vector stores** serve retrieval shapes only. They are rebuilt from event/payload/projected source data and may lag without compromising correctness.
+
+Every projection row should include enough lineage to support audit and replay comparison: `tenant_id`, `organization_id`, `execution_id` where applicable, source `event_id` or event-position range, projection version, and checksum.
 
 Each projection type can target a different backend. The projector dispatches by the projection's configured `backend` (see §11 for the YAML).
 
@@ -410,11 +534,12 @@ class EventStorePort(Protocol):
 
 Adapters (priority order):
 
-1. **NATS JetStream** — reference implementation. Subject = `noetl.events.<execution>.<shard>`. Durable consumers per projector / per worker.
-2. **Apache Kafka / Confluent / MSK** — partition key = aggregate id; offset checks for `expected_version`.
-3. **Google Pub/Sub** — topic per category, ordering key per aggregate, side store (Spanner / Firestore) for `expected_version`.
-4. **Azure Event Hubs** — Kafka-compat mode reuses Kafka adapter; native mode uses Event Hubs SDK + Blob checkpoint store.
-5. **Amazon Kinesis Data Streams** — partition key per aggregate, DynamoDB for version tracking, KCL for consumer coordination.
+1. **Postgres `noetl.event`** — canonical ledger and replay source by default. Partitioned by tenant/time/execution as volumes grow.
+2. **NATS JetStream** — reference distribution stream. Subject = `noetl.events.<tenant>.<execution>.<shard>`. Durable consumers per projector / per worker. Events are persisted to the canonical ledger and mirrored to JetStream for low-latency fan-out.
+3. **Apache Kafka / Confluent / MSK** — partition key = aggregate id; offset checks for `expected_version`.
+4. **Google Pub/Sub** — topic per category, ordering key per aggregate, side store (Spanner / Firestore) for `expected_version`.
+5. **Azure Event Hubs** — Kafka-compat mode reuses Kafka adapter; native mode uses Event Hubs SDK + Blob checkpoint store.
+6. **Amazon Kinesis Data Streams** — partition key per aggregate, DynamoDB for version tracking, KCL for consumer coordination.
 
 Adapter design constraints:
 
@@ -423,6 +548,7 @@ Adapter design constraints:
 - Backend-specific retention / compaction / DLQ / monitoring stays out of the abstraction.
 - Event schema evolution: every event carries `schema_version`. Adapters do not transform; upcasting lives in the projection layer.
 - Configuration selects the backend at deploy time; same image runs anywhere.
+- The adapter boundary separates **canonical append** from **distribution**. A deployment may use Postgres as the canonical append log and JetStream/Kafka as the fan-out transport, or a cloud-native log plus a compacted replay archive, but it must expose the same replay semantics.
 
 ---
 
@@ -469,24 +595,37 @@ The cache hierarchy described in §6 (Tier 1 → 1.5 → 2 → 3) sits on top of
 
 ## 10. Cloud distributed OS surfaces
 
+This layer is what lets NoETL behave like a distributed business operating system for multitenant organizations. It provides identity, addressability, locality, replay, and resource accounting across clusters without coupling application logic to a specific cloud.
+
 ### 10.1 Unified resource locator
 
 Every addressable thing in the system gets a stable URI:
 
 ```
-noetl://cluster/<cluster>/region/<region>/zone/<zone>/node/<node>/process/<pid>/<kind>/<id>
+noetl://tenant/<tenant>/org/<org>/cluster/<cluster>/region/<region>/zone/<zone>/node/<node>/process/<pid>/<kind>/<id>
 
 Examples:
-  noetl://cluster/prod-1/region/us-central1/zone/us-central1-a/
+  noetl://tenant/acme/org/care-network/cluster/prod-1/region/us-central1/zone/us-central1-a/
          node/gke-noetl-pool-a-7b/process/1/worker/cpu-01
 
-  noetl://cluster/prod-1/region/global/none/none/none/
+  noetl://tenant/acme/org/care-network/cluster/prod-1/region/global/none/none/none/
          stream/events/<execution>/<shard>
 
-  noetl://payloads/<sha256>
+  noetl://tenant/acme/org/care-network/payloads/sha256/<sha256>
 ```
 
-Workers, projectors, MCP servers, JetStream streams, Tier 3 payloads, and frame leases are all referenceable. The locator is the join key across the event store, projection store, and observability layer.
+Tenants, organizations, workers, projectors, MCP servers, JetStream streams, Tier 3 payloads, cache entries, projection shards, and frame leases are all referenceable. The locator is the join key across the event store, projection store, and observability layer.
+
+### 10.1.1 Multitenant isolation
+
+Multitenancy is enforced at the event/payload boundary first, then projected outward:
+
+- Event partitions include `tenant_id`, `organization_id`, and time/execution keys.
+- Payload object keys include tenant/org prefixes and content digests; encryption context is tenant-scoped.
+- Cache keys include tenant/org/execution. Shared cache layers may share infrastructure, not key space.
+- Projection stores use row-level security or physical database/schema separation depending on the tenant isolation tier.
+- Replay APIs require tenant/org scope and never scan a global stream without an explicit operator permission.
+- Cross-tenant materialized analytics are allowed only through curated, governed projections with redaction rules encoded as projection code.
 
 ### 10.2 Topology-aware scheduling
 
@@ -495,7 +634,7 @@ Frame claim has an optional `locality` preference:
 ```text
 POST /api/stages/{stage_id}/frames/claim
   body:
-    worker_id: noetl://cluster/.../worker/cpu-01
+    worker_id: noetl://tenant/.../org/.../cluster/.../worker/cpu-01
     locality:
       prefer_node: <node_id>          # for Tier 1.5 colocation
       prefer_zone: us-central1-a      # for Tier 2 cache locality
@@ -522,6 +661,17 @@ For multi-cluster, the NATS JetStream supercluster routes the same `noetl.events
 - Projection store writes are idempotent by `(stage_id, frame_id, partition_id)`. Replays are safe.
 - Frame reaper (rebranded command reaper) republishes stale leases.
 
+### 10.5 Quantum-cloud posture
+
+"Quantum cloud" here means cloud infrastructure that can place work across heterogeneous compute and storage fabrics while preserving one event-sourced timeline per tenant organization. The runtime should assume future worker classes beyond CPU/GPU, including confidential compute, specialized accelerators, and quantum-provider task queues.
+
+The contract stays the same:
+
+- Specialized workers receive frames with typed input payload references.
+- Provider submissions, callbacks, measurements, and result ingests are events with immutable payload references.
+- External provider state is modeled as side effects with correlation/idempotency keys, not as hidden runtime state.
+- Replay can reconstruct what was submitted, what was observed, and what state NoETL derived from it, even when the physical computation cannot be rerun deterministically.
+
 ---
 
 ## 11. Configuration
@@ -530,6 +680,8 @@ YAML, shared between Python and Rust runtimes:
 
 ```yaml
 runtime:
+  tenant_id: ${NOETL_TENANT_ID}
+  organization_id: ${NOETL_ORGANIZATION_ID}
   node_id: ${POD_IP}                                # mandatory, used in locator + IPC hint
   cluster_id: ${NOETL_CLUSTER_ID}
   shard_id: ${NOETL_SHARD_ID}                       # for StatefulSet projectors / workers
@@ -538,10 +690,24 @@ runtime:
     max_inflight_frames_per_worker: 4
 
 event_store:
-  backend: nats-jetstream                           # kafka | google-pubsub | azure-event-hubs | aws-kinesis | aws-msk
+  canonical_backend: postgres                       # append-only replay ledger
+  distribution_backend: nats-jetstream              # kafka | google-pubsub | azure-event-hubs | aws-kinesis | aws-msk
   connection:
     url: nats://nats.nats.svc.cluster.local:4222
     stream_prefix: noetl.events
+  replay:
+    snapshot_interval_events: 10000
+    checksum_algorithm: blake3
+    require_projection_parity: true
+
+serialization:
+  envelope_format: canonical-json
+  tabular_payload_format: arrow-ipc-stream
+  schema_registry:
+    backend: file                                   # file | db | external
+    path: /etc/noetl/schemas
+  compression: zstd
+  timezone: UTC
 
 payload_store:
   backend: s3                                       # gcs | azure-blob | seaweedfs | local
@@ -567,13 +733,27 @@ projection_stores:
     connection:
       dsn: postgresql://noetl:***@pg.noetl.svc:5432/noetl
   search:
-    backend: elasticsearch
+    backend: search-store
     connection:
-      hosts: ["http://elastic.search.svc:9200"]
+      hosts: ["http://search.search.svc:9200"]
   analytics:
-    backend: clickhouse
+    backend: columnar-analytics
     connection:
-      dsn: clickhouse://clickhouse.analytics.svc:9000/noetl
+      dsn: ${NOETL_ANALYTICS_DSN}
+  streaming:
+    backend: streaming-materialized-view
+    connection:
+      dsn: ${NOETL_STREAMING_MV_DSN}
+
+materializations:
+  event_lake:
+    backend: columnar-analytics
+    source: event_store
+    include_payload_refs: true
+  operational_mvs:
+    backend: streaming-materialized-view
+    source: event_store
+    barrier_interval_ms: 1000
 
 snapshots:
   backend: postgres                                 # defaults to projection_stores.default
@@ -602,8 +782,10 @@ The same image runs anywhere. Backend changes are config-only.
 - Add the metrics in §4 to Grafana / VictoriaMetrics dashboards (already deployed).
 - Baseline a fresh PFT v2 run on GKE. Capture the metric values and pin to memory.
 - Add `noetl.stage` and `noetl.frame` tables via Alembic migration (empty initially).
+- Add canonical event-envelope schema validation, including tenant/org scope, `schema_name`, `schema_version`, `idempotency_key`, payload digest, and deterministic checksum fields.
+- Add replay harness: rebuild execution/frame/loop projections from `noetl.event` + payload store and compare checksums against live projection rows.
 
-Deliverable: dashboard URL + memory entry with baseline numbers. No code change to hot paths.
+Deliverable: dashboard URL + memory entry with baseline numbers, plus a replay parity report for the baseline run. No code change to hot paths.
 
 ### Phase 1 — Frame-shaped cursor loops (2 weeks)
 
@@ -611,7 +793,7 @@ Goal: collapse N single-row cursor claims into N/50 multi-row frame claims, with
 
 - Extend `cursor_worker.py` to accept a `frame_policy` payload alongside the existing cursor spec.
 - New `POST /api/stages/{stage_id}/frames/claim` endpoint; under the hood it calls existing `claim_next_loop_indices` with `LIMIT = frame_policy.size`.
-- Worker iterates the returned rows in-process, accumulating results to a local list (Arrow IPC comes in Phase 3; for now use plain JSON).
+- Worker iterates the returned rows in-process, accumulating results to a local list (Arrow IPC comes in Phase 3; for now use canonical JSON with payload digests).
 - Worker commits the frame with one event per frame instead of one per row.
 - Migrate `test_pft_flow_v2.yaml` to opt in via `frame_policy:` on each `mode: cursor` step.
 
@@ -619,6 +801,7 @@ Verification:
 
 - Total `command.*` count drops from ~150k to < 20k on PFT v2.
 - Wall time should drop modestly (less server CPU on /claim) but not the headline target yet.
+- Replay parity stays green for frame state, loop progress, and execution status.
 
 ### Phase 2 — Decentralized projection (2 weeks)
 
@@ -626,7 +809,7 @@ Goal: extract projection from server, run as a StatefulSet, scale independently.
 
 - New `noetl-projector` binary entrypoint reusing the existing projection worker code.
 - Helm chart adds the StatefulSet, NATS durable consumer per replica, projection-store-only DB user.
-- Remove the in-process projection loop from the server. Server now only writes events.
+- Remove the in-process projection loop from the server. Server now appends canonical events and mirrors them to the distribution stream.
 - Add per-shard projection lag metric.
 
 Verification:
@@ -663,7 +846,7 @@ Goal: lift the runtime from "well-behaved on one cluster" to "addressable, sched
 
 ### Phase 5 — Pluggable event store / payload store / projection store (rolling, separate PRs per adapter)
 
-Goal: every backend in §§ 8–9 has a working adapter, language-paired, behind a feature flag.
+Goal: every backend class in §§ 8–9 has a working adapter, language-paired, behind a feature flag. Product choices stay deployment-specific; the compliance contract is architectural.
 
 Order (mirroring the existing distributed plan):
 
@@ -672,12 +855,15 @@ Order (mirroring the existing distributed plan):
 3. Postgres projection store adapter (refactor existing). Python + Rust.
 4. Kafka event store adapter.
 5. GCS payload store adapter.
-6. DynamoDB projection store adapter.
-7. … then the remainder in cloud-priority order.
+6. Cloud key-value/document projection adapter.
+7. Columnar analytical projection adapter.
+8. Streaming materialized-view adapter.
+9. … then the remainder in cloud-priority order.
 
 Every adapter ships with:
 
 - Compliance test suite (language-agnostic spec, run against both implementations).
+- Replay parity suite for canonical events, payload references, snapshots, and projection checksums.
 - Docker-compose entry for local development.
 - Cloud-provisioning ops playbook in `repos/ops/automation/`.
 
@@ -734,10 +920,12 @@ PFT v2 driver: `repos/e2e/fixtures/playbooks/pft_flow_test/test_pft_flow_v2.yaml
 
 ## 16. Decision log (what changed vs the original event-store-design-prompt)
 
-The original `event-store-design-prompt.md` (now archived) framed the problem as "add an event store abstraction layer." That framing is necessary but not sufficient. This revision adds three things the original did not address:
+The original `event-store-design-prompt.md` (now archived) framed the problem as "add an event store abstraction layer." That framing is necessary but not sufficient. This revision changes the framing:
 
-1. **Worker-side loop interpretation** as the dominant cost reduction, not just the storage abstraction. The PFT v2 baseline shows that even a perfect event store cannot save us from server-side per-row coordination overhead.
-2. **A specific GC + admission story for Tier 1.5** (budget, grace, unlink sweep). The original handwaved this; we have to make it concrete or the shm region count will run away.
-3. **A staged additive rollout** with frame-shaped cursor loops in Phase 1, before Arrow IPC and before pluggable backends. This lets us ship a measurable performance win in two weeks rather than waiting for a multi-quarter abstraction overhaul.
+1. **Event sourcing becomes the system kernel.** The goal is not just to swap storage backends; it is to reproduce tenant/org system state at a requested time from canonical events plus immutable payloads.
+2. **Shared memory becomes a product advantage, not just a cache.** The runtime uses Arrow IPC, local disk, distributed K/V, materialized views, and distributed indexes as a rebuildable shared-state fabric around the event log.
+3. **Worker-side loop interpretation** remains the dominant immediate cost reduction. The PFT v2 baseline shows that even a perfect event store cannot save us from server-side per-row coordination overhead.
+4. **A specific GC + admission story for Tier 1.5** (budget, grace, unlink sweep). The original handwaved this; we have to make it concrete or the shm region count will run away.
+5. **A staged additive rollout** with frame-shaped cursor loops in Phase 1, before Arrow IPC and before pluggable backends. This lets us ship a measurable performance win in two weeks rather than waiting for a multi-quarter abstraction overhaul.
 
-Other elements (three-layer model, backend adapters, content-addressed payloads, configuration schema) carry over from the original with edits to match the existing TempStore and projection-worker code that has shipped since the original was drafted.
+Other elements (three-layer model, backend adapters, content-addressed payloads, configuration schema) carry over from the original with edits to match the existing TempStore and projection-worker code that has shipped since the original was drafted. Product-specific analytical or streaming engines are intentionally not named as dependencies; NoETL adopts the underlying algorithms and contracts.
