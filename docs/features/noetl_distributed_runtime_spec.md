@@ -364,17 +364,29 @@ These coexist with `noetl.event` and `noetl.command`. Legacy tool steps are not 
 
 ### 5.2 Frame policy
 
-`frame_policy` is the configurable bound that decides how much work a single frame contains. The planner picks one of these strategies based on the step's DSL:
+`frame_policy` is the configurable bound that decides how much work a single frame contains. Phase 0 adds a typed runtime model as `FramePolicy` and accepts it on cursor loops as `loop.spec.frame` (or `loop.spec.frame_policy` internally). Defaults preserve today's one-row cursor behavior until a playbook opts into batching.
 
 ```yaml
-frame_policy:
-  size: 100                 # max rows per frame, optional
-  duration_ms: 5000         # max wall-time per frame, optional
-  memory_bytes: 67108864    # max in-flight Arrow buffer per frame
-  parallelism: 4            # how many frames can be in-flight per worker
+loop:
+  cursor: ...
+  spec:
+    mode: cursor
+    max_in_flight: 100      # worker slots
+    frame:
+      max_rows: 50          # max rows per frame
+      max_seconds: 30       # max wall-time per frame
+      max_bytes: 67108864   # max in-flight serialized output bytes
+      lease_seconds: 120    # initial lease window
+      heartbeat_seconds: 30 # expected heartbeat cadence
 ```
 
-For PFT v2, a sensible default is `{ size: 50, duration_ms: 30000, memory_bytes: 64MB, parallelism: 1 }`. That collapses today's 26k frames (size=1) to ~520 frames, a 50× drop, while keeping each frame under a half minute so worker crashes lose at most half a minute of work.
+For PFT v2, a sensible opt-in frame is `{ max_rows: 50, max_seconds: 30, max_bytes: 64MB, lease_seconds: 120, heartbeat_seconds: 30 }`. That collapses today's 26k frames (size=1) to ~520 frames, a 50× drop, while keeping each frame under a half minute so worker crashes lose at most half a minute of work.
+
+Implementation status:
+
+- `FramePolicy` now exists in `noetl.core.dsl.engine.models.workflow`.
+- Cursor loop dispatch includes the resolved frame policy in both `cursor_worker` tool config and command metadata.
+- The default policy is intentionally `max_rows=1` for compatibility; PFT v2 opt-in and actual multi-row worker claims remain Phase 1 work tracked by `noetl/noetl#436`.
 
 ### 5.3 Claim / heartbeat / commit API
 
@@ -940,11 +952,11 @@ Deliverable: dashboard URL + memory entry with baseline numbers, plus a replay p
 
 Goal: collapse N single-row cursor claims into N/50 multi-row frame claims, with no other architectural change.
 
-- Extend `cursor_worker.py` to accept a `frame_policy` payload alongside the existing cursor spec.
+- Extend `cursor_worker.py` to enforce the `frame_policy` payload now emitted alongside the existing cursor spec.
 - New `POST /api/stages/{stage_id}/frames/claim` endpoint; under the hood it calls existing `claim_next_loop_indices` with `LIMIT = frame_policy.size`.
 - Worker iterates the returned rows in-process, accumulating results to a local list (Arrow IPC comes in Phase 3; for now use canonical JSON with payload digests).
 - Worker commits the frame with one event per frame instead of one per row.
-- Migrate `test_pft_flow_v2.yaml` to opt in via `frame_policy:` on each `mode: cursor` step.
+- Migrate `test_pft_flow_v2.yaml` to opt in via `loop.spec.frame:` on each `mode: cursor` step.
 
 Verification:
 
