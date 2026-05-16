@@ -146,7 +146,12 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Features',
+      link: {
+        type: 'generated-index',
+        description: 'Core NoETL feature specs, distributed runtime designs, and advanced execution capabilities.',
+      },
       items: [
+        'features/noetl_distributed_runtime_spec',
         'features/noetl_dsl_refactoring_spec',
         'features/noetl_dsl_assignment_and_reference_spec',
         'features/reference-only-event-results-prd',
