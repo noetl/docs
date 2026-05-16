@@ -188,21 +188,22 @@ Implementation status:
 - Phase 0 folds execution, frame, stage, loop, and payload-reference lineage from `noetl.event`.
 - The endpoint returns a deterministic `sha256` checksum over the folded state.
 - The live reader tolerates pre-migration event tables during rolling rollout. If the additive tenant/org envelope columns are not present yet, replay treats only `tenant_id=default` and `organization_id=default` as visible legacy events.
-- Snapshot selection, payload resolution, schema upcasters, and business-object projection folds remain tracked by `noetl/noetl#440`.
+- A core replay upcaster registry now exists in Phase 0 (`noetl.core.replay.EventUpcasterRegistry`) and is wired into `ReplayService.replay_state`. The default registry preserves legacy events as `schema_name=noetl.event`, `schema_version=1`.
+- Snapshot selection, payload resolution, registered production upcasters for future schema revisions, and business-object projection folds remain tracked by `noetl/noetl#440`.
 
 Replay reconstructs state by:
 
 1. Loading the latest validated snapshot at or before the requested position.
 2. Reading canonical events from that snapshot position through the requested cutoff.
 3. Resolving immutable payload references through the payload store.
-4. Applying schema upcasters in deterministic order.
+4. Applying schema upcasters in deterministic order. The Phase 0 registry enforces monotonic version advancement so an upcaster cannot silently rewrite an event without moving the schema version forward.
 5. Folding events with the same projection code used by live projectors.
 
 Snapshots are performance accelerators. They are never the authority. A snapshot must record:
 
 - event position covered;
 - projection code version;
-- schema upcaster versions;
+- schema upcaster versions and registry digest;
 - payload digest set or Merkle root;
 - tenant encryption context;
 - deterministic fold checksum.
@@ -529,7 +530,7 @@ Rules:
 - **Large tabular payloads:** Apache Arrow IPC stream, media type `application/vnd.apache.arrow.stream`. Every payload records `schema_digest`, `row_count`, `byte_length`, compression codec, and content SHA-256.
 - **Nested business payloads:** JSON Schema / OpenAPI-compatible payloads for small objects; Arrow `struct`, `list`, and `map` types for large repeated data. Avoid pickle, language-native binary serialization, or runtime-specific object graphs.
 - **Decimals and time:** decimals carry precision/scale; timestamps are UTC with explicit unit; local time zones are data fields, not implicit runtime settings.
-- **Schema evolution:** every event has `schema_name` and `schema_version`. Upcasters are pure functions registered by `(schema_name, from_version, to_version)` and covered by replay tests.
+- **Schema evolution:** every event has `schema_name` and `schema_version`. Upcasters are pure functions registered by `(schema_name, from_version)` and must advance to a later `schema_version` before the next upcaster can run. The registry is deterministic and covered by replay tests; production releases must also record the registry digest in replay/projection snapshots.
 - **Cross-language parity:** Python and Rust compliance tests read the same golden event/payload corpus and compare fold checksums.
 
 The durable payload digest is computed over the exact serialized bytes. The projection checksum is computed over a canonical projection serialization, not over backend-specific storage bytes.
