@@ -6,8 +6,18 @@ sidebar_position: 30
 
 # NoETL Distributed Runtime + Event-Sourced Shared Memory Spec
 
-Status: design proposal, ready for staged refactoring.
+Status: staged implementation in progress.
 Owner: NoETL core (`repos/noetl`).
+Implementation tracker:
+
+- Umbrella: `noetl/noetl#434`.
+- Phase 0 PR: `noetl/noetl#435`.
+- Phase 1 frame execution: `noetl/noetl#436`.
+- Projectors: `noetl/noetl#437`.
+- Shared payload cache / Arrow IPC hints: `noetl/noetl#438`.
+- Event/projection store ports: `noetl/noetl#439`.
+- Replay regression / serialization gates: `noetl/noetl#440`.
+- Docs alignment: `noetl/noetl#441`.
 Companion specs that this revision builds on (do not re-spec):
 
 - `noetl_async_sharded_architecture.md` — sharded projection workers, epoch barriers.
@@ -171,6 +181,14 @@ GET /api/replay/state
     as_of_event_id | as_of_position | as_of_time
     projection = execution | frame | loop | business_object | all
 ```
+
+Implementation status:
+
+- `GET /api/replay/state` shipped in Phase 0 (`noetl/noetl#435`).
+- Phase 0 folds execution, frame, stage, loop, and payload-reference lineage from `noetl.event`.
+- The endpoint returns a deterministic `sha256` checksum over the folded state.
+- The live reader tolerates pre-migration event tables during rolling rollout. If the additive tenant/org envelope columns are not present yet, replay treats only `tenant_id=default` and `organization_id=default` as visible legacy events.
+- Snapshot selection, payload resolution, schema upcasters, and business-object projection folds remain tracked by `noetl/noetl#440`.
 
 Replay reconstructs state by:
 
@@ -363,17 +381,31 @@ New endpoints on the NoETL server, additive to the existing `/api/commands/*`:
 
 ```text
 POST /api/stages/{stage_id}/frames/claim
-  body: { worker_id, want, max_inflight }
+  body: { worker_id, requested_count, lease_seconds, cursor, frame_policy }
   returns: [ { frame_id, cursor, lease_until, dsl_ref, frame_policy } ... ]
 
 POST /api/frames/{frame_id}/heartbeat
-  body: { worker_id, cursor }
+  body: { worker_id, lease_seconds, status }
   returns: { lease_until }
 
 POST /api/frames/{frame_id}/commit
-  body: { worker_id, cursor, output_ref, row_count, status }
+  body: { worker_id, cursor, output_ref, row_count, status, events_emitted }
   returns: { ok, next_action }   # may immediately hand the worker the next frame
 ```
+
+Implementation status:
+
+- The frame control-plane endpoints are now present in `repos/noetl` behind the main API router:
+  - `POST /api/stages/{stage_id}/frames/claim`
+  - `POST /api/frames/{frame_id}/heartbeat`
+  - `POST /api/frames/{frame_id}/commit`
+- Phase 1 starts with explicit replayable frame leases. Claim either takes a pending/expired frame or lazily creates a frame row for the requested stage.
+- Each lifecycle transition emits a canonical frame event:
+  - `frame.dispatched`
+  - `frame.started`
+  - `frame.committed`
+  - `frame.failed`
+- Worker-side cursor integration still uses the existing `cursor_worker` path while `noetl/noetl#436` wires frame policy into that runtime.
 
 The HTTP surface is the operational fallback. The primary path uses NATS JetStream pull consumers (see §6) for lower-latency claim and built-in lease semantics.
 
@@ -853,11 +885,19 @@ The same image runs anywhere. Backend changes are config-only.
 
 ### Phase 0 — Instrumentation (1 week)
 
+Implementation status: partially shipped in `noetl/noetl#435`.
+
 - Add the metrics in §4 to Grafana / VictoriaMetrics dashboards (already deployed).
 - Baseline a fresh PFT v2 run on GKE. Capture the metric values and pin to memory.
-- Add `noetl.stage` and `noetl.frame` tables via Alembic migration (empty initially).
-- Add canonical event-envelope schema validation, including tenant/org scope, `schema_name`, `schema_version`, `idempotency_key`, payload digest, and deterministic checksum fields.
-- Add replay harness: rebuild execution/frame/loop projections from `noetl.event` + payload store and compare checksums against live projection rows.
+- Add `noetl.stage` and `noetl.frame` tables via canonical Postgres DDL. Done in Phase 0 as additive DDL.
+- Add canonical event-envelope schema validation, including tenant/org scope, `schema_name`, `schema_version`, `idempotency_key`, payload digest, and deterministic checksum fields. The additive columns are present; validation hardening remains incremental.
+- Add replay harness: rebuild execution/frame/loop projections from `noetl.event` + payload store and compare checksums against live projection rows. The first replay API is shipped; full parity harness remains tracked by `noetl/noetl#440`.
+
+Validation notes:
+
+- Focused runtime/replay regression is green in `repos/noetl`.
+- Local kind deployment is validated via `repos/ops/automation/infrastructure/kind.yaml` and `repos/ops/automation/development/noetl.yaml` using Podman.
+- Full repository pytest collection currently has legacy collection blockers unrelated to Phase 0; tracked by `noetl/noetl#440`.
 
 Deliverable: dashboard URL + memory entry with baseline numbers, plus a replay parity report for the baseline run. No code change to hot paths.
 
