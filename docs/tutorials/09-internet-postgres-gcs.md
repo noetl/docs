@@ -335,9 +335,75 @@ If the execution completed, the GCS write succeeded.
 
 ## GKE NoETL Cluster
 
-For GKE, create a separate CLI context that points at the GKE NoETL API. The
-example below uses a local port-forward on `18082` so it does not collide with
-local kind.
+For GKE, create a separate CLI context for the cluster. There are two supported
+ways to reach the same NoETL API:
+
+- **Gateway mode**: use `https://gateway.mestumre.dev` for normal
+  authenticated access to the shared `mestumre.dev` cluster.
+- **Direct port-forward mode**: use `http://localhost:18082` when you are
+  debugging as a cluster operator and intentionally bypassing the public
+  gateway.
+
+### Recommended: gateway context for `mestumre.dev`
+
+Use this mode when you want the CLI to behave like a user of the hosted
+cluster. The context points at the gateway, and `noetl auth login` exchanges
+your Auth0 login for a gateway session token cached in the local context.
+
+```bash
+export NOETL_URL=https://gateway.mestumre.dev
+
+noetl context add mestumre-gke \
+  --server-url "$NOETL_URL" \
+  --runtime distributed \
+  --auth0-domain mestumre-development.us.auth0.com \
+  --auth0-client-id REPLACE_WITH_AUTH0_CLIENT_ID \
+  --auth0-redirect-uri https://mestumre.dev/login \
+  --set-current
+```
+
+Prefer the browser PKCE flow. It opens Auth0 in your browser and handles the
+callback locally, so you do not need to copy an `id_token` by hand:
+
+```bash
+noetl auth login --browser-pkce
+```
+
+If PKCE is unavailable in your CLI build, use the browser/device flow:
+
+```bash
+noetl auth login --browser
+```
+
+Fallback manual token flow:
+
+1. Open `https://mestumre.dev/login` and sign in with Auth0.
+2. After Auth0 redirects back, copy the full browser URL from the address bar.
+   It should look like `https://mestumre.dev/login#id_token=...`.
+3. Paste that full callback URL into the CLI:
+
+```bash
+noetl auth login \
+  --auth0-callback-url 'https://mestumre.dev/login#id_token=REPLACE_WITH_ID_TOKEN'
+```
+
+Do not commit or paste the real `id_token` into docs, shell history snippets, or
+issue comments. It is a bearer token. Once login succeeds, use the gateway
+context for the tutorial commands:
+
+```bash
+noetl --gateway catalog list credential
+```
+
+If your context URL is already `https://gateway.mestumre.dev`, gateway proxy
+mode is auto-detected by recent CLI builds; `--gateway` is still useful as an
+explicit signal in shared runbooks.
+
+### Alternative: direct port-forward context
+
+Use this mode when you have Kubernetes access and want direct admin/debug
+access to the NoETL server service. The example below uses a local port-forward
+on `18082` so it does not collide with local kind.
 
 ```bash
 kubectl config use-context REPLACE_WITH_GKE_CONTEXT
