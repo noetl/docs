@@ -488,6 +488,14 @@ class IpcHint:
     valid_until: datetime    # writer-promised minimum lifetime
 ```
 
+Implementation status:
+
+- `repos/noetl` now exposes `IpcHint` on `ResultRef` / `TempRef`.
+- `ResultRefMeta` records Arrow/replay-relevant payload metadata: `media_type`, `schema_digest`, and `row_count`.
+- `IpcHint` is explicitly best-effort. It carries `shm_name`, `schema_digest`, `byte_length`, optional `row_count`, `producer`, `lease_expires_at`, and media type.
+- The durable `ResultRef` remains authoritative; consumers must treat expired or missing IPC hints as cache misses and fall back through durable storage.
+- Actual Arrow shared-memory admission, attach, and GC workers remain tracked by `noetl/noetl#438`.
+
 ### 6.4 Producer / consumer protocol
 
 Producer (any worker that emits a record batch):
