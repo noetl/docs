@@ -353,6 +353,10 @@ CREATE TABLE IF NOT EXISTS noetl.stage (
   stage_id        BIGINT      PRIMARY KEY,         -- snowflake id
   execution_id    BIGINT      NOT NULL REFERENCES noetl.execution(execution_id),
   parent_event_id BIGINT      REFERENCES noetl.event(event_id),
+  parent_stage_id BIGINT      REFERENCES noetl.stage(stage_id),
+  loop_event_id   TEXT,
+  opened_event_id BIGINT,
+  closed_event_id BIGINT,
   kind            TEXT        NOT NULL CHECK (kind IN ('loop','fanout','reduce')),
   step_name       TEXT        NOT NULL,
   dsl_ref         TEXT        NOT NULL,            -- pointer to playbook step
@@ -366,6 +370,11 @@ CREATE TABLE IF NOT EXISTS noetl.stage (
 CREATE TABLE IF NOT EXISTS noetl.frame (
   frame_id        BIGINT      PRIMARY KEY,         -- snowflake id
   stage_id        BIGINT      NOT NULL REFERENCES noetl.stage(stage_id),
+  execution_id    BIGINT      NOT NULL REFERENCES noetl.execution(execution_id),
+  parent_frame_id BIGINT      REFERENCES noetl.frame(frame_id),
+  command_id      BIGINT,
+  claimed_event_id BIGINT,
+  terminal_event_id BIGINT,
   cursor          JSONB       NOT NULL,            -- driver-specific resume hint
   row_count       INTEGER     NOT NULL DEFAULT 0,
   status          TEXT        NOT NULL DEFAULT 'PENDING',
@@ -380,9 +389,50 @@ CREATE TABLE IF NOT EXISTS noetl.frame (
 CREATE INDEX IF NOT EXISTS frame_open_idx
   ON noetl.frame (stage_id, status, lease_until)
   WHERE status IN ('PENDING','CLAIMED','RUNNING');
+
+CREATE INDEX IF NOT EXISTS idx_stage_execution_step_loop
+  ON noetl.stage (execution_id, step_name, loop_event_id)
+  WHERE loop_event_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_frame_stage_frame
+  ON noetl.frame (stage_id, frame_id);
+CREATE INDEX IF NOT EXISTS idx_frame_command
+  ON noetl.frame (command_id)
+  WHERE command_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_command_stage_worker_slot
+  ON noetl.command (execution_id, stage_id, ((meta->>'worker_slot_id')))
+  WHERE stage_id IS NOT NULL AND meta ? 'worker_slot_id';
+CREATE INDEX IF NOT EXISTS idx_event_exec_stage_event_id_desc
+  ON noetl.event (execution_id, stage_id, event_id DESC)
+  WHERE stage_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_event_exec_frame_event_id_desc
+  ON noetl.event (execution_id, frame_id, event_id DESC)
+  WHERE frame_id IS NOT NULL;
 ```
 
 These coexist with `noetl.event` and `noetl.command`. Legacy tool steps are not migrated.
+
+### 5.1.1 Replay lineage graph
+
+The stage/frame tables are operational projections, but their keys must make replay and audit cheap without scraping JSON. The current implementation uses this graph:
+
+```text
+execution
+  └─ stage
+       ├─ parent_stage_id       -> parent stage for nested/fan-out chains
+       ├─ loop_event_id         -> loop epoch that opened the stage
+       ├─ opened_event_id       -> noetl.event(stage.opened)
+       ├─ closed_event_id       -> noetl.event(stage.closed)
+       ├─ command.stage_id      -> worker commands issued for the stage
+       └─ frame
+            ├─ parent_frame_id  -> upstream frame for derived/reduce work
+            ├─ command_id       -> noetl.command that owns the worker slot
+            ├─ claimed_event_id -> noetl.event(frame.dispatched)
+            └─ terminal_event_id-> noetl.event(frame.committed|frame.failed)
+```
+
+`noetl.event` also carries direct `stage_id` and `frame_id` columns for stage/frame lifecycle events and command events where the producer knows the projection key. Those columns are indexed for replay scans by `(execution_id, stage_id, event_id DESC)` and `(execution_id, frame_id, event_id DESC)`. `noetl.command` carries `stage_id` and `frame_id`; the cursor-worker path resolves `frame.command_id` from the command context and has a server-side fallback indexed by `(execution_id, stage_id, meta->>'worker_slot_id')`.
+
+`parent_stage_id` and `parent_frame_id` are intentionally present before all producers use them. Cursor loops currently use `loop_event_id` as the direct stage correlation key; fan-out/reduce will use parent ids to preserve the execution tree without replaying every event payload.
 
 ### 5.2 Frame policy
 
@@ -417,7 +467,7 @@ New endpoints on the NoETL server, additive to the existing `/api/commands/*`:
 
 ```text
 POST /api/stages/{stage_id}/frames/claim
-  body: { worker_id, requested_count, lease_seconds, cursor, frame_policy }
+  body: { worker_id, command_id?, requested_count, lease_seconds, cursor, frame_policy }
   returns: [ { frame_id, cursor, lease_until, dsl_ref, frame_policy } ... ]
 
 POST /api/frames/{frame_id}/heartbeat
@@ -442,6 +492,7 @@ Implementation status:
   - `frame.committed`
   - `frame.failed`
 - Frame lifecycle events now populate `stream_version` and `envelope_checksum`, so replay can order stage-local frame transitions and detect envelope drift with the same checksum contract as the event-store port.
+- Frame claims now persist `frame.command_id` from the worker command context. If an older worker omits it, the server resolves it from `(execution_id, stage_id, worker_slot_id)` using the indexed command metadata path.
 - Worker-side cursor integration still uses the existing `cursor_worker` path while `noetl/noetl#436` wires frame policy into that runtime.
 
 The HTTP surface is the operational fallback. The primary path uses NATS JetStream pull consumers (see §6) for lower-latency claim and built-in lease semantics.
@@ -982,7 +1033,8 @@ Validation notes:
 - Local kind deployment is validated via `repos/ops/automation/infrastructure/kind.yaml` and `repos/ops/automation/development/noetl.yaml` using Podman.
 - Latest local kind validation for `noetl/noetl#435`: image `local/noetl:2026-05-16-22-49`, health/replay/pod/log smokes passed, `/metrics` exposes the IPC counters, a temporary frame claim emitted `stream_version=1`, 64-character `envelope_checksum`, and non-null `catalog_id`, in-pod Arrow IPC TempStore round-trip passed, in-pod cursor-worker frame capture produced two Arrow-backed frames from three claimed rows, and the deployed server image imports `ReplayStateProjector`, `NATSProjectorWorker`, `NATSEventPublisher`, and the `python -m noetl.projector` entrypoint.
 - Frame-loop local kind validation on 2026-05-17 (`noetl/noetl#435`, `noetl/e2e#22`, `noetl/ops#98`) completed PFT v2 execution `628959278765703700` in 33m10s. The run populated 60 `noetl.stage` rows and 5,570 `noetl.frame` rows, emitted 60 `stage.opened`, 5,570 `frame.dispatched`, and 5,570 `frame.committed` events, and emitted zero `frame.failed` events. The fixture used three `paginated-api` replicas with `PFT_RATE_LIMIT=500`; strict fixture 429 checks and worker/server error checks were clean in the final validation windows.
-- Follow-up: stages currently remain `OPEN` after workflow completion because Phase 0/1 emits `stage.opened` and frame terminal events but not a terminal stage event yet. `noetl/noetl#443` tracks adding `stage.closed` / terminal stage projection so replayed stage state can distinguish active stages from historical completed stages without heuristics.
+- Stage terminal events are now implemented in the Phase 0 branch: the executor emits `stage.closed`, records `closed_event_id`, and marks the stage `COMPLETED` when the loop epoch finishes. `noetl/noetl#443` remains the tracker for hardening this into the terminal stage projection/reaper path.
+- Lineage validation on local kind image `localhost/local/noetl:2026-05-17-13-32` completed PFT v2 execution `629003028435042682` in 33m36s with `completed=true` and `failed=false`. Final counters: 60 `stage.opened`, 60 `stage.closed`, 5,562 `frame.dispatched`, 5,562 `frame.committed`, zero `frame.failed`, all 60 stages `COMPLETED`, `frame.command_id`/`claimed_event_id`/`terminal_event_id` populated on all 5,562 frames, and completed frames averaged 49.34 rows with max 50.
 - Full repository pytest collection currently has legacy collection blockers unrelated to Phase 0; tracked by `noetl/noetl#440`.
 
 Deliverable: dashboard URL + memory entry with baseline numbers, plus a replay parity report for the baseline run. No code change to hot paths.
