@@ -424,6 +424,7 @@ Implementation status:
   - `frame.started`
   - `frame.committed`
   - `frame.failed`
+- Frame lifecycle events now populate `stream_version` and `envelope_checksum`, so replay can order stage-local frame transitions and detect envelope drift with the same checksum contract as the event-store port.
 - Worker-side cursor integration still uses the existing `cursor_worker` path while `noetl/noetl#436` wires frame policy into that runtime.
 
 The HTTP surface is the operational fallback. The primary path uses NATS JetStream pull consumers (see §6) for lower-latency claim and built-in lease semantics.
