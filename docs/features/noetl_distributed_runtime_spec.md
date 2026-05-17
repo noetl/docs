@@ -191,7 +191,8 @@ Implementation status:
 - A core replay upcaster registry now exists in Phase 0 (`noetl.core.replay.EventUpcasterRegistry`) and is wired into `ReplayService.replay_state`. The default registry preserves legacy events as `schema_name=noetl.event`, `schema_version=1`.
 - Replay state includes `upcaster_registry_digest`, a stable SHA-256 digest of the registered `(schema_name, from_version)` transitions used for the fold.
 - A golden replay corpus now lives under `tests/fixtures/replay/` in `repos/noetl` and asserts a stable fold checksum for execution, stage, frame, payload-reference, and registry-digest state.
-- Snapshot selection, payload resolution, registered production upcasters for future schema revisions, and business-object projection folds remain tracked by `noetl/noetl#440`.
+- Event-position snapshot selection now exists for `projection_snapshot` rows with `aggregate_type=replay_state` and `aggregate_id=execution/<execution_id>/<projection>`. Replay can seed from the snapshot, skip earlier events, and fold the remaining stream.
+- Time-based snapshot selection, payload resolution, registered production upcasters for future schema revisions, and business-object projection folds remain tracked by `noetl/noetl#440`.
 
 Replay reconstructs state by:
 
