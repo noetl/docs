@@ -303,10 +303,10 @@ for PFT v2 validation. That gives enough pod-level capacity for the target
 50 requests/second contract and keeping 429s meaningful when a single worker
 bursts too hard.
 
-The playbook's `pft_http_concurrency` variable is the client-side pressure
-knob. Every PFT v2 cursor loop must bind `loop.spec.max_in_flight` to that
-variable rather than hard-coding per-loop concurrency; otherwise a benchmark
-can accidentally validate retry behavior instead of runtime throughput.
+The playbook's `pft_http_concurrency` variable documents the client-side
+pressure target. Until `loop.spec.max_in_flight` supports templated values at
+catalog validation time, every PFT v2 cursor loop must use the same resolved
+integer value rather than drifting to a higher hard-coded concurrency.
 Each PFT v2 cursor loop must also opt into `loop.spec.frame` with
 `max_rows: 50` so the stage/frame runtime is exercised. A run that leaves
 `noetl.stage` and `noetl.frame` empty is still on the legacy cursor-command
