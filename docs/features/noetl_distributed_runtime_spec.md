@@ -458,7 +458,9 @@ Implementation status:
 
 - `FramePolicy` now exists in `noetl.core.dsl.engine.models.workflow`.
 - Cursor loop dispatch includes the resolved frame policy in both `cursor_worker` tool config and command metadata.
-- The `cursor_worker` runtime now enforces `max_rows`, `max_seconds`, and `max_bytes` while claiming rows from the driver. A frame with `max_rows > 1` claims a bounded row window, runs the existing task pipeline over each row in-process, and returns frame metadata in the terminal command result.
+- The `cursor_worker` runtime passes `__frame_max_rows` and `__frame_policy` into cursor claim rendering, then asks the driver for a frame-sized row window. Drivers without a batched path fall back to repeated single-row claims.
+- The Postgres cursor driver now implements `claim_many(...)`. If the playbook claim SQL uses `LIMIT {{ __frame_max_rows | default(1) | int }}`, one database round-trip claims a whole frame instead of one row. PFT v2 uses this form for all patient-domain and MDS-detail cursor queues.
+- The `cursor_worker` runtime runs the existing task pipeline over each claimed row in-process and returns frame metadata in the terminal command result.
 - Claimed frame rows are serialized as Apache Arrow IPC stream bytes through `TempStore.put_ipc_bytes`. The command result carries a durable `rows_ref` with schema digest, row count, media type, and optional Tier 1.5 IPC hint. Default `max_rows=1` preserves existing one-row behavior unless a playbook opts into batching.
 
 ### 5.3 Claim / heartbeat / commit API
@@ -495,7 +497,7 @@ Implementation status:
 - Frame lifecycle events now populate `stream_version` and `envelope_checksum`, so replay can order stage-local frame transitions and detect envelope drift with the same checksum contract as the event-store port.
 - Frame claims now persist `frame.command_id` from the worker command context. If an older worker omits it, the server resolves it from `(execution_id, stage_id, worker_slot_id)` using the indexed command metadata path.
 - When a worker reclaims an expired `CLAIMED` / `RUNNING` frame, the server emits `frame.abandoned` before the new `frame.dispatched` event. Replay therefore sees the recovery chain as append-only history rather than inferring it from a mutable row overwrite.
-- Worker-side cursor integration still uses the existing `cursor_worker` path while `noetl/noetl#436` wires frame policy into that runtime.
+- Worker-side cursor integration uses the existing `cursor_worker` path with frame policy and batched driver claims. The remaining Phase 1 work is validation, telemetry, and removing any residual per-row server coordination from non-PFT cursor shapes.
 
 The HTTP surface is the operational fallback. The primary path uses NATS JetStream pull consumers (see §6) for lower-latency claim and built-in lease semantics.
 
