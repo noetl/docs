@@ -45,6 +45,27 @@ noetl run automation/deploy.yaml --payload '{"env":"staging","debug":true}'
 noetl run automation/deploy.yaml -v
 ```
 
+For distributed catalog execution, CLI overrides are merged into the
+execution workload sent to the server. Both forms below set the same workload
+fields:
+
+```bash
+noetl exec catalog://fixtures/playbooks/pft_flow_test/test_pft_flow_v2@8 \
+  --runtime distributed \
+  --set num_facilities=1 \
+  --set patients_per_facility=10
+
+noetl exec catalog://fixtures/playbooks/pft_flow_test/test_pft_flow_v2@8 \
+  --runtime distributed \
+  --set workload.num_facilities=1 \
+  --set workload.patients_per_facility=10
+```
+
+Use `--payload '{"num_facilities":1}'` for larger JSON payloads; repeated
+`--set` values override payload fields. Dotted `--set` keys create nested JSON
+objects, except the leading `workload.` prefix is treated as an alias for the
+root workload object.
+
 **Runtime Resolution Priority**:
 1. `--runtime` / `-r` flag (explicit: `local` or `distributed`)
 2. Context configuration (`noetl context set-runtime`)
