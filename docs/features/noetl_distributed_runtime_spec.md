@@ -307,6 +307,10 @@ The playbook's `pft_http_concurrency` variable is the client-side pressure
 knob. Every PFT v2 cursor loop must bind `loop.spec.max_in_flight` to that
 variable rather than hard-coding per-loop concurrency; otherwise a benchmark
 can accidentally validate retry behavior instead of runtime throughput.
+Each PFT v2 cursor loop must also opt into `loop.spec.frame` with
+`max_rows: 50` so the stage/frame runtime is exercised. A run that leaves
+`noetl.stage` and `noetl.frame` empty is still on the legacy cursor-command
+path and is not a valid Phase 1 benchmark.
 
 Per execution, capture:
 
