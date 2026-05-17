@@ -957,7 +957,7 @@ Validation notes:
 
 - Focused runtime/replay regression is green in `repos/noetl`.
 - Local kind deployment is validated via `repos/ops/automation/infrastructure/kind.yaml` and `repos/ops/automation/development/noetl.yaml` using Podman.
-- Latest local kind validation for `noetl/noetl#435`: image `local/noetl:2026-05-16-22-13`, health/replay/pod/log smokes passed, `/metrics` exposes the IPC counters, in-pod Arrow IPC TempStore round-trip passed, and in-pod cursor-worker frame capture produced two Arrow-backed frames from three claimed rows.
+- Latest local kind validation for `noetl/noetl#435`: image `local/noetl:2026-05-16-22-26`, health/replay/pod/log smokes passed, `/metrics` exposes the IPC counters, a temporary frame claim emitted `stream_version=1`, 64-character `envelope_checksum`, and non-null `catalog_id`, in-pod Arrow IPC TempStore round-trip passed, and in-pod cursor-worker frame capture produced two Arrow-backed frames from three claimed rows.
 - Full repository pytest collection currently has legacy collection blockers unrelated to Phase 0; tracked by `noetl/noetl#440`.
 
 Deliverable: dashboard URL + memory entry with baseline numbers, plus a replay parity report for the baseline run. No code change to hot paths.
