@@ -511,8 +511,9 @@ Implementation status:
 - `ResultRefMeta` records Arrow/replay-relevant payload metadata: `media_type`, `schema_digest`, and `row_count`.
 - `IpcHint` is explicitly best-effort. It carries `shm_name`, `schema_digest`, `byte_length`, optional `row_count`, `producer`, `lease_expires_at`, and media type.
 - `ArrowIpcSharedMemoryCache` now provides the first Tier 1.5 implementation surface in `noetl.core.storage.ipc_cache`: budget enforcement, POSIX shared-memory allocation, `IpcHint` creation, read/attach, delete, and expired-lease sweep.
+- `TempStore.put_ipc_bytes` / `get_ipc_bytes` now provide an explicit raw Arrow IPC path: durable bytes are always written, IPC admission is optional, and reads fall back to the durable tier when the shared-memory hint is expired or missing.
 - The durable `ResultRef` remains authoritative; consumers must treat expired or missing IPC hints as cache misses and fall back through durable storage.
-- Wiring this cache into TempStore admission and worker frame output remains tracked by `noetl/noetl#438`.
+- Wiring this path into worker frame output and adding hit/miss metrics remains tracked by `noetl/noetl#438`.
 
 ### 6.4 Producer / consumer protocol
 
