@@ -577,6 +577,7 @@ The durable payload digest is computed over the exact serialized bytes. The proj
 ### 7.2 Refactor
 
 - Extract projection into its own deployable: `noetl-projector`. Same image, different entrypoint.
+- Keep the reducer transport-neutral: the same deterministic projector core must accept events from tests, replay, NATS JetStream, Kafka, or cloud stream adapters. Transport code owns delivery and checkpointing; reducer code owns ordering, folding, lineage, checksum, and idempotent writes.
 - Each projector instance owns one or more shards via NATS JetStream pull consumer group (`noetl.projection.shard.<n>`).
 - Shard assignment is sticky: a projector keeps a shard as long as it heartbeats. On stop, NATS reassigns. This is the standard JetStream durable consumer pattern.
 - Each shard has its own Postgres connection (or its own backend entirely, see §8 for the projection store abstraction). Total projection throughput scales linearly with shard count.
@@ -646,11 +647,13 @@ Implementation status:
 - `ProjectionRecord` and `ProjectionSnapshot` define idempotent projection and snapshot writes.
 - `projection_checksum()` provides deterministic JSON checksums for replay parity.
 - `PostgresProjectionStore` is the reference adapter and writes to additive `noetl.projection` and `noetl.projection_snapshot` tables.
+- The first transport-neutral reducer is present in `repos/noetl/noetl/core/projector`. `ReplayStateProjector` groups events by tenant, organization, and execution, orders by event position, folds them with the same replay-state reducer used by `GET /api/replay/state`, and writes lineage-rich `ProjectionRecord` rows with checksum and upcaster-registry metadata.
 - The adapter currently supports:
   - `save_projection(record)` with version-monotonic upsert semantics;
   - `load_projection(projection_id)`;
   - `save_snapshot(snapshot)` with version-monotonic upsert semantics;
   - `load_snapshot(aggregate_id, aggregate_type=...)`.
+- NATS durable consumer wiring, shard checkpoints, projector deployment manifests, and lag metrics remain tracked by `noetl/noetl#437`.
 - Non-Postgres projection adapters remain tracked by `noetl/noetl#439`.
 
 Projection backend roles:
