@@ -514,11 +514,12 @@ Implementation status:
 - `IpcHint` is explicitly best-effort. It carries `shm_name`, `schema_digest`, `byte_length`, optional `row_count`, `producer`, `lease_expires_at`, and media type.
 - `ArrowIpcSharedMemoryCache` now provides the first Tier 1.5 implementation surface in `noetl.core.storage.ipc_cache`: budget enforcement, POSIX shared-memory allocation, `IpcHint` creation, read/attach, delete, and expired-lease sweep.
 - `TempStore.put_ipc_bytes` / `get_ipc_bytes` now provide an explicit raw Arrow IPC path: durable bytes are always written, IPC admission is optional, and reads fall back to the durable tier when the shared-memory hint is expired or missing.
-- `TempStore.ipc_stats()` exposes local counters for admission attempts/success/failures, read attempts/hits/misses, and durable fallback reads. These are intentionally local process counters for Phase 0; exporting them to the runtime metrics plane remains follow-up work.
+- `TempStore.ipc_stats()` exposes local counters for admission attempts/success/failures, read attempts/hits/misses, and durable fallback reads.
+- `/metrics` now exports the server process's TempStore IPC counters as `noetl_storage_ipc_*` Prometheus metrics, plus `noetl_storage_ipc_read_hit_ratio`. Worker-process metric scraping remains follow-up work unless workers are run with an HTTP metrics sidecar.
 - `noetl.core.storage.arrow_ipc` now provides the runtime serialization primitive: `rows_to_arrow_ipc` and `arrow_ipc_to_rows`. Schema digests are computed from Arrow's serialized schema, not from row values, so replay/projector code can compare logical frame shape independently from payload content.
 - `cursor_worker` now writes multi-row frame captures through this path when `frame_policy.max_rows > 1` or `NOETL_CURSOR_FRAME_CAPTURE_ENABLED=true`. `NOETL_CURSOR_FRAME_IPC_ENABLED=false` disables only the same-node IPC admission; the durable payload write remains authoritative.
 - The durable `ResultRef` remains authoritative; consumers must treat expired or missing IPC hints as cache misses and fall back through durable storage.
-- Exporting hit/miss metrics to the runtime metrics plane remains tracked by `noetl/noetl#438`.
+- Worker-side metrics export and aggregation across pods remains tracked by `noetl/noetl#438`.
 
 ### 6.4 Producer / consumer protocol
 
