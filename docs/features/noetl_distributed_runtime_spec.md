@@ -295,6 +295,19 @@ Key observations from the diagram:
 
 Before any code change ships, baseline the PFT v2 run with telemetry the team can reason from. This is the metric set every later phase is judged against.
 
+The PFT fixture API must not become the benchmark bottleneck. The
+`paginated-api` test server enforces the PFT endpoint request limit in each
+process, so local kind and GKE deployments should run at least three replicas
+for PFT v2 validation. That gives enough pod-level capacity for the target
+30-50 requests/second workload while preserving the fixture's per-process
+50 requests/second contract and keeping 429s meaningful when a single worker
+bursts too hard.
+
+The playbook's `pft_http_concurrency` variable is the client-side pressure
+knob. Every PFT v2 cursor loop must bind `loop.spec.max_in_flight` to that
+variable rather than hard-coding per-loop concurrency; otherwise a benchmark
+can accidentally validate retry behavior instead of runtime throughput.
+
 Per execution, capture:
 
 | Metric | How | Today's value (PFT v2 GKE 2026-05-15) |
