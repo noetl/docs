@@ -512,8 +512,9 @@ Implementation status:
 - `IpcHint` is explicitly best-effort. It carries `shm_name`, `schema_digest`, `byte_length`, optional `row_count`, `producer`, `lease_expires_at`, and media type.
 - `ArrowIpcSharedMemoryCache` now provides the first Tier 1.5 implementation surface in `noetl.core.storage.ipc_cache`: budget enforcement, POSIX shared-memory allocation, `IpcHint` creation, read/attach, delete, and expired-lease sweep.
 - `TempStore.put_ipc_bytes` / `get_ipc_bytes` now provide an explicit raw Arrow IPC path: durable bytes are always written, IPC admission is optional, and reads fall back to the durable tier when the shared-memory hint is expired or missing.
+- `TempStore.ipc_stats()` exposes local counters for admission attempts/success/failures, read attempts/hits/misses, and durable fallback reads. These are intentionally local process counters for Phase 0; exporting them to the runtime metrics plane remains follow-up work.
 - The durable `ResultRef` remains authoritative; consumers must treat expired or missing IPC hints as cache misses and fall back through durable storage.
-- Wiring this path into worker frame output and adding hit/miss metrics remains tracked by `noetl/noetl#438`.
+- Wiring this path into worker frame output and exporting hit/miss metrics remains tracked by `noetl/noetl#438`.
 
 ### 6.4 Producer / consumer protocol
 
