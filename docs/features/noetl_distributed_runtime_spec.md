@@ -489,10 +489,12 @@ Implementation status:
 - Each lifecycle transition emits a canonical frame event:
   - `frame.dispatched`
   - `frame.started`
+  - `frame.abandoned`
   - `frame.committed`
   - `frame.failed`
 - Frame lifecycle events now populate `stream_version` and `envelope_checksum`, so replay can order stage-local frame transitions and detect envelope drift with the same checksum contract as the event-store port.
 - Frame claims now persist `frame.command_id` from the worker command context. If an older worker omits it, the server resolves it from `(execution_id, stage_id, worker_slot_id)` using the indexed command metadata path.
+- When a worker reclaims an expired `CLAIMED` / `RUNNING` frame, the server emits `frame.abandoned` before the new `frame.dispatched` event. Replay therefore sees the recovery chain as append-only history rather than inferring it from a mutable row overwrite.
 - Worker-side cursor integration still uses the existing `cursor_worker` path while `noetl/noetl#436` wires frame policy into that runtime.
 
 The HTTP surface is the operational fallback. The primary path uses NATS JetStream pull consumers (see §6) for lower-latency claim and built-in lease semantics.
@@ -1035,6 +1037,7 @@ Validation notes:
 - Frame-loop local kind validation on 2026-05-17 (`noetl/noetl#435`, `noetl/e2e#22`, `noetl/ops#98`) completed PFT v2 execution `628959278765703700` in 33m10s. The run populated 60 `noetl.stage` rows and 5,570 `noetl.frame` rows, emitted 60 `stage.opened`, 5,570 `frame.dispatched`, and 5,570 `frame.committed` events, and emitted zero `frame.failed` events. The fixture used three `paginated-api` replicas with `PFT_RATE_LIMIT=500`; strict fixture 429 checks and worker/server error checks were clean in the final validation windows.
 - Stage terminal events are now implemented in the Phase 0 branch: the executor emits `stage.closed`, records `closed_event_id`, and marks the stage `COMPLETED` when the loop epoch finishes. `noetl/noetl#443` remains the tracker for hardening this into the terminal stage projection/reaper path.
 - Lineage validation on local kind image `localhost/local/noetl:2026-05-17-13-32` completed PFT v2 execution `629003028435042682` in 33m36s with `completed=true` and `failed=false`. Final counters: 60 `stage.opened`, 60 `stage.closed`, 5,562 `frame.dispatched`, 5,562 `frame.committed`, zero `frame.failed`, all 60 stages `COMPLETED`, `frame.command_id`/`claimed_event_id`/`terminal_event_id` populated on all 5,562 frames, and completed frames averaged 49.34 rows with max 50.
+- Replay hardening now folds direct `event.stage_id`, `event.frame_id`, and `event.command_id` columns; records stage open/close event ids and frame claim/terminal event ids; and treats `frame.abandoned` as a deterministic lease-recovery transition. The golden replay corpus checksum was updated to cover these extra lineage fields.
 - Full repository pytest collection currently has legacy collection blockers unrelated to Phase 0; tracked by `noetl/noetl#440`.
 
 Deliverable: dashboard URL + memory entry with baseline numbers, plus a replay parity report for the baseline run. No code change to hot paths.
