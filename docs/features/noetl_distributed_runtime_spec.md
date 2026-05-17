@@ -391,7 +391,8 @@ Implementation status:
 
 - `FramePolicy` now exists in `noetl.core.dsl.engine.models.workflow`.
 - Cursor loop dispatch includes the resolved frame policy in both `cursor_worker` tool config and command metadata.
-- The default policy is intentionally `max_rows=1` for compatibility; PFT v2 opt-in and actual multi-row worker claims remain Phase 1 work tracked by `noetl/noetl#436`.
+- The `cursor_worker` runtime now enforces `max_rows`, `max_seconds`, and `max_bytes` while claiming rows from the driver. A frame with `max_rows > 1` claims a bounded row window, runs the existing task pipeline over each row in-process, and returns frame metadata in the terminal command result.
+- Claimed frame rows are serialized as Apache Arrow IPC stream bytes through `TempStore.put_ipc_bytes`. The command result carries a durable `rows_ref` with schema digest, row count, media type, and optional Tier 1.5 IPC hint. Default `max_rows=1` preserves existing one-row behavior unless a playbook opts into batching.
 
 ### 5.3 Claim / heartbeat / commit API
 
@@ -514,8 +515,10 @@ Implementation status:
 - `ArrowIpcSharedMemoryCache` now provides the first Tier 1.5 implementation surface in `noetl.core.storage.ipc_cache`: budget enforcement, POSIX shared-memory allocation, `IpcHint` creation, read/attach, delete, and expired-lease sweep.
 - `TempStore.put_ipc_bytes` / `get_ipc_bytes` now provide an explicit raw Arrow IPC path: durable bytes are always written, IPC admission is optional, and reads fall back to the durable tier when the shared-memory hint is expired or missing.
 - `TempStore.ipc_stats()` exposes local counters for admission attempts/success/failures, read attempts/hits/misses, and durable fallback reads. These are intentionally local process counters for Phase 0; exporting them to the runtime metrics plane remains follow-up work.
+- `noetl.core.storage.arrow_ipc` now provides the runtime serialization primitive: `rows_to_arrow_ipc` and `arrow_ipc_to_rows`. Schema digests are computed from Arrow's serialized schema, not from row values, so replay/projector code can compare logical frame shape independently from payload content.
+- `cursor_worker` now writes multi-row frame captures through this path when `frame_policy.max_rows > 1` or `NOETL_CURSOR_FRAME_CAPTURE_ENABLED=true`. `NOETL_CURSOR_FRAME_IPC_ENABLED=false` disables only the same-node IPC admission; the durable payload write remains authoritative.
 - The durable `ResultRef` remains authoritative; consumers must treat expired or missing IPC hints as cache misses and fall back through durable storage.
-- Wiring this path into worker frame output and exporting hit/miss metrics remains tracked by `noetl/noetl#438`.
+- Exporting hit/miss metrics to the runtime metrics plane remains tracked by `noetl/noetl#438`.
 
 ### 6.4 Producer / consumer protocol
 
@@ -960,9 +963,9 @@ Deliverable: dashboard URL + memory entry with baseline numbers, plus a replay p
 
 Goal: collapse N single-row cursor claims into N/50 multi-row frame claims, with no other architectural change.
 
-- Extend `cursor_worker.py` to enforce the `frame_policy` payload now emitted alongside the existing cursor spec.
+- Extend `cursor_worker.py` to enforce the `frame_policy` payload now emitted alongside the existing cursor spec. The first implementation is in `noetl/noetl#435`: bounded claim windows are processed in-process and captured as Arrow IPC frame refs.
 - New `POST /api/stages/{stage_id}/frames/claim` endpoint; under the hood it calls existing `claim_next_loop_indices` with `LIMIT = frame_policy.size`.
-- Worker iterates the returned rows in-process, accumulating results to a local list (Arrow IPC comes in Phase 3; for now use canonical JSON with payload digests).
+- Worker iterates the claimed rows in-process and serializes the frame row window as Arrow IPC through TempStore. This pulls a narrow Tier 1.5 slice forward because serialization correctness is required before the frame API can be the sole path.
 - Worker commits the frame with one event per frame instead of one per row.
 - Migrate `test_pft_flow_v2.yaml` to opt in via `loop.spec.frame:` on each `mode: cursor` step.
 
