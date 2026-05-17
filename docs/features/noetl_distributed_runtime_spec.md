@@ -648,12 +648,13 @@ Implementation status:
 - `projection_checksum()` provides deterministic JSON checksums for replay parity.
 - `PostgresProjectionStore` is the reference adapter and writes to additive `noetl.projection` and `noetl.projection_snapshot` tables.
 - The first transport-neutral reducer is present in `repos/noetl/noetl/core/projector`. `ReplayStateProjector` groups events by tenant, organization, and execution, orders by event position, folds them with the same replay-state reducer used by `GET /api/replay/state`, and writes lineage-rich `ProjectionRecord` rows with checksum and upcaster-registry metadata.
+- The first projector process entrypoint is present at `python -m noetl.projector`. It wraps the reducer with a NATS durable pull consumer, stable shard identity, and modulo execution-id shard filtering so a StatefulSet replica only projects the events it owns.
 - The adapter currently supports:
   - `save_projection(record)` with version-monotonic upsert semantics;
   - `load_projection(projection_id)`;
   - `save_snapshot(snapshot)` with version-monotonic upsert semantics;
   - `load_snapshot(aggregate_id, aggregate_type=...)`.
-- NATS durable consumer wiring, shard checkpoints, projector deployment manifests, and lag metrics remain tracked by `noetl/noetl#437`.
+- Server-side event mirroring to the event stream, shard checkpoints, projector deployment manifests, and lag metrics remain tracked by `noetl/noetl#437`.
 - Non-Postgres projection adapters remain tracked by `noetl/noetl#439`.
 
 Projection backend roles:
