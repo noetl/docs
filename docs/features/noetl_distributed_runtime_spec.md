@@ -510,8 +510,9 @@ Implementation status:
 - `repos/noetl` now exposes `IpcHint` on `ResultRef` / `TempRef`.
 - `ResultRefMeta` records Arrow/replay-relevant payload metadata: `media_type`, `schema_digest`, and `row_count`.
 - `IpcHint` is explicitly best-effort. It carries `shm_name`, `schema_digest`, `byte_length`, optional `row_count`, `producer`, `lease_expires_at`, and media type.
+- `ArrowIpcSharedMemoryCache` now provides the first Tier 1.5 implementation surface in `noetl.core.storage.ipc_cache`: budget enforcement, POSIX shared-memory allocation, `IpcHint` creation, read/attach, delete, and expired-lease sweep.
 - The durable `ResultRef` remains authoritative; consumers must treat expired or missing IPC hints as cache misses and fall back through durable storage.
-- Actual Arrow shared-memory admission, attach, and GC workers remain tracked by `noetl/noetl#438`.
+- Wiring this cache into TempStore admission and worker frame output remains tracked by `noetl/noetl#438`.
 
 ### 6.4 Producer / consumer protocol
 
