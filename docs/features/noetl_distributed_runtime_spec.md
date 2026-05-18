@@ -6,8 +6,18 @@ sidebar_position: 30
 
 # NoETL Distributed Runtime + Event-Sourced Shared Memory Spec
 
-Status: design proposal, ready for staged refactoring.
+Status: staged implementation in progress.
 Owner: NoETL core (`repos/noetl`).
+Implementation tracker:
+
+- Umbrella: `noetl/noetl#434`.
+- Phase 0 PR: `noetl/noetl#435`.
+- Phase 1 frame execution: `noetl/noetl#436`.
+- Projectors: `noetl/noetl#437`.
+- Shared payload cache / Arrow IPC hints: `noetl/noetl#438`.
+- Event/projection store ports: `noetl/noetl#439`.
+- Replay regression / serialization gates: `noetl/noetl#440`.
+- Docs alignment: `noetl/noetl#441`.
 Companion specs that this revision builds on (do not re-spec):
 
 - `noetl_async_sharded_architecture.md` — sharded projection workers, epoch barriers.
@@ -19,6 +29,13 @@ Companion specs that this revision builds on (do not re-spec):
 - `nats_kv_distributed_cache.md` — NATS K/V scope.
 
 Not in scope here: DSL surface changes or the playbook authoring guide. Event-sourcing invariants are in scope because they are the contract that lets the distributed runtime reproduce system state at a requested point in time.
+
+Latest implementation checkpoint:
+
+- Local kind full PFT v2 execution `629193644754337792` completed on 2026-05-18 in **487.855s (~8m08s)** using `frame.process: frame`, per-stage frame-stream lock ordering, and the full frame lifecycle (`frame.dispatched -> frame.started -> frame.committed`).
+- The previous local kind default-row-frame baseline was **1880.739s (~31m21s)**; the row-concurrency experiment was **2002.841s (~33m23s)**.
+- The full lock-order validation produced **5,496 committed frames**, **49.94 average rows/frame**, **50 max rows/frame**, and **5,496/5,496 frames with claim, start, and terminal event links**.
+- Validation passed for all 10 facilities: all patient domains were **1000/1000** and MDS was **224,443/224,443**.
 
 ---
 
@@ -172,24 +189,38 @@ GET /api/replay/state
     projection = execution | frame | loop | business_object | all
 ```
 
+Implementation status:
+
+- `GET /api/replay/state` shipped in Phase 0 (`noetl/noetl#435`).
+- Phase 0 folds execution, frame, stage, loop, and payload-reference lineage from `noetl.event`.
+- The endpoint returns a deterministic `sha256` checksum over the folded state.
+- The live reader tolerates pre-migration event tables during rolling rollout. If the additive tenant/org envelope columns are not present yet, replay treats only `tenant_id=default` and `organization_id=default` as visible legacy events.
+- A core replay upcaster registry now exists in Phase 0 (`noetl.core.replay.EventUpcasterRegistry`) and is wired into `ReplayService.replay_state`. The default registry preserves legacy events as `schema_name=noetl.event`, `schema_version=1`.
+- Replay state includes `upcaster_registry_digest`, a stable SHA-256 digest of the registered `(schema_name, from_version)` transitions used for the fold.
+- A golden replay corpus now lives under `tests/fixtures/replay/` in `repos/noetl` and asserts a stable fold checksum for execution, stage, frame, payload-reference, and registry-digest state.
+- Event-position snapshot selection now exists for `projection_snapshot` rows with `aggregate_type=replay_state` and `aggregate_id=execution/<execution_id>/<projection>`. Replay can seed from the snapshot, skip earlier events, and fold the remaining stream.
+- Time-based snapshot selection, payload resolution, registered production upcasters for future schema revisions, and business-object projection folds remain tracked by `noetl/noetl#440`.
+
 Replay reconstructs state by:
 
 1. Loading the latest validated snapshot at or before the requested position.
 2. Reading canonical events from that snapshot position through the requested cutoff.
 3. Resolving immutable payload references through the payload store.
-4. Applying schema upcasters in deterministic order.
+4. Applying schema upcasters in deterministic order. The Phase 0 registry enforces monotonic version advancement so an upcaster cannot silently rewrite an event without moving the schema version forward.
 5. Folding events with the same projection code used by live projectors.
 
 Snapshots are performance accelerators. They are never the authority. A snapshot must record:
 
 - event position covered;
 - projection code version;
-- schema upcaster versions;
+- schema upcaster versions and registry digest, matching the replay state's `upcaster_registry_digest`;
 - payload digest set or Merkle root;
 - tenant encryption context;
 - deterministic fold checksum.
 
 Replay verification becomes a release gate for every phase after Phase 0: run live execution, rebuild projections from events, and compare checksums for execution state, frame state, loop progress, and configured business projections.
+
+The first golden checksum gate is intentionally small. It does not replace live PFT replay parity; it gives every future serializer/upcaster/projection change a cheap deterministic test that fails before a full cluster run.
 
 ### 3.3 Visual component diagram
 
@@ -271,19 +302,36 @@ Key observations from the diagram:
 
 Before any code change ships, baseline the PFT v2 run with telemetry the team can reason from. This is the metric set every later phase is judged against.
 
+The PFT fixture API must not become the benchmark bottleneck. The
+`paginated-api` test server enforces the PFT endpoint request limit in each
+process, so local kind and GKE deployments should run at least three replicas
+for PFT v2 validation. That gives enough pod-level capacity for the target
+30-50 requests/second workload while preserving the fixture's per-process
+50 requests/second contract and keeping 429s meaningful when a single worker
+bursts too hard.
+
+The playbook's `pft_http_concurrency` variable documents the client-side
+pressure target. Until `loop.spec.max_in_flight` supports templated values at
+catalog validation time, every PFT v2 cursor loop must use the same resolved
+integer value rather than drifting to a higher hard-coded concurrency.
+Each PFT v2 cursor loop must also opt into `loop.spec.frame` with
+`max_rows: 50` so the stage/frame runtime is exercised. A run that leaves
+`noetl.stage` and `noetl.frame` empty is still on the legacy cursor-command
+path and is not a valid Phase 1 benchmark.
+
 Per execution, capture:
 
 | Metric | How | Today's value (PFT v2 GKE 2026-05-15) |
 |---|---|---|
 | total `command.*` event count | `SELECT count(*) FROM noetl.event WHERE execution_id = $1 AND event_type LIKE 'command.%'` | ≈ 26k × 6 ≈ 150k |
-| frame count | sum of cursor claims that returned > 0 rows | ≈ 26k |
-| mean rows per frame | total rows / frame count | 1.0 (cursor today claims one row) |
+| frame count | sum of cursor claims that returned > 0 rows | 5,498 in local kind frame-mode run `629145120213828019`; older row-shaped baselines were ~5.5k committed frames but still ran one task pipeline per claimed row |
+| mean rows per frame | total rows / frame count | 49.92 in frame-mode run `629145120213828019` |
 | server CPU on `/claim` hot path | request-log percentiles from gateway | dominated by GKE pool pressure |
 | Postgres pool depth high-watermark | `pg_stat_activity` poll | hit 50 waiters |
 | NATS reschedule events | `kubectl get events -n nats` | 1 during facility-1 MDS |
 | payload bytes written to Tier 3 | TempStore counter | not currently instrumented |
 | projection store write rate | counter on `mark_step_completed` | single writer |
-| execution wall time | `noetl.execution.end_time - start_time` | 3h 54m |
+| execution wall time | `noetl.execution.end_time - start_time` | 279.785s local kind frame-mode run; earlier local kind default-row-frame baseline was 1880.739s |
 
 Target after Phases 1–3:
 
@@ -312,6 +360,10 @@ CREATE TABLE IF NOT EXISTS noetl.stage (
   stage_id        BIGINT      PRIMARY KEY,         -- snowflake id
   execution_id    BIGINT      NOT NULL REFERENCES noetl.execution(execution_id),
   parent_event_id BIGINT      REFERENCES noetl.event(event_id),
+  parent_stage_id BIGINT      REFERENCES noetl.stage(stage_id),
+  loop_event_id   TEXT,
+  opened_event_id BIGINT,
+  closed_event_id BIGINT,
   kind            TEXT        NOT NULL CHECK (kind IN ('loop','fanout','reduce')),
   step_name       TEXT        NOT NULL,
   dsl_ref         TEXT        NOT NULL,            -- pointer to playbook step
@@ -325,6 +377,11 @@ CREATE TABLE IF NOT EXISTS noetl.stage (
 CREATE TABLE IF NOT EXISTS noetl.frame (
   frame_id        BIGINT      PRIMARY KEY,         -- snowflake id
   stage_id        BIGINT      NOT NULL REFERENCES noetl.stage(stage_id),
+  execution_id    BIGINT      NOT NULL REFERENCES noetl.execution(execution_id),
+  parent_frame_id BIGINT      REFERENCES noetl.frame(frame_id),
+  command_id      BIGINT,
+  claimed_event_id BIGINT,
+  terminal_event_id BIGINT,
   cursor          JSONB       NOT NULL,            -- driver-specific resume hint
   row_count       INTEGER     NOT NULL DEFAULT 0,
   status          TEXT        NOT NULL DEFAULT 'PENDING',
@@ -339,23 +396,96 @@ CREATE TABLE IF NOT EXISTS noetl.frame (
 CREATE INDEX IF NOT EXISTS frame_open_idx
   ON noetl.frame (stage_id, status, lease_until)
   WHERE status IN ('PENDING','CLAIMED','RUNNING');
+
+CREATE INDEX IF NOT EXISTS idx_stage_execution_step_loop
+  ON noetl.stage (execution_id, step_name, loop_event_id)
+  WHERE loop_event_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_frame_stage_frame
+  ON noetl.frame (stage_id, frame_id);
+CREATE INDEX IF NOT EXISTS idx_frame_command
+  ON noetl.frame (command_id)
+  WHERE command_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_command_stage_worker_slot
+  ON noetl.command (execution_id, stage_id, ((meta->>'worker_slot_id')))
+  WHERE stage_id IS NOT NULL AND meta ? 'worker_slot_id';
+CREATE INDEX IF NOT EXISTS idx_event_exec_stage_event_id_desc
+  ON noetl.event (execution_id, stage_id, event_id DESC)
+  WHERE stage_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_event_exec_frame_event_id_desc
+  ON noetl.event (execution_id, frame_id, event_id DESC)
+  WHERE frame_id IS NOT NULL;
 ```
 
 These coexist with `noetl.event` and `noetl.command`. Legacy tool steps are not migrated.
 
-### 5.2 Frame policy
+### 5.1.1 Replay lineage graph
 
-`frame_policy` is the configurable bound that decides how much work a single frame contains. The planner picks one of these strategies based on the step's DSL:
+The stage/frame tables are operational projections, but their keys must make replay and audit cheap without scraping JSON. The current implementation uses this graph:
 
-```yaml
-frame_policy:
-  size: 100                 # max rows per frame, optional
-  duration_ms: 5000         # max wall-time per frame, optional
-  memory_bytes: 67108864    # max in-flight Arrow buffer per frame
-  parallelism: 4            # how many frames can be in-flight per worker
+```text
+execution
+  └─ stage
+       ├─ parent_stage_id       -> parent stage for nested/fan-out chains
+       ├─ loop_event_id         -> loop epoch that opened the stage
+       ├─ opened_event_id       -> noetl.event(stage.opened)
+       ├─ closed_event_id       -> noetl.event(stage.closed)
+       ├─ command.stage_id      -> worker commands issued for the stage
+       └─ frame
+            ├─ parent_frame_id  -> upstream frame for derived/reduce work
+            ├─ command_id       -> noetl.command that owns the worker slot
+            ├─ claimed_event_id -> noetl.event(frame.dispatched)
+            └─ terminal_event_id-> noetl.event(frame.committed|frame.failed)
 ```
 
-For PFT v2, a sensible default is `{ size: 50, duration_ms: 30000, memory_bytes: 64MB, parallelism: 1 }`. That collapses today's 26k frames (size=1) to ~520 frames, a 50× drop, while keeping each frame under a half minute so worker crashes lose at most half a minute of work.
+`noetl.event` also carries direct `stage_id` and `frame_id` columns for stage/frame lifecycle events and command events where the producer knows the projection key. Those columns are indexed for replay scans by `(execution_id, stage_id, event_id DESC)` and `(execution_id, frame_id, event_id DESC)`. `noetl.command` carries `stage_id` and `frame_id`; the cursor-worker path resolves `frame.command_id` from the command context and has a server-side fallback indexed by `(execution_id, stage_id, meta->>'worker_slot_id')`.
+
+`parent_stage_id` and `parent_frame_id` are the explicit traversal edges for runtime projections. Cursor loops currently use `loop_event_id` as the direct stage correlation key and mint one root frame per stage; subsequent frames in that stage carry `parent_frame_id` to form a deterministic stage-local chain. Fan-out/reduce will extend the same parent ids to preserve the execution tree without replaying every event payload.
+
+### 5.2 Frame policy
+
+`frame_policy` is the configurable bound that decides how much work a single frame contains. Phase 0 adds a typed runtime model as `FramePolicy` and accepts it on cursor loops as `loop.spec.frame` (or `loop.spec.frame_policy` internally). Defaults preserve today's one-row cursor behavior until a playbook opts into batching.
+
+```yaml
+loop:
+  cursor: ...
+  spec:
+    mode: cursor
+    max_in_flight: 100      # worker slots
+    frame:
+      max_rows: 50          # max rows per frame
+      max_seconds: 30       # max wall-time per frame
+      max_bytes: 67108864   # max in-flight serialized output bytes
+      lease_seconds: 120    # initial lease window
+      heartbeat_seconds: 30 # expected heartbeat cadence
+      process: frame        # row = run body once per row; frame = run body once per frame
+      retry_mode: whole_frame
+      max_attempts: 3
+```
+
+For PFT v2, the validated opt-in frame is `{ max_rows: 50, max_seconds: 30, max_bytes: 64MB, lease_seconds: 120, heartbeat_seconds: 30, process: frame }`. `process: row` remains the default for backwards-compatible semantics: the worker claims a frame but runs the declared task pipeline once per row. `process: frame` exposes `frame.rows`, `frame.row_count`, `frame.index`, and `iter.<iterator>_rows` to the task pipeline and runs it once per claimed frame. That is the mode that produced the 2026-05-18 full PFT v2 local kind validations in ~4m30s to ~5m40s.
+
+`row_concurrency` remains available as an opt-in tuning knob for `process: row`, but the 2026-05-17 local kind validation showed `row_concurrency: 4` regressed the full PFT v2 run from ~31m21s to ~33m23s. Leave it at the default `1` unless a workload explicitly needs concurrent row execution inside one frame.
+
+`retry_mode: whole_frame` is the only supported Phase 1 recovery mode. If a
+worker crashes or its lease expires before terminal commit, reclaim emits
+`frame.abandoned` and then a new `frame.dispatched` attempt for the same frame
+boundary. Row-split retry is intentionally not supported yet: splitting a
+failed frame would create a second event-sourcing boundary and requires a
+future subframe model. A task failure that reaches terminal commit emits
+`frame.failed` with the frame cursor, output reference summary, row count,
+`events_emitted`, and recovery policy so an operator can audit the lost-work
+unit and decide whether to requeue at the business cursor layer.
+
+Implementation status:
+
+- `FramePolicy` now exists in `noetl.core.dsl.engine.models.workflow`.
+- Cursor loop dispatch includes the resolved frame policy in both `cursor_worker` tool config and command metadata.
+- The `cursor_worker` runtime passes `__frame_max_rows` and `__frame_policy` into cursor claim rendering, then asks the driver for a frame-sized row window. Drivers without a batched path fall back to repeated single-row claims.
+- The Postgres cursor driver now implements `claim_many(...)`. If the playbook claim SQL uses `LIMIT {{ __frame_max_rows | default(1) | int }}`, one database round-trip claims a whole frame instead of one row. PFT v2 uses this form for all patient-domain and MDS-detail cursor queues.
+- The `cursor_worker` runtime supports both row-mode and frame-mode execution. Row mode runs the existing task pipeline once per claimed row in-process and returns frame metadata in the terminal command result. Frame mode runs the task pipeline once per claimed frame with `frame.rows` in context, so playbooks can batch HTTP, database writes, and reducer-style work while preserving one replayable frame boundary.
+- `frame.row_concurrency` is an opt-in bound for processing rows within one frame concurrently in row mode; the default remains `1` to preserve legacy ordering and side-effect behavior.
+- Cursor frame commits now carry profiling metadata under `frame.cursor.metrics`: row outcome counts, row concurrency, total task/render/tool milliseconds, and rollups by task kind/name. This is the release-gate instrumentation for deciding whether the next PFT improvement should target HTTP calls, Postgres saves, serialization, or control-plane commits.
+- Claimed frame rows are serialized as Apache Arrow IPC stream bytes through `TempStore.put_ipc_bytes`. The command result carries a durable `rows_ref` with schema digest, row count, media type, and optional Tier 1.5 IPC hint. Default `max_rows=1` preserves existing one-row behavior unless a playbook opts into batching.
 
 ### 5.3 Claim / heartbeat / commit API
 
@@ -363,17 +493,40 @@ New endpoints on the NoETL server, additive to the existing `/api/commands/*`:
 
 ```text
 POST /api/stages/{stage_id}/frames/claim
-  body: { worker_id, want, max_inflight }
+  body: { worker_id, command_id?, requested_count, lease_seconds, cursor, frame_policy }
   returns: [ { frame_id, cursor, lease_until, dsl_ref, frame_policy } ... ]
 
 POST /api/frames/{frame_id}/heartbeat
-  body: { worker_id, cursor }
+  body: { worker_id, lease_seconds, status }
   returns: { lease_until }
 
 POST /api/frames/{frame_id}/commit
-  body: { worker_id, cursor, output_ref, row_count, status }
+  body: { worker_id, cursor, output_ref, row_count, status, events_emitted }
   returns: { ok, next_action }   # may immediately hand the worker the next frame
 ```
+
+Implementation status:
+
+- The frame control-plane endpoints are now present in `repos/noetl` behind the main API router:
+  - `POST /api/stages/{stage_id}/frames/claim`
+  - `POST /api/frames/{frame_id}/heartbeat`
+  - `POST /api/frames/{frame_id}/commit`
+- Phase 1 starts with explicit replayable frame leases. Claim either takes a pending/expired frame or lazily creates a frame row for the requested stage.
+- Each lifecycle transition emits a canonical frame event:
+  - `frame.dispatched`
+  - `frame.started`
+  - `frame.heartbeat`
+  - `frame.abandoned`
+  - `frame.committed`
+  - `frame.failed`
+- Frame lifecycle events now populate `stream_version` and `envelope_checksum`, so replay can order stage-local frame transitions and detect envelope drift with the same checksum contract as the event-store port. Runtime mutation paths acquire a transaction-scoped advisory lock per `stream_id` before any frame row mutation or `stream_version` allocation; without a consistent lock order, concurrent worker lifecycle writes can deadlock or leave missing heartbeat events under PFT-level concurrency.
+- Frame claims now persist `frame.command_id` from the worker command context. If an older worker omits it, the server resolves it from `(execution_id, stage_id, worker_slot_id)` using the indexed command metadata path.
+- Lazily minted runtime frames now serialize the tiny parent lookup with a stage-scoped PostgreSQL advisory lock. This keeps `parent_frame_id` deterministic under concurrent workers: every stage has one root frame and every later frame points at the prior frame in stage order.
+- Cursor workers now send a `RUNNING` heartbeat immediately after a successful frame claim and before frame execution. The heartbeat endpoint records the first `CLAIMED -> RUNNING` transition as `frame.started`; later `RUNNING` lease extensions are recorded as `frame.heartbeat`. This keeps the normal replay sequence clear: `frame.dispatched -> frame.started -> frame.heartbeat* -> frame.committed|frame.failed`.
+- When a worker reclaims an expired `CLAIMED` / `RUNNING` frame, the server emits `frame.abandoned` before the new `frame.dispatched` event. Replay therefore sees the recovery chain as append-only history rather than inferring it from a mutable row overwrite.
+- Recovery metadata is persisted on `frame.abandoned` and `frame.dispatched`: `retry_mode=whole_frame`, `row_split_retry=false`, `max_attempts`, previous owner, reclaimer, prior lease, and previous attempt count. This is enough to audit whether a frame was retried as a whole unit and whether operator intervention is needed after repeated attempts.
+- Duplicate or late terminal commits are rejected with `409 frame_already_terminal` and the existing `terminal_event_id`, so a retrying worker cannot emit a second `frame.committed` / `frame.failed` event for the same frame. Heartbeats against terminal frames receive the same conflict response.
+- Worker-side cursor integration uses the existing `cursor_worker` path with frame policy and batched driver claims. The remaining Phase 1 work is validation, telemetry, and removing any residual per-row server coordination from non-PFT cursor shapes.
 
 The HTTP surface is the operational fallback. The primary path uses NATS JetStream pull consumers (see §6) for lower-latency claim and built-in lease semantics.
 
@@ -456,6 +609,20 @@ class IpcHint:
     valid_until: datetime    # writer-promised minimum lifetime
 ```
 
+Implementation status:
+
+- `repos/noetl` now exposes `IpcHint` on `ResultRef` / `TempRef`.
+- `ResultRefMeta` records Arrow/replay-relevant payload metadata: `media_type`, `schema_digest`, and `row_count`.
+- `IpcHint` is explicitly best-effort. It carries `shm_name`, `schema_digest`, `byte_length`, optional `row_count`, `producer`, `lease_expires_at`, and media type.
+- `ArrowIpcSharedMemoryCache` now provides the first Tier 1.5 implementation surface in `noetl.core.storage.ipc_cache`: budget enforcement, POSIX shared-memory allocation, `IpcHint` creation, read/attach, delete, and expired-lease sweep.
+- `TempStore.put_ipc_bytes` / `get_ipc_bytes` now provide an explicit raw Arrow IPC path: durable bytes are always written, IPC admission is optional, and reads fall back to the durable tier when the shared-memory hint is expired or missing.
+- `TempStore.ipc_stats()` exposes local counters for admission attempts/success/failures, read attempts/hits/misses, and durable fallback reads.
+- `/metrics` now exports the server process's TempStore IPC counters as `noetl_storage_ipc_*` Prometheus metrics, plus `noetl_storage_ipc_read_hit_ratio`. Worker-process metric scraping remains follow-up work unless workers are run with an HTTP metrics sidecar.
+- `noetl.core.storage.arrow_ipc` now provides the runtime serialization primitive: `rows_to_arrow_ipc` and `arrow_ipc_to_rows`. Schema digests are computed from Arrow's serialized schema, not from row values, so replay/projector code can compare logical frame shape independently from payload content.
+- `cursor_worker` now writes multi-row frame captures through this path when `frame_policy.max_rows > 1` or `NOETL_CURSOR_FRAME_CAPTURE_ENABLED=true`. `NOETL_CURSOR_FRAME_IPC_ENABLED=false` disables only the same-node IPC admission; the durable payload write remains authoritative.
+- The durable `ResultRef` remains authoritative; consumers must treat expired or missing IPC hints as cache misses and fall back through durable storage.
+- Worker-side metrics export and aggregation across pods remains tracked by `noetl/noetl#438`.
+
 ### 6.4 Producer / consumer protocol
 
 Producer (any worker that emits a record batch):
@@ -489,7 +656,7 @@ Rules:
 - **Large tabular payloads:** Apache Arrow IPC stream, media type `application/vnd.apache.arrow.stream`. Every payload records `schema_digest`, `row_count`, `byte_length`, compression codec, and content SHA-256.
 - **Nested business payloads:** JSON Schema / OpenAPI-compatible payloads for small objects; Arrow `struct`, `list`, and `map` types for large repeated data. Avoid pickle, language-native binary serialization, or runtime-specific object graphs.
 - **Decimals and time:** decimals carry precision/scale; timestamps are UTC with explicit unit; local time zones are data fields, not implicit runtime settings.
-- **Schema evolution:** every event has `schema_name` and `schema_version`. Upcasters are pure functions registered by `(schema_name, from_version, to_version)` and covered by replay tests.
+- **Schema evolution:** every event has `schema_name` and `schema_version`. Upcasters are pure functions registered by `(schema_name, from_version)` and must advance to a later `schema_version` before the next upcaster can run. The registry is deterministic and covered by replay tests; production releases must also record the registry digest in replay/projection snapshots.
 - **Cross-language parity:** Python and Rust compliance tests read the same golden event/payload corpus and compare fold checksums.
 
 The durable payload digest is computed over the exact serialized bytes. The projection checksum is computed over a canonical projection serialization, not over backend-specific storage bytes.
@@ -511,6 +678,7 @@ The durable payload digest is computed over the exact serialized bytes. The proj
 ### 7.2 Refactor
 
 - Extract projection into its own deployable: `noetl-projector`. Same image, different entrypoint.
+- Keep the reducer transport-neutral: the same deterministic projector core must accept events from tests, replay, NATS JetStream, Kafka, or cloud stream adapters. Transport code owns delivery and checkpointing; reducer code owns ordering, folding, lineage, checksum, and idempotent writes.
 - Each projector instance owns one or more shards via NATS JetStream pull consumer group (`noetl.projection.shard.<n>`).
 - Shard assignment is sticky: a projector keeps a shard as long as it heartbeats. On stop, NATS reassigns. This is the standard JetStream durable consumer pattern.
 - Each shard has its own Postgres connection (or its own backend entirely, see §8 for the projection store abstraction). Total projection throughput scales linearly with shard count.
@@ -574,6 +742,24 @@ class ProjectionStorePort(Protocol):
 
 Adapters: Postgres (reference), cloud/serverless document and key-value stores, wide-column stores, columnar analytical stores, search stores, vector stores, and streaming materialized-view engines. Specific products are deployment choices, not architectural dependencies.
 
+Implementation status:
+
+- The first projection-store port is present in `repos/noetl/noetl/core/projection_store`.
+- `ProjectionRecord` and `ProjectionSnapshot` define idempotent projection and snapshot writes.
+- `projection_checksum()` provides deterministic JSON checksums for replay parity.
+- `PostgresProjectionStore` is the reference adapter and writes to additive `noetl.projection` and `noetl.projection_snapshot` tables.
+- The first transport-neutral reducer is present in `repos/noetl/noetl/core/projector`. `ReplayStateProjector` groups events by tenant, organization, and execution, orders by event position, folds them with the same replay-state reducer used by `GET /api/replay/state`, and writes lineage-rich `ProjectionRecord` rows with checksum and upcaster-registry metadata.
+- The first projector process entrypoint is present at `python -m noetl.projector`. It wraps the reducer with a NATS durable pull consumer, stable shard identity, and modulo execution-id shard filtering so a StatefulSet replica only projects the events it owns.
+- `NATSEventPublisher` is present in `repos/noetl/noetl/core/messaging`. It mirrors canonical event envelopes to subjects shaped as `noetl.events.<tenant>.<org>.<execution>.<shard>`, creates the event stream with a wildcard subject, and retries once after reconnect on publish failure.
+- Frame lifecycle routes now can mirror `frame.dispatched`, `frame.started`, `frame.committed`, and `frame.failed` envelopes after the database transaction commits. Mirroring is opt-in via `NOETL_EVENT_MIRROR_ENABLED=true` and publish failures are logged but do not fail the frame API request.
+- The adapter currently supports:
+  - `save_projection(record)` with version-monotonic upsert semantics;
+  - `load_projection(projection_id)`;
+  - `save_snapshot(snapshot)` with version-monotonic upsert semantics;
+  - `load_snapshot(aggregate_id, aggregate_type=...)`.
+- Wiring the remaining server event write paths into the event mirror publisher, shard checkpoints, projector deployment manifests, and lag metrics remain tracked by `noetl/noetl#437`.
+- Non-Postgres projection adapters remain tracked by `noetl/noetl#439`.
+
 Projection backend roles:
 
 - **Operational projection stores** serve execution status, current frame state, user-facing API reads, and transactional admin surfaces.
@@ -614,6 +800,19 @@ Adapters (priority order):
 4. **Google Pub/Sub** — topic per category, ordering key per aggregate, side store (Spanner / Firestore) for `expected_version`.
 5. **Azure Event Hubs** — Kafka-compat mode reuses Kafka adapter; native mode uses Event Hubs SDK + Blob checkpoint store.
 6. **Amazon Kinesis Data Streams** — partition key per aggregate, DynamoDB for version tracking, KCL for consumer coordination.
+
+Implementation status:
+
+- The first backend-neutral event-store port is present in `repos/noetl/noetl/core/event_store`.
+- `EventRecord` defines the canonical append envelope used by adapters.
+- `canonical_event_checksum()` serializes JSON deterministically with sorted keys and compact separators.
+- `PostgresEventStore` is the reference adapter for `noetl.event`.
+- The adapter currently supports:
+  - `append(stream_id, events, expected_version=...)`
+  - `read(stream_id, from_version=..., limit=...)`
+  - per-stream expected-version conflict detection;
+  - mapping to additive event envelope columns (`stream_id`, `stream_version`, aggregate/schema/tenant fields, `payload_ref`, `envelope_checksum`).
+- NATS/Kafka/cloud-native stream adapters and projection-store ports remain tracked by `noetl/noetl#439`.
 
 Adapter design constraints:
 
@@ -853,29 +1052,47 @@ The same image runs anywhere. Backend changes are config-only.
 
 ### Phase 0 — Instrumentation (1 week)
 
+Implementation status: partially shipped in `noetl/noetl#435`.
+
 - Add the metrics in §4 to Grafana / VictoriaMetrics dashboards (already deployed).
 - Baseline a fresh PFT v2 run on GKE. Capture the metric values and pin to memory.
-- Add `noetl.stage` and `noetl.frame` tables via Alembic migration (empty initially).
-- Add canonical event-envelope schema validation, including tenant/org scope, `schema_name`, `schema_version`, `idempotency_key`, payload digest, and deterministic checksum fields.
-- Add replay harness: rebuild execution/frame/loop projections from `noetl.event` + payload store and compare checksums against live projection rows.
+- Add `noetl.stage` and `noetl.frame` tables via canonical Postgres DDL. Done in Phase 0 as additive DDL.
+- Add canonical event-envelope schema validation, including tenant/org scope, `schema_name`, `schema_version`, `idempotency_key`, payload digest, and deterministic checksum fields. The additive columns are present; validation hardening remains incremental.
+- Add replay harness: rebuild execution/frame/loop projections from `noetl.event` + payload store and compare checksums against live projection rows. The first replay API is shipped; full parity harness remains tracked by `noetl/noetl#440`.
+
+Validation notes:
+
+- Focused runtime/replay regression is green in `repos/noetl`.
+- Local kind deployment is validated via `repos/ops/automation/infrastructure/kind.yaml` and `repos/ops/automation/development/noetl.yaml` using Podman.
+- Latest local kind validation for `noetl/noetl#435`: image `local/noetl:2026-05-16-22-49`, health/replay/pod/log smokes passed, `/metrics` exposes the IPC counters, a temporary frame claim emitted `stream_version=1`, 64-character `envelope_checksum`, and non-null `catalog_id`, in-pod Arrow IPC TempStore round-trip passed, in-pod cursor-worker frame capture produced two Arrow-backed frames from three claimed rows, and the deployed server image imports `ReplayStateProjector`, `NATSProjectorWorker`, `NATSEventPublisher`, and the `python -m noetl.projector` entrypoint.
+- Frame-loop local kind validation on 2026-05-17 (`noetl/noetl#435`, `noetl/e2e#22`, `noetl/ops#98`) completed PFT v2 execution `628959278765703700` in 33m10s. The run populated 60 `noetl.stage` rows and 5,570 `noetl.frame` rows, emitted 60 `stage.opened`, 5,570 `frame.dispatched`, and 5,570 `frame.committed` events, and emitted zero `frame.failed` events. The fixture used three `paginated-api` replicas with `PFT_RATE_LIMIT=500`; strict fixture 429 checks and worker/server error checks were clean in the final validation windows.
+- Stage terminal events are now implemented in the Phase 0 branch: the executor emits `stage.closed`, records `closed_event_id`, and marks the stage `COMPLETED` when the loop epoch finishes. `noetl/noetl#443` remains the tracker for hardening this into the terminal stage projection/reaper path.
+- Lineage validation on local kind image `localhost/local/noetl:2026-05-17-13-32` completed PFT v2 execution `629003028435042682` in 33m36s with `completed=true` and `failed=false`. Final counters: 60 `stage.opened`, 60 `stage.closed`, 5,562 `frame.dispatched`, 5,562 `frame.committed`, zero `frame.failed`, all 60 stages `COMPLETED`, `frame.command_id`/`claimed_event_id`/`terminal_event_id` populated on all 5,562 frames, and completed frames averaged 49.34 rows with max 50.
+- Frame-mode local kind validation on image `localhost/local/noetl:2026-05-17-18-07` completed PFT v2 execution `629145120213828019` in 279.785s with `completed=true` and `failed=false`. Final counters: 5,498 frames, average 49.92 rows/frame, max 50, metrics present on every frame, all 10 facilities at 1000/1000 for the five patient domains, and MDS 224,443/224,443.
+- Frame-lineage local kind validation on image `localhost/local/noetl:2026-05-17-18-56` completed PFT v2 execution `629166136403165640` in 269.156s with `completed=true` and `failed=false`. Final counters: 60 stages opened/closed, 5,500 frames, 5,440 frames with `parent_frame_id` (one root per stage), 5,500/5,500 `claimed_event_id` and `terminal_event_id` links populated, 5,500 `frame.dispatched`, 5,500 `frame.committed`, zero `frame.failed`, all 10 facilities at 1000/1000 for the five patient domains, and MDS 224,443/224,443.
+- Frame-lifecycle local kind validation on image `local/noetl:2026-05-17-19-10` completed PFT v2 execution `629173479832551841` in 340.435s with `completed=true` and `failed=false`. Final counters: 60 stages opened/closed, 5,499 frames, 5,439 frames with `parent_frame_id` (one root per stage), 5,499/5,499 `claimed_event_id` and `terminal_event_id` links populated, 5,499 `frame.dispatched`, 5,499 `frame.started`, 5,499 `frame.committed`, zero `frame.failed`, all 10 facilities at 1000/1000 for the five patient domains, and MDS 224,443/224,443. The validation command passed `--set num_facilities=1 --set patients_per_facility=100`, but catalog execution overrides were ignored and the run used defaults `10/1000`; this is tracked in `noetl/cli#12`.
+- Frame-stream lock-order validation on image `local/noetl:2026-05-17-19-51` completed PFT v2 execution `629193644754337792` in 487.855s with `completed=true` and `failed=false`. Final counters: 60 stages opened/closed, 5,496 frames, 5,436 frames with `parent_frame_id` (one root per stage), 5,496/5,496 `claimed_event_id` and `terminal_event_id` links populated, 5,496 `frame.dispatched`, 5,496 `frame.started`, 5,496 `frame.committed`, zero `frame.failed`, all 10 facilities at 1000/1000 for the five patient domains, MDS 224,443/224,443, and no frame endpoint deadlocks or 500s in the validation log window. Two prior validations on images `local/noetl:2026-05-17-19-26` and `local/noetl:2026-05-17-19-42` were cancelled after exposing frame event deadlocks; the fix is consistent lock acquisition before frame row mutation.
+- Replay hardening now folds direct `event.stage_id`, `event.frame_id`, and `event.command_id` columns; records stage open/close event ids and frame claim/terminal event ids; and treats `frame.abandoned` as a deterministic lease-recovery transition. The golden replay corpus checksum was updated to cover these extra lineage fields.
+- Frame replay parity now includes a deterministic frame projection checksum that can compare live `noetl.frame` rows with replayed frame state. The normalized parity surface includes frame/stage/parent/command ids, claim and terminal event links, status, row count, cursor metadata, emitted-event count, and Arrow IPC `rows_ref` summary fields (`sha256`, `schema_digest`, `row_count`, `media_type`, `ref`). Against local kind PFT execution `629193644754337792`, live and replayed frame projection checksums matched at `a65a8ce90d228332d3ce50958c6f41f1f8d584c36ee45ecd1645d61cb0e90cef` across 5,496 frames.
+- Full repository pytest collection currently has legacy collection blockers unrelated to Phase 0; tracked by `noetl/noetl#440`.
 
 Deliverable: dashboard URL + memory entry with baseline numbers, plus a replay parity report for the baseline run. No code change to hot paths.
 
 ### Phase 1 — Frame-shaped cursor loops (2 weeks)
 
-Goal: collapse N single-row cursor claims into N/50 multi-row frame claims, with no other architectural change.
+Goal: collapse N single-row cursor claims into N/50 multi-row frame claims and allow selected steps to run the declared task pipeline once per frame.
 
-- Extend `cursor_worker.py` to accept a `frame_policy` payload alongside the existing cursor spec.
+- Extend `cursor_worker.py` to enforce the `frame_policy` payload now emitted alongside the existing cursor spec. The first implementation is in `noetl/noetl#435`: bounded claim windows are processed in-process and captured as Arrow IPC frame refs.
 - New `POST /api/stages/{stage_id}/frames/claim` endpoint; under the hood it calls existing `claim_next_loop_indices` with `LIMIT = frame_policy.size`.
-- Worker iterates the returned rows in-process, accumulating results to a local list (Arrow IPC comes in Phase 3; for now use canonical JSON with payload digests).
+- Worker either iterates the claimed rows in-process (`frame.process: row`) or executes the task pipeline once with `frame.rows` (`frame.process: frame`). Both paths serialize the frame row window as Arrow IPC through TempStore. This pulls a narrow Tier 1.5 slice forward because serialization correctness is required before the frame API can be the sole path.
 - Worker commits the frame with one event per frame instead of one per row.
-- Migrate `test_pft_flow_v2.yaml` to opt in via `frame_policy:` on each `mode: cursor` step.
+- Migrate `test_pft_flow_v2.yaml` to opt in via `loop.spec.frame:` on each `mode: cursor` step. The high-volume PFT steps use `process: frame` to batch HTTP calls and Postgres writes from the declared playbook, rather than hiding the loop in Python.
 
 Verification:
 
 - Total `command.*` count drops from ~150k to < 20k on PFT v2.
-- Wall time should drop modestly (less server CPU on /claim) but not the headline target yet.
-- Replay parity stays green for frame state, loop progress, and execution status.
+- Wall time should drop versus the default row-processing baseline. The 2026-05-18 local kind validations improved the full PFT v2 run from ~31m21s to ~4m30s-~8m08s, with the latest clean lock-order validation favoring correctness over optimistic concurrent frame event writes.
+- Replay parity stays green for frame state, loop progress, execution status, and frame-mode payload references. The parity gate compares live and replayed frame projection checksums, including Arrow IPC `rows_ref` digest and schema metadata.
 
 ### Phase 2 — Decentralized projection (2 weeks)
 
@@ -955,7 +1172,7 @@ Goal: extend the stage/frame model from loops to fan-out and reduce, completing 
 
 - **Tier 1.5 GC under crash.** A producer worker that crashes after writing shm but before committing the frame leaves shm regions that no one will unlink. Mitigation: per-node `shm_unlink` sweep on worker start (scans `/dev/shm/noetl-*` and unlinks regions older than `tier_15_grace_seconds`).
 - **NATS supercluster cost.** Cross-region replication of every event stream is not free. Mitigation: opt-in per execution; default is single-region.
-- **Frame size tuning.** A frame too big means more work lost on crash; too small means coordination dominates. Mitigation: start with the §5.2 default, expose per-step override, measure with the §4 dashboard.
+- **Frame size tuning.** A frame too big means more work lost on crash; too small means coordination dominates. Mitigation: start with the §5.2 default, expose per-step override, measure with the §4 dashboard. Operators should choose `max_rows` from lost-work tolerance: a 50-row frame means a crash can replay up to 50 claimed cursor rows as one unit; high-cost or externally side-effecting steps should use smaller frames until idempotency is proven. Increase `lease_seconds` to at least the p99 frame runtime plus one heartbeat interval, and keep `max_attempts` low enough that repeated whole-frame failures page an operator instead of silently cycling.
 - **Reduce-side back-pressure.** A reduce stage that is slower than its upstream fanout fills the projection store inbox. Mitigation: reuse the existing `max_inflight` concept at the stage level, not the worker level.
 - **Multi-process per pod.** Some MCPs prefer multiple processes. Tier 1.5 then needs a node-local broker. Out of scope for v1; revisit if a real MCP demands it.
 
