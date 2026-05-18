@@ -452,7 +452,7 @@ loop:
       heartbeat_seconds: 30 # expected heartbeat cadence
 ```
 
-For PFT v2, a sensible opt-in frame is `{ max_rows: 50, max_seconds: 30, max_bytes: 64MB, lease_seconds: 120, heartbeat_seconds: 30 }`. That collapses today's 26k frames (size=1) to ~520 frames, a 50× drop, while keeping each frame under a half minute so worker crashes lose at most half a minute of work.
+For PFT v2, a sensible opt-in frame is `{ max_rows: 50, max_seconds: 30, max_bytes: 64MB, lease_seconds: 120, heartbeat_seconds: 30, row_concurrency: 4 }`. The row-concurrency value is deliberately lower than the cursor worker count: with 8 cursor slots it targets roughly 32 in-flight row pipelines per active cursor step, inside the 30-50 requests/second test-server envelope.
 
 Implementation status:
 
@@ -460,7 +460,7 @@ Implementation status:
 - Cursor loop dispatch includes the resolved frame policy in both `cursor_worker` tool config and command metadata.
 - The `cursor_worker` runtime passes `__frame_max_rows` and `__frame_policy` into cursor claim rendering, then asks the driver for a frame-sized row window. Drivers without a batched path fall back to repeated single-row claims.
 - The Postgres cursor driver now implements `claim_many(...)`. If the playbook claim SQL uses `LIMIT {{ __frame_max_rows | default(1) | int }}`, one database round-trip claims a whole frame instead of one row. PFT v2 uses this form for all patient-domain and MDS-detail cursor queues.
-- The `cursor_worker` runtime runs the existing task pipeline over each claimed row in-process and returns frame metadata in the terminal command result.
+- The `cursor_worker` runtime runs the existing task pipeline over each claimed row in-process and returns frame metadata in the terminal command result. `frame.row_concurrency` is an opt-in bound for processing rows within one frame concurrently; the default remains `1` to preserve legacy ordering and side-effect behavior.
 - Claimed frame rows are serialized as Apache Arrow IPC stream bytes through `TempStore.put_ipc_bytes`. The command result carries a durable `rows_ref` with schema digest, row count, media type, and optional Tier 1.5 IPC hint. Default `max_rows=1` preserves existing one-row behavior unless a playbook opts into batching.
 
 ### 5.3 Claim / heartbeat / commit API
