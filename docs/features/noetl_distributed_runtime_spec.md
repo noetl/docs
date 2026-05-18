@@ -30,6 +30,13 @@ Companion specs that this revision builds on (do not re-spec):
 
 Not in scope here: DSL surface changes or the playbook authoring guide. Event-sourcing invariants are in scope because they are the contract that lets the distributed runtime reproduce system state at a requested point in time.
 
+Latest implementation checkpoint:
+
+- Local kind full PFT v2 execution `629145120213828019` completed on 2026-05-18 in **279.785s (~4m40s)** using `frame.process: frame`.
+- The previous local kind default-row-frame baseline was **1880.739s (~31m21s)**; the row-concurrency experiment was **2002.841s (~33m23s)**.
+- The full frame-mode run produced **5,498 committed frames**, **49.92 average rows/frame**, **50 max rows/frame**, and **5,498/5,498 frames with profiling metrics**.
+- Validation passed for all 10 facilities: all patient domains were **1000/1000** and MDS was **224,443/224,443**.
+
 ---
 
 ## 1. Why this revision exists
@@ -317,14 +324,14 @@ Per execution, capture:
 | Metric | How | Today's value (PFT v2 GKE 2026-05-15) |
 |---|---|---|
 | total `command.*` event count | `SELECT count(*) FROM noetl.event WHERE execution_id = $1 AND event_type LIKE 'command.%'` | ≈ 26k × 6 ≈ 150k |
-| frame count | sum of cursor claims that returned > 0 rows | ≈ 26k |
-| mean rows per frame | total rows / frame count | 1.0 (cursor today claims one row) |
+| frame count | sum of cursor claims that returned > 0 rows | 5,498 in local kind frame-mode run `629145120213828019`; older row-shaped baselines were ~5.5k committed frames but still ran one task pipeline per claimed row |
+| mean rows per frame | total rows / frame count | 49.92 in frame-mode run `629145120213828019` |
 | server CPU on `/claim` hot path | request-log percentiles from gateway | dominated by GKE pool pressure |
 | Postgres pool depth high-watermark | `pg_stat_activity` poll | hit 50 waiters |
 | NATS reschedule events | `kubectl get events -n nats` | 1 during facility-1 MDS |
 | payload bytes written to Tier 3 | TempStore counter | not currently instrumented |
 | projection store write rate | counter on `mark_step_completed` | single writer |
-| execution wall time | `noetl.execution.end_time - start_time` | 3h 54m |
+| execution wall time | `noetl.execution.end_time - start_time` | 279.785s local kind frame-mode run; earlier local kind default-row-frame baseline was 1880.739s |
 
 Target after Phases 1–3:
 
@@ -450,9 +457,12 @@ loop:
       max_bytes: 67108864   # max in-flight serialized output bytes
       lease_seconds: 120    # initial lease window
       heartbeat_seconds: 30 # expected heartbeat cadence
+      process: frame        # row = run body once per row; frame = run body once per frame
 ```
 
-For PFT v2, a sensible opt-in frame is `{ max_rows: 50, max_seconds: 30, max_bytes: 64MB, lease_seconds: 120, heartbeat_seconds: 30 }`. `row_concurrency` remains available as an opt-in tuning knob, but the 2026-05-17 local kind validation showed `row_concurrency: 4` regressed the full PFT v2 run from ~31m21s to ~33m23s. Leave it at the default `1` until HTTP and Postgres write bottlenecks are isolated.
+For PFT v2, the validated opt-in frame is `{ max_rows: 50, max_seconds: 30, max_bytes: 64MB, lease_seconds: 120, heartbeat_seconds: 30, process: frame }`. `process: row` remains the default for backwards-compatible semantics: the worker claims a frame but runs the declared task pipeline once per row. `process: frame` exposes `frame.rows`, `frame.row_count`, `frame.index`, and `iter.<iterator>_rows` to the task pipeline and runs it once per claimed frame. That is the mode that produced the 2026-05-18 full PFT v2 run in ~4m40s.
+
+`row_concurrency` remains available as an opt-in tuning knob for `process: row`, but the 2026-05-17 local kind validation showed `row_concurrency: 4` regressed the full PFT v2 run from ~31m21s to ~33m23s. Leave it at the default `1` unless a workload explicitly needs concurrent row execution inside one frame.
 
 Implementation status:
 
@@ -460,7 +470,8 @@ Implementation status:
 - Cursor loop dispatch includes the resolved frame policy in both `cursor_worker` tool config and command metadata.
 - The `cursor_worker` runtime passes `__frame_max_rows` and `__frame_policy` into cursor claim rendering, then asks the driver for a frame-sized row window. Drivers without a batched path fall back to repeated single-row claims.
 - The Postgres cursor driver now implements `claim_many(...)`. If the playbook claim SQL uses `LIMIT {{ __frame_max_rows | default(1) | int }}`, one database round-trip claims a whole frame instead of one row. PFT v2 uses this form for all patient-domain and MDS-detail cursor queues.
-- The `cursor_worker` runtime runs the existing task pipeline over each claimed row in-process and returns frame metadata in the terminal command result. `frame.row_concurrency` is an opt-in bound for processing rows within one frame concurrently; the default remains `1` to preserve legacy ordering and side-effect behavior.
+- The `cursor_worker` runtime supports both row-mode and frame-mode execution. Row mode runs the existing task pipeline once per claimed row in-process and returns frame metadata in the terminal command result. Frame mode runs the task pipeline once per claimed frame with `frame.rows` in context, so playbooks can batch HTTP, database writes, and reducer-style work while preserving one replayable frame boundary.
+- `frame.row_concurrency` is an opt-in bound for processing rows within one frame concurrently in row mode; the default remains `1` to preserve legacy ordering and side-effect behavior.
 - Cursor frame commits now carry profiling metadata under `frame.cursor.metrics`: row outcome counts, row concurrency, total task/render/tool milliseconds, and rollups by task kind/name. This is the release-gate instrumentation for deciding whether the next PFT improvement should target HTTP calls, Postgres saves, serialization, or control-plane commits.
 - Claimed frame rows are serialized as Apache Arrow IPC stream bytes through `TempStore.put_ipc_bytes`. The command result carries a durable `rows_ref` with schema digest, row count, media type, and optional Tier 1.5 IPC hint. Default `max_rows=1` preserves existing one-row behavior unless a playbook opts into batching.
 
@@ -1040,6 +1051,7 @@ Validation notes:
 - Frame-loop local kind validation on 2026-05-17 (`noetl/noetl#435`, `noetl/e2e#22`, `noetl/ops#98`) completed PFT v2 execution `628959278765703700` in 33m10s. The run populated 60 `noetl.stage` rows and 5,570 `noetl.frame` rows, emitted 60 `stage.opened`, 5,570 `frame.dispatched`, and 5,570 `frame.committed` events, and emitted zero `frame.failed` events. The fixture used three `paginated-api` replicas with `PFT_RATE_LIMIT=500`; strict fixture 429 checks and worker/server error checks were clean in the final validation windows.
 - Stage terminal events are now implemented in the Phase 0 branch: the executor emits `stage.closed`, records `closed_event_id`, and marks the stage `COMPLETED` when the loop epoch finishes. `noetl/noetl#443` remains the tracker for hardening this into the terminal stage projection/reaper path.
 - Lineage validation on local kind image `localhost/local/noetl:2026-05-17-13-32` completed PFT v2 execution `629003028435042682` in 33m36s with `completed=true` and `failed=false`. Final counters: 60 `stage.opened`, 60 `stage.closed`, 5,562 `frame.dispatched`, 5,562 `frame.committed`, zero `frame.failed`, all 60 stages `COMPLETED`, `frame.command_id`/`claimed_event_id`/`terminal_event_id` populated on all 5,562 frames, and completed frames averaged 49.34 rows with max 50.
+- Frame-mode local kind validation on image `localhost/local/noetl:2026-05-17-18-07` completed PFT v2 execution `629145120213828019` in 279.785s with `completed=true` and `failed=false`. Final counters: 5,498 frames, average 49.92 rows/frame, max 50, metrics present on every frame, all 10 facilities at 1000/1000 for the five patient domains, and MDS 224,443/224,443.
 - Replay hardening now folds direct `event.stage_id`, `event.frame_id`, and `event.command_id` columns; records stage open/close event ids and frame claim/terminal event ids; and treats `frame.abandoned` as a deterministic lease-recovery transition. The golden replay corpus checksum was updated to cover these extra lineage fields.
 - Full repository pytest collection currently has legacy collection blockers unrelated to Phase 0; tracked by `noetl/noetl#440`.
 
@@ -1047,18 +1059,18 @@ Deliverable: dashboard URL + memory entry with baseline numbers, plus a replay p
 
 ### Phase 1 — Frame-shaped cursor loops (2 weeks)
 
-Goal: collapse N single-row cursor claims into N/50 multi-row frame claims, with no other architectural change.
+Goal: collapse N single-row cursor claims into N/50 multi-row frame claims and allow selected steps to run the declared task pipeline once per frame.
 
 - Extend `cursor_worker.py` to enforce the `frame_policy` payload now emitted alongside the existing cursor spec. The first implementation is in `noetl/noetl#435`: bounded claim windows are processed in-process and captured as Arrow IPC frame refs.
 - New `POST /api/stages/{stage_id}/frames/claim` endpoint; under the hood it calls existing `claim_next_loop_indices` with `LIMIT = frame_policy.size`.
-- Worker iterates the claimed rows in-process and serializes the frame row window as Arrow IPC through TempStore. This pulls a narrow Tier 1.5 slice forward because serialization correctness is required before the frame API can be the sole path.
+- Worker either iterates the claimed rows in-process (`frame.process: row`) or executes the task pipeline once with `frame.rows` (`frame.process: frame`). Both paths serialize the frame row window as Arrow IPC through TempStore. This pulls a narrow Tier 1.5 slice forward because serialization correctness is required before the frame API can be the sole path.
 - Worker commits the frame with one event per frame instead of one per row.
-- Migrate `test_pft_flow_v2.yaml` to opt in via `loop.spec.frame:` on each `mode: cursor` step.
+- Migrate `test_pft_flow_v2.yaml` to opt in via `loop.spec.frame:` on each `mode: cursor` step. The high-volume PFT steps use `process: frame` to batch HTTP calls and Postgres writes from the declared playbook, rather than hiding the loop in Python.
 
 Verification:
 
 - Total `command.*` count drops from ~150k to < 20k on PFT v2.
-- Wall time should drop modestly (less server CPU on /claim) but not the headline target yet.
+- Wall time should drop versus the default row-processing baseline. The 2026-05-18 local kind validation improved the full PFT v2 run from ~31m21s to ~4m40s.
 - Replay parity stays green for frame state, loop progress, and execution status.
 
 ### Phase 2 — Decentralized projection (2 weeks)
