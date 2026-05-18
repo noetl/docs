@@ -32,9 +32,9 @@ Not in scope here: DSL surface changes or the playbook authoring guide. Event-so
 
 Latest implementation checkpoint:
 
-- Local kind full PFT v2 execution `629166136403165640` completed on 2026-05-18 in **269.156s (~4m29s)** using `frame.process: frame`.
+- Local kind full PFT v2 execution `629173479832551841` completed on 2026-05-18 in **340.435s (~5m40s)** using `frame.process: frame` and the full frame lifecycle (`frame.dispatched -> frame.started -> frame.committed`).
 - The previous local kind default-row-frame baseline was **1880.739s (~31m21s)**; the row-concurrency experiment was **2002.841s (~33m23s)**.
-- The full frame-lineage run produced **5,500 committed frames**, **49.90 average rows/frame**, **50 max rows/frame**, and **5,500/5,500 frames with claim and terminal event links**.
+- The full lifecycle run produced **5,499 committed frames**, **49.91 average rows/frame**, **50 max rows/frame**, and **5,499/5,499 frames with claim, start, and terminal event links**.
 - Validation passed for all 10 facilities: all patient domains were **1000/1000** and MDS was **224,443/224,443**.
 
 ---
@@ -460,7 +460,7 @@ loop:
       process: frame        # row = run body once per row; frame = run body once per frame
 ```
 
-For PFT v2, the validated opt-in frame is `{ max_rows: 50, max_seconds: 30, max_bytes: 64MB, lease_seconds: 120, heartbeat_seconds: 30, process: frame }`. `process: row` remains the default for backwards-compatible semantics: the worker claims a frame but runs the declared task pipeline once per row. `process: frame` exposes `frame.rows`, `frame.row_count`, `frame.index`, and `iter.<iterator>_rows` to the task pipeline and runs it once per claimed frame. That is the mode that produced the 2026-05-18 full PFT v2 run in ~4m40s.
+For PFT v2, the validated opt-in frame is `{ max_rows: 50, max_seconds: 30, max_bytes: 64MB, lease_seconds: 120, heartbeat_seconds: 30, process: frame }`. `process: row` remains the default for backwards-compatible semantics: the worker claims a frame but runs the declared task pipeline once per row. `process: frame` exposes `frame.rows`, `frame.row_count`, `frame.index`, and `iter.<iterator>_rows` to the task pipeline and runs it once per claimed frame. That is the mode that produced the 2026-05-18 full PFT v2 local kind validations in ~4m30s to ~5m40s.
 
 `row_concurrency` remains available as an opt-in tuning knob for `process: row`, but the 2026-05-17 local kind validation showed `row_concurrency: 4` regressed the full PFT v2 run from ~31m21s to ~33m23s. Leave it at the default `1` unless a workload explicitly needs concurrent row execution inside one frame.
 
@@ -1055,6 +1055,7 @@ Validation notes:
 - Lineage validation on local kind image `localhost/local/noetl:2026-05-17-13-32` completed PFT v2 execution `629003028435042682` in 33m36s with `completed=true` and `failed=false`. Final counters: 60 `stage.opened`, 60 `stage.closed`, 5,562 `frame.dispatched`, 5,562 `frame.committed`, zero `frame.failed`, all 60 stages `COMPLETED`, `frame.command_id`/`claimed_event_id`/`terminal_event_id` populated on all 5,562 frames, and completed frames averaged 49.34 rows with max 50.
 - Frame-mode local kind validation on image `localhost/local/noetl:2026-05-17-18-07` completed PFT v2 execution `629145120213828019` in 279.785s with `completed=true` and `failed=false`. Final counters: 5,498 frames, average 49.92 rows/frame, max 50, metrics present on every frame, all 10 facilities at 1000/1000 for the five patient domains, and MDS 224,443/224,443.
 - Frame-lineage local kind validation on image `localhost/local/noetl:2026-05-17-18-56` completed PFT v2 execution `629166136403165640` in 269.156s with `completed=true` and `failed=false`. Final counters: 60 stages opened/closed, 5,500 frames, 5,440 frames with `parent_frame_id` (one root per stage), 5,500/5,500 `claimed_event_id` and `terminal_event_id` links populated, 5,500 `frame.dispatched`, 5,500 `frame.committed`, zero `frame.failed`, all 10 facilities at 1000/1000 for the five patient domains, and MDS 224,443/224,443.
+- Frame-lifecycle local kind validation on image `local/noetl:2026-05-17-19-10` completed PFT v2 execution `629173479832551841` in 340.435s with `completed=true` and `failed=false`. Final counters: 60 stages opened/closed, 5,499 frames, 5,439 frames with `parent_frame_id` (one root per stage), 5,499/5,499 `claimed_event_id` and `terminal_event_id` links populated, 5,499 `frame.dispatched`, 5,499 `frame.started`, 5,499 `frame.committed`, zero `frame.failed`, all 10 facilities at 1000/1000 for the five patient domains, and MDS 224,443/224,443. The validation command passed `--set num_facilities=1 --set patients_per_facility=100`, but catalog execution overrides were ignored and the run used defaults `10/1000`; this is tracked in `noetl/cli#12`.
 - Replay hardening now folds direct `event.stage_id`, `event.frame_id`, and `event.command_id` columns; records stage open/close event ids and frame claim/terminal event ids; and treats `frame.abandoned` as a deterministic lease-recovery transition. The golden replay corpus checksum was updated to cover these extra lineage fields.
 - Full repository pytest collection currently has legacy collection blockers unrelated to Phase 0; tracked by `noetl/noetl#440`.
 
@@ -1073,7 +1074,7 @@ Goal: collapse N single-row cursor claims into N/50 multi-row frame claims and a
 Verification:
 
 - Total `command.*` count drops from ~150k to < 20k on PFT v2.
-- Wall time should drop versus the default row-processing baseline. The 2026-05-18 local kind validation improved the full PFT v2 run from ~31m21s to ~4m40s.
+- Wall time should drop versus the default row-processing baseline. The 2026-05-18 local kind validations improved the full PFT v2 run from ~31m21s to ~4m30s-~5m40s.
 - Replay parity stays green for frame state, loop progress, and execution status.
 
 ### Phase 2 — Decentralized projection (2 weeks)
