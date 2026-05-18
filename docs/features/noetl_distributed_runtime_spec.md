@@ -36,6 +36,7 @@ Latest implementation checkpoint:
 - The previous local kind default-row-frame baseline was **1880.739s (~31m21s)**; the row-concurrency experiment was **2002.841s (~33m23s)**.
 - The full lock-order validation produced **5,496 committed frames**, **49.94 average rows/frame**, **50 max rows/frame**, and **5,496/5,496 frames with claim, start, and terminal event links**.
 - Validation passed for all 10 facilities: all patient domains were **1000/1000** and MDS was **224,443/224,443**.
+- The canonical PFT v2 fixture shape remains preserved for regression coverage. Page-continuation fidelity is covered by a companion fixture, `fixtures/playbooks/pft_flow_test/test_pft_page_continuation.yaml`, which follows `paging.hasMore` with one HTTP request per patient/data-type/page record instead of changing the canonical benchmark.
 
 ---
 
