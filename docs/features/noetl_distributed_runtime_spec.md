@@ -507,7 +507,7 @@ Implementation status:
   - `frame.abandoned`
   - `frame.committed`
   - `frame.failed`
-- Frame lifecycle events now populate `stream_version` and `envelope_checksum`, so replay can order stage-local frame transitions and detect envelope drift with the same checksum contract as the event-store port.
+- Frame lifecycle events now populate `stream_version` and `envelope_checksum`, so replay can order stage-local frame transitions and detect envelope drift with the same checksum contract as the event-store port. Runtime insertion serializes `stream_version` allocation per `stream_id` with a transaction-scoped advisory lock; without that lock, concurrent worker lifecycle writes can deadlock or leave missing heartbeat events under PFT-level concurrency.
 - Frame claims now persist `frame.command_id` from the worker command context. If an older worker omits it, the server resolves it from `(execution_id, stage_id, worker_slot_id)` using the indexed command metadata path.
 - Lazily minted runtime frames now serialize the tiny parent lookup with a stage-scoped PostgreSQL advisory lock. This keeps `parent_frame_id` deterministic under concurrent workers: every stage has one root frame and every later frame points at the prior frame in stage order.
 - Cursor workers now send a `RUNNING` heartbeat immediately after a successful frame claim and before frame execution. The heartbeat endpoint records the first `CLAIMED -> RUNNING` transition as `frame.started`; later `RUNNING` lease extensions are recorded as `frame.heartbeat`. This keeps the normal replay sequence clear: `frame.dispatched -> frame.started -> frame.heartbeat* -> frame.committed|frame.failed`.
