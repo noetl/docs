@@ -452,7 +452,7 @@ loop:
       heartbeat_seconds: 30 # expected heartbeat cadence
 ```
 
-For PFT v2, a sensible opt-in frame is `{ max_rows: 50, max_seconds: 30, max_bytes: 64MB, lease_seconds: 120, heartbeat_seconds: 30, row_concurrency: 4 }`. The row-concurrency value is deliberately lower than the cursor worker count: with 8 cursor slots it targets roughly 32 in-flight row pipelines per active cursor step, inside the 30-50 requests/second test-server envelope.
+For PFT v2, a sensible opt-in frame is `{ max_rows: 50, max_seconds: 30, max_bytes: 64MB, lease_seconds: 120, heartbeat_seconds: 30 }`. `row_concurrency` remains available as an opt-in tuning knob, but the 2026-05-17 local kind validation showed `row_concurrency: 4` regressed the full PFT v2 run from ~31m21s to ~33m23s. Leave it at the default `1` until HTTP and Postgres write bottlenecks are isolated.
 
 Implementation status:
 
