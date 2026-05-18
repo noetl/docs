@@ -509,6 +509,7 @@ Implementation status:
 - Frame lifecycle events now populate `stream_version` and `envelope_checksum`, so replay can order stage-local frame transitions and detect envelope drift with the same checksum contract as the event-store port.
 - Frame claims now persist `frame.command_id` from the worker command context. If an older worker omits it, the server resolves it from `(execution_id, stage_id, worker_slot_id)` using the indexed command metadata path.
 - Lazily minted runtime frames now serialize the tiny parent lookup with a stage-scoped PostgreSQL advisory lock. This keeps `parent_frame_id` deterministic under concurrent workers: every stage has one root frame and every later frame points at the prior frame in stage order.
+- Cursor workers now send a `RUNNING` heartbeat immediately after a successful frame claim and before frame execution. The existing heartbeat endpoint records this as `frame.started`, completing the normal replay sequence: `frame.dispatched -> frame.started -> frame.committed|frame.failed`.
 - When a worker reclaims an expired `CLAIMED` / `RUNNING` frame, the server emits `frame.abandoned` before the new `frame.dispatched` event. Replay therefore sees the recovery chain as append-only history rather than inferring it from a mutable row overwrite.
 - Worker-side cursor integration uses the existing `cursor_worker` path with frame policy and batched driver claims. The remaining Phase 1 work is validation, telemetry, and removing any residual per-row server coordination from non-PFT cursor shapes.
 
