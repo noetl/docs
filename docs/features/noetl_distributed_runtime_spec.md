@@ -32,9 +32,9 @@ Not in scope here: DSL surface changes or the playbook authoring guide. Event-so
 
 Latest implementation checkpoint:
 
-- Local kind full PFT v2 execution `629173479832551841` completed on 2026-05-18 in **340.435s (~5m40s)** using `frame.process: frame` and the full frame lifecycle (`frame.dispatched -> frame.started -> frame.committed`).
+- Local kind full PFT v2 execution `629193644754337792` completed on 2026-05-18 in **487.855s (~8m08s)** using `frame.process: frame`, per-stage frame-stream lock ordering, and the full frame lifecycle (`frame.dispatched -> frame.started -> frame.committed`).
 - The previous local kind default-row-frame baseline was **1880.739s (~31m21s)**; the row-concurrency experiment was **2002.841s (~33m23s)**.
-- The full lifecycle run produced **5,499 committed frames**, **49.91 average rows/frame**, **50 max rows/frame**, and **5,499/5,499 frames with claim, start, and terminal event links**.
+- The full lock-order validation produced **5,496 committed frames**, **49.94 average rows/frame**, **50 max rows/frame**, and **5,496/5,496 frames with claim, start, and terminal event links**.
 - Validation passed for all 10 facilities: all patient domains were **1000/1000** and MDS was **224,443/224,443**.
 
 ---
@@ -1058,6 +1058,7 @@ Validation notes:
 - Frame-mode local kind validation on image `localhost/local/noetl:2026-05-17-18-07` completed PFT v2 execution `629145120213828019` in 279.785s with `completed=true` and `failed=false`. Final counters: 5,498 frames, average 49.92 rows/frame, max 50, metrics present on every frame, all 10 facilities at 1000/1000 for the five patient domains, and MDS 224,443/224,443.
 - Frame-lineage local kind validation on image `localhost/local/noetl:2026-05-17-18-56` completed PFT v2 execution `629166136403165640` in 269.156s with `completed=true` and `failed=false`. Final counters: 60 stages opened/closed, 5,500 frames, 5,440 frames with `parent_frame_id` (one root per stage), 5,500/5,500 `claimed_event_id` and `terminal_event_id` links populated, 5,500 `frame.dispatched`, 5,500 `frame.committed`, zero `frame.failed`, all 10 facilities at 1000/1000 for the five patient domains, and MDS 224,443/224,443.
 - Frame-lifecycle local kind validation on image `local/noetl:2026-05-17-19-10` completed PFT v2 execution `629173479832551841` in 340.435s with `completed=true` and `failed=false`. Final counters: 60 stages opened/closed, 5,499 frames, 5,439 frames with `parent_frame_id` (one root per stage), 5,499/5,499 `claimed_event_id` and `terminal_event_id` links populated, 5,499 `frame.dispatched`, 5,499 `frame.started`, 5,499 `frame.committed`, zero `frame.failed`, all 10 facilities at 1000/1000 for the five patient domains, and MDS 224,443/224,443. The validation command passed `--set num_facilities=1 --set patients_per_facility=100`, but catalog execution overrides were ignored and the run used defaults `10/1000`; this is tracked in `noetl/cli#12`.
+- Frame-stream lock-order validation on image `local/noetl:2026-05-17-19-51` completed PFT v2 execution `629193644754337792` in 487.855s with `completed=true` and `failed=false`. Final counters: 60 stages opened/closed, 5,496 frames, 5,436 frames with `parent_frame_id` (one root per stage), 5,496/5,496 `claimed_event_id` and `terminal_event_id` links populated, 5,496 `frame.dispatched`, 5,496 `frame.started`, 5,496 `frame.committed`, zero `frame.failed`, all 10 facilities at 1000/1000 for the five patient domains, MDS 224,443/224,443, and no frame endpoint deadlocks or 500s in the validation log window. Two prior validations on images `local/noetl:2026-05-17-19-26` and `local/noetl:2026-05-17-19-42` were cancelled after exposing frame event deadlocks; the fix is consistent lock acquisition before frame row mutation.
 - Replay hardening now folds direct `event.stage_id`, `event.frame_id`, and `event.command_id` columns; records stage open/close event ids and frame claim/terminal event ids; and treats `frame.abandoned` as a deterministic lease-recovery transition. The golden replay corpus checksum was updated to cover these extra lineage fields.
 - Full repository pytest collection currently has legacy collection blockers unrelated to Phase 0; tracked by `noetl/noetl#440`.
 
@@ -1076,7 +1077,7 @@ Goal: collapse N single-row cursor claims into N/50 multi-row frame claims and a
 Verification:
 
 - Total `command.*` count drops from ~150k to < 20k on PFT v2.
-- Wall time should drop versus the default row-processing baseline. The 2026-05-18 local kind validations improved the full PFT v2 run from ~31m21s to ~4m30s-~5m40s.
+- Wall time should drop versus the default row-processing baseline. The 2026-05-18 local kind validations improved the full PFT v2 run from ~31m21s to ~4m30s-~8m08s, with the latest clean lock-order validation favoring correctness over optimistic concurrent frame event writes.
 - Replay parity stays green for frame state, loop progress, and execution status.
 
 ### Phase 2 — Decentralized projection (2 weeks)
