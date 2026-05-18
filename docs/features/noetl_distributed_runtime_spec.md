@@ -755,12 +755,13 @@ Implementation status:
 - `NATSEventPublisher` is present in `repos/noetl/noetl/core/messaging`. It mirrors canonical event envelopes to subjects shaped as `noetl.events.<tenant>.<org>.<execution>.<shard>`, creates the event stream with a wildcard subject, and retries once after reconnect on publish failure.
 - Frame lifecycle routes now can mirror `frame.dispatched`, `frame.started`, `frame.committed`, and `frame.failed` envelopes after the database transaction commits. Mirroring is opt-in via `NOETL_EVENT_MIRROR_ENABLED=true` and publish failures are logged but do not fail the frame API request.
 - Deployment wiring has started in `noetl/ops#102`: the Helm chart gains an opt-in `noetl-projector` StatefulSet, projector ConfigMap, headless service, stable shard identity from the StatefulSet pod name, and automatic server event-mirror env wiring when `projector.enabled=true`.
+- Projector checkpoint metadata is in progress in `noetl/noetl#455`: each replay-state projection write records `event_count`, `source_event_id`, `event_time_watermark`, `projected_at`, and `projection_lag_ms` in `ProjectionRecord.meta`. This gives operators a durable per-execution lag/checkpoint surface before Prometheus scrape/export wiring lands.
 - The adapter currently supports:
   - `save_projection(record)` with version-monotonic upsert semantics;
   - `load_projection(projection_id)`;
   - `save_snapshot(snapshot)` with version-monotonic upsert semantics;
   - `load_snapshot(aggregate_id, aggregate_type=...)`.
-- Wiring the remaining server event write paths into the event mirror publisher, shard checkpoint metrics, and projector lag metrics remain tracked by `noetl/noetl#437`.
+- Wiring the remaining server event write paths into the event mirror publisher and exposing projector lag/checkpoint metadata as scrapeable metrics remain tracked by `noetl/noetl#437`.
 - Non-Postgres projection adapters remain tracked by `noetl/noetl#439`.
 
 Projection backend roles:
