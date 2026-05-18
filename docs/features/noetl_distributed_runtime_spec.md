@@ -18,6 +18,8 @@ Implementation tracker:
 - Event/projection store ports: `noetl/noetl#439`.
 - Replay regression / serialization gates: `noetl/noetl#440`.
 - Docs alignment: `noetl/noetl#441`.
+- Batch event mirror: `noetl/noetl#460`.
+- Remaining event append mirror audit: `noetl/noetl#461`.
 Companion specs that this revision builds on (do not re-spec):
 
 - `noetl_async_sharded_architecture.md` — sharded projection workers, epoch barriers.
@@ -39,6 +41,8 @@ Latest implementation checkpoint:
 - The canonical PFT v2 fixture shape remains preserved for regression coverage. Page-continuation fidelity is covered by a companion fixture, `fixtures/playbooks/pft_flow_test/test_pft_page_continuation.yaml`, which follows `paging.hasMore` with one HTTP request per patient/data-type/page record instead of changing the canonical benchmark.
 - 2026-05-18 hardening update: `noetl/noetl#453` removes the remaining lazy frame-mint advisory lock from the cursor claim hot path by using an indexed stage/worker-slot/frame-index claim key with `INSERT ... ON CONFLICT DO NOTHING`; `noetl/noetl#454` fixes execution-list status flicker when a late non-terminal projection event follows an already-terminal `noetl.execution.status`.
 - 2026-05-18 serialization gate update: `noetl/noetl#456` rejects frame commit `output_ref` envelopes that advertise an IPC/shared-memory hint without any durable `ref`, `uri`, or `locator`, preserving replay authority after cache GC.
+- 2026-05-18 event mirror update: `noetl/noetl#460` wires the async batch-ingestion path into the same opt-in event mirror used by direct `/api/events` and frame lifecycle routes. Batch item events, `batch.accepted`, batch status events, and batch-generated `command.issued` envelopes now carry command, stage, frame, and parent lineage into the distribution stream after the canonical database commit.
+- 2026-05-18 execution-route mirror update: `noetl/noetl#462` mirrors `/api/execute` generated `command.issued` envelopes and `/api/executions/{execution_id}/cancel` `execution.cancelled` events after commit. Remaining direct event append paths are tracked by `noetl/noetl#461`.
 
 ---
 
@@ -759,6 +763,8 @@ Implementation status:
 - `NATSEventPublisher` is present in `repos/noetl/noetl/core/messaging`. It mirrors canonical event envelopes to subjects shaped as `noetl.events.<tenant>.<org>.<execution>.<shard>`, creates the event stream with a wildcard subject, and retries once after reconnect on publish failure.
 - Frame lifecycle routes now can mirror `frame.dispatched`, `frame.started`, `frame.committed`, and `frame.failed` envelopes after the database transaction commits. Mirroring is opt-in via `NOETL_EVENT_MIRROR_ENABLED=true` and publish failures are logged but do not fail the frame API request.
 - `noetl/noetl#459` extends the same opt-in mirroring to persisted `/api/events` lifecycle events and generated `command.issued` events, publishing only after the canonical database commit succeeds.
+- `noetl/noetl#460` closes the async batch-ingestion gap by mirroring `/api/events/batch` item events, `batch.accepted`, `batch.processing`, `batch.completed`, `batch.failed`, and batch-generated `command.issued` events after their canonical commits. The mirrored envelopes preserve `command_id`, `stage_id`, `frame_id`, `parent_event_id`, and `parent_execution_id` where available so projector replay sees the same lineage as direct event ingestion.
+- `noetl/noetl#462` covers execution-route appends: initial `/api/execute` generated `command.issued` events and API `execution.cancelled` events are mirrored after their canonical commits.
 - Deployment wiring has started in `noetl/ops#102` and `noetl/ops#103`: the Helm chart gains an opt-in `noetl-projector` StatefulSet, projector ConfigMap, headless service, stable shard identity from the StatefulSet pod name, automatic server event-mirror env wiring when `projector.enabled=true`, and a named `metrics` port on `9090`.
 - Projector checkpoint metadata landed in `noetl/noetl#455`: each replay-state projection write records `event_count`, `source_event_id`, `event_time_watermark`, `projected_at`, and `projection_lag_ms` in `ProjectionRecord.meta`. `noetl/noetl#458` exposes those fields as per-shard Prometheus gauges.
 - The adapter currently supports:
@@ -766,7 +772,7 @@ Implementation status:
   - `load_projection(projection_id)`;
   - `save_snapshot(snapshot)` with version-monotonic upsert semantics;
   - `load_snapshot(aggregate_id, aggregate_type=...)`.
-- Wiring batch acceptance and other remaining server event write paths into the event mirror publisher, plus live mirrored-event projector validation, remain tracked by `noetl/noetl#437`.
+- Live mirrored-event projector validation and remaining direct event append paths remain tracked by `noetl/noetl#437` and `noetl/noetl#461`. The open audit list includes DSL executor stage/lifecycle events, auto-resume events, broker-service events, and legacy cleanup-stuck path classification.
 - Non-Postgres projection adapters remain tracked by `noetl/noetl#439`.
 
 Projection backend roles:
@@ -1110,7 +1116,7 @@ Goal: extract projection from server, run as a StatefulSet, scale independently.
 
 - New `noetl-projector` binary entrypoint reusing the existing projection worker code.
 - Helm chart adds the StatefulSet, NATS durable consumer per replica, projection-store-only DB user.
-- Remove the in-process projection loop from the server. Server now appends canonical events and mirrors them to the distribution stream.
+- Remove the in-process projection loop from the server. Server now appends canonical events and mirrors frame lifecycle, direct event ingestion, async batch ingestion, execution-route command/cancel events, and generated command events to the distribution stream.
 - Add per-shard projection lag/checkpoint metrics from durable projection metadata. Initial gauges are in `noetl/noetl#458`; dashboard wiring and live mirrored-event validation remain.
 
 Verification:
