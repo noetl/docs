@@ -38,6 +38,7 @@ Latest implementation checkpoint:
 - Validation passed for all 10 facilities: all patient domains were **1000/1000** and MDS was **224,443/224,443**.
 - The canonical PFT v2 fixture shape remains preserved for regression coverage. Page-continuation fidelity is covered by a companion fixture, `fixtures/playbooks/pft_flow_test/test_pft_page_continuation.yaml`, which follows `paging.hasMore` with one HTTP request per patient/data-type/page record instead of changing the canonical benchmark.
 - 2026-05-18 hardening update: `noetl/noetl#453` removes the remaining lazy frame-mint advisory lock from the cursor claim hot path by using an indexed stage/worker-slot/frame-index claim key with `INSERT ... ON CONFLICT DO NOTHING`; `noetl/noetl#454` fixes execution-list status flicker when a late non-terminal projection event follows an already-terminal `noetl.execution.status`.
+- 2026-05-18 serialization gate update: `noetl/noetl#456` rejects frame commit `output_ref` envelopes that advertise an IPC/shared-memory hint without any durable `ref`, `uri`, or `locator`, preserving replay authority after cache GC.
 
 ---
 
@@ -488,6 +489,7 @@ Implementation status:
 - `frame.row_concurrency` is an opt-in bound for processing rows within one frame concurrently in row mode; the default remains `1` to preserve legacy ordering and side-effect behavior.
 - Cursor frame commits now carry profiling metadata under `frame.cursor.metrics`: row outcome counts, row concurrency, total task/render/tool milliseconds, and rollups by task kind/name. This is the release-gate instrumentation for deciding whether the next PFT improvement should target HTTP calls, Postgres saves, serialization, or control-plane commits.
 - Claimed frame rows are serialized as Apache Arrow IPC stream bytes through `TempStore.put_ipc_bytes`. The command result carries a durable `rows_ref` with schema digest, row count, media type, and optional Tier 1.5 IPC hint. Default `max_rows=1` preserves existing one-row behavior unless a playbook opts into batching.
+- Frame commit validation now treats IPC metadata as a cache-only hint: if `output_ref` contains `ipc`, the same envelope must also contain a durable `ref`, `uri`, or `locator`, including nested `rows_ref` shapes. IPC-only frame events are rejected because they cannot be replayed once shared memory is swept.
 
 ### 5.3 Claim / heartbeat / commit API
 
