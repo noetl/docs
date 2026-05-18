@@ -458,11 +458,23 @@ loop:
       lease_seconds: 120    # initial lease window
       heartbeat_seconds: 30 # expected heartbeat cadence
       process: frame        # row = run body once per row; frame = run body once per frame
+      retry_mode: whole_frame
+      max_attempts: 3
 ```
 
 For PFT v2, the validated opt-in frame is `{ max_rows: 50, max_seconds: 30, max_bytes: 64MB, lease_seconds: 120, heartbeat_seconds: 30, process: frame }`. `process: row` remains the default for backwards-compatible semantics: the worker claims a frame but runs the declared task pipeline once per row. `process: frame` exposes `frame.rows`, `frame.row_count`, `frame.index`, and `iter.<iterator>_rows` to the task pipeline and runs it once per claimed frame. That is the mode that produced the 2026-05-18 full PFT v2 local kind validations in ~4m30s to ~5m40s.
 
 `row_concurrency` remains available as an opt-in tuning knob for `process: row`, but the 2026-05-17 local kind validation showed `row_concurrency: 4` regressed the full PFT v2 run from ~31m21s to ~33m23s. Leave it at the default `1` unless a workload explicitly needs concurrent row execution inside one frame.
+
+`retry_mode: whole_frame` is the only supported Phase 1 recovery mode. If a
+worker crashes or its lease expires before terminal commit, reclaim emits
+`frame.abandoned` and then a new `frame.dispatched` attempt for the same frame
+boundary. Row-split retry is intentionally not supported yet: splitting a
+failed frame would create a second event-sourcing boundary and requires a
+future subframe model. A task failure that reaches terminal commit emits
+`frame.failed` with the frame cursor, output reference summary, row count,
+`events_emitted`, and recovery policy so an operator can audit the lost-work
+unit and decide whether to requeue at the business cursor layer.
 
 Implementation status:
 
@@ -512,6 +524,7 @@ Implementation status:
 - Lazily minted runtime frames now serialize the tiny parent lookup with a stage-scoped PostgreSQL advisory lock. This keeps `parent_frame_id` deterministic under concurrent workers: every stage has one root frame and every later frame points at the prior frame in stage order.
 - Cursor workers now send a `RUNNING` heartbeat immediately after a successful frame claim and before frame execution. The heartbeat endpoint records the first `CLAIMED -> RUNNING` transition as `frame.started`; later `RUNNING` lease extensions are recorded as `frame.heartbeat`. This keeps the normal replay sequence clear: `frame.dispatched -> frame.started -> frame.heartbeat* -> frame.committed|frame.failed`.
 - When a worker reclaims an expired `CLAIMED` / `RUNNING` frame, the server emits `frame.abandoned` before the new `frame.dispatched` event. Replay therefore sees the recovery chain as append-only history rather than inferring it from a mutable row overwrite.
+- Recovery metadata is persisted on `frame.abandoned` and `frame.dispatched`: `retry_mode=whole_frame`, `row_split_retry=false`, `max_attempts`, previous owner, reclaimer, prior lease, and previous attempt count. This is enough to audit whether a frame was retried as a whole unit and whether operator intervention is needed after repeated attempts.
 - Duplicate or late terminal commits are rejected with `409 frame_already_terminal` and the existing `terminal_event_id`, so a retrying worker cannot emit a second `frame.committed` / `frame.failed` event for the same frame. Heartbeats against terminal frames receive the same conflict response.
 - Worker-side cursor integration uses the existing `cursor_worker` path with frame policy and batched driver claims. The remaining Phase 1 work is validation, telemetry, and removing any residual per-row server coordination from non-PFT cursor shapes.
 
@@ -1159,7 +1172,7 @@ Goal: extend the stage/frame model from loops to fan-out and reduce, completing 
 
 - **Tier 1.5 GC under crash.** A producer worker that crashes after writing shm but before committing the frame leaves shm regions that no one will unlink. Mitigation: per-node `shm_unlink` sweep on worker start (scans `/dev/shm/noetl-*` and unlinks regions older than `tier_15_grace_seconds`).
 - **NATS supercluster cost.** Cross-region replication of every event stream is not free. Mitigation: opt-in per execution; default is single-region.
-- **Frame size tuning.** A frame too big means more work lost on crash; too small means coordination dominates. Mitigation: start with the §5.2 default, expose per-step override, measure with the §4 dashboard.
+- **Frame size tuning.** A frame too big means more work lost on crash; too small means coordination dominates. Mitigation: start with the §5.2 default, expose per-step override, measure with the §4 dashboard. Operators should choose `max_rows` from lost-work tolerance: a 50-row frame means a crash can replay up to 50 claimed cursor rows as one unit; high-cost or externally side-effecting steps should use smaller frames until idempotency is proven. Increase `lease_seconds` to at least the p99 frame runtime plus one heartbeat interval, and keep `max_attempts` low enough that repeated whole-frame failures page an operator instead of silently cycling.
 - **Reduce-side back-pressure.** A reduce stage that is slower than its upstream fanout fills the projection store inbox. Mitigation: reuse the existing `max_inflight` concept at the stage level, not the worker level.
 - **Multi-process per pod.** Some MCPs prefer multiple processes. Tier 1.5 then needs a node-local broker. Out of scope for v1; revisit if a real MCP demands it.
 
