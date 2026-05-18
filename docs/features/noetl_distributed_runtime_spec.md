@@ -755,16 +755,17 @@ Implementation status:
 - The first transport-neutral reducer is present in `repos/noetl/noetl/core/projector`. `ReplayStateProjector` groups events by tenant, organization, and execution, orders by event position, folds them with the same replay-state reducer used by `GET /api/replay/state`, and writes lineage-rich `ProjectionRecord` rows with checksum and upcaster-registry metadata.
 - The first projector process entrypoint is present at `python -m noetl.projector`. It wraps the reducer with a NATS durable pull consumer, stable shard identity, and modulo execution-id shard filtering so a StatefulSet replica only projects the events it owns.
 - `noetl/noetl#457` adds optional projector `/metrics` and `/health` endpoints (`NOETL_PROJECTOR_METRICS_PORT` / `--metrics-port`) with counters for notifications, extracted events, shard-owned events, projection records, empty/unowned notifications, errors, and last batch gauges. Access logging is suppressed for scrape paths.
+- `noetl/noetl#458` exports durable checkpoint gauges from successful projector writes: last source event id, event-time watermark, projected-at timestamp, latest projection lag, and max projection lag since process start.
 - `NATSEventPublisher` is present in `repos/noetl/noetl/core/messaging`. It mirrors canonical event envelopes to subjects shaped as `noetl.events.<tenant>.<org>.<execution>.<shard>`, creates the event stream with a wildcard subject, and retries once after reconnect on publish failure.
 - Frame lifecycle routes now can mirror `frame.dispatched`, `frame.started`, `frame.committed`, and `frame.failed` envelopes after the database transaction commits. Mirroring is opt-in via `NOETL_EVENT_MIRROR_ENABLED=true` and publish failures are logged but do not fail the frame API request.
 - Deployment wiring has started in `noetl/ops#102` and `noetl/ops#103`: the Helm chart gains an opt-in `noetl-projector` StatefulSet, projector ConfigMap, headless service, stable shard identity from the StatefulSet pod name, automatic server event-mirror env wiring when `projector.enabled=true`, and a named `metrics` port on `9090`.
-- Projector checkpoint metadata is in progress in `noetl/noetl#455`: each replay-state projection write records `event_count`, `source_event_id`, `event_time_watermark`, `projected_at`, and `projection_lag_ms` in `ProjectionRecord.meta`. This gives operators a durable per-execution lag/checkpoint surface before Prometheus scrape/export wiring lands.
+- Projector checkpoint metadata landed in `noetl/noetl#455`: each replay-state projection write records `event_count`, `source_event_id`, `event_time_watermark`, `projected_at`, and `projection_lag_ms` in `ProjectionRecord.meta`. `noetl/noetl#458` exposes those fields as per-shard Prometheus gauges.
 - The adapter currently supports:
   - `save_projection(record)` with version-monotonic upsert semantics;
   - `load_projection(projection_id)`;
   - `save_snapshot(snapshot)` with version-monotonic upsert semantics;
   - `load_snapshot(aggregate_id, aggregate_type=...)`.
-- Wiring the remaining server event write paths into the event mirror publisher and exporting durable checkpoint/lag values from projection rows remain tracked by `noetl/noetl#437`.
+- Wiring the remaining server event write paths into the event mirror publisher and validating the checkpoint gauges against live mirrored events remain tracked by `noetl/noetl#437`.
 - Non-Postgres projection adapters remain tracked by `noetl/noetl#439`.
 
 Projection backend roles:
@@ -1109,7 +1110,7 @@ Goal: extract projection from server, run as a StatefulSet, scale independently.
 - New `noetl-projector` binary entrypoint reusing the existing projection worker code.
 - Helm chart adds the StatefulSet, NATS durable consumer per replica, projection-store-only DB user.
 - Remove the in-process projection loop from the server. Server now appends canonical events and mirrors them to the distribution stream.
-- Add per-shard projection lag/checkpoint metrics from durable projection metadata.
+- Add per-shard projection lag/checkpoint metrics from durable projection metadata. Initial gauges are in `noetl/noetl#458`; dashboard wiring and live mirrored-event validation remain.
 
 Verification:
 
