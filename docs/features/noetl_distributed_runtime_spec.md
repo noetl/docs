@@ -758,6 +758,7 @@ Implementation status:
 - `noetl/noetl#458` exports durable checkpoint gauges from successful projector writes: last source event id, event-time watermark, projected-at timestamp, latest projection lag, and max projection lag since process start.
 - `NATSEventPublisher` is present in `repos/noetl/noetl/core/messaging`. It mirrors canonical event envelopes to subjects shaped as `noetl.events.<tenant>.<org>.<execution>.<shard>`, creates the event stream with a wildcard subject, and retries once after reconnect on publish failure.
 - Frame lifecycle routes now can mirror `frame.dispatched`, `frame.started`, `frame.committed`, and `frame.failed` envelopes after the database transaction commits. Mirroring is opt-in via `NOETL_EVENT_MIRROR_ENABLED=true` and publish failures are logged but do not fail the frame API request.
+- `noetl/noetl#459` extends the same opt-in mirroring to persisted `/api/events` lifecycle events and generated `command.issued` events, publishing only after the canonical database commit succeeds.
 - Deployment wiring has started in `noetl/ops#102` and `noetl/ops#103`: the Helm chart gains an opt-in `noetl-projector` StatefulSet, projector ConfigMap, headless service, stable shard identity from the StatefulSet pod name, automatic server event-mirror env wiring when `projector.enabled=true`, and a named `metrics` port on `9090`.
 - Projector checkpoint metadata landed in `noetl/noetl#455`: each replay-state projection write records `event_count`, `source_event_id`, `event_time_watermark`, `projected_at`, and `projection_lag_ms` in `ProjectionRecord.meta`. `noetl/noetl#458` exposes those fields as per-shard Prometheus gauges.
 - The adapter currently supports:
@@ -765,7 +766,7 @@ Implementation status:
   - `load_projection(projection_id)`;
   - `save_snapshot(snapshot)` with version-monotonic upsert semantics;
   - `load_snapshot(aggregate_id, aggregate_type=...)`.
-- Wiring the remaining server event write paths into the event mirror publisher and validating the checkpoint gauges against live mirrored events remain tracked by `noetl/noetl#437`.
+- Wiring batch acceptance and other remaining server event write paths into the event mirror publisher, plus live mirrored-event projector validation, remain tracked by `noetl/noetl#437`.
 - Non-Postgres projection adapters remain tracked by `noetl/noetl#439`.
 
 Projection backend roles:
