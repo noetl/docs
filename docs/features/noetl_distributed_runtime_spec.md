@@ -32,9 +32,9 @@ Not in scope here: DSL surface changes or the playbook authoring guide. Event-so
 
 Latest implementation checkpoint:
 
-- Local kind full PFT v2 execution `629145120213828019` completed on 2026-05-18 in **279.785s (~4m40s)** using `frame.process: frame`.
+- Local kind full PFT v2 execution `629166136403165640` completed on 2026-05-18 in **269.156s (~4m29s)** using `frame.process: frame`.
 - The previous local kind default-row-frame baseline was **1880.739s (~31m21s)**; the row-concurrency experiment was **2002.841s (~33m23s)**.
-- The full frame-mode run produced **5,498 committed frames**, **49.92 average rows/frame**, **50 max rows/frame**, and **5,498/5,498 frames with profiling metrics**.
+- The full frame-lineage run produced **5,500 committed frames**, **49.90 average rows/frame**, **50 max rows/frame**, and **5,500/5,500 frames with claim and terminal event links**.
 - Validation passed for all 10 facilities: all patient domains were **1000/1000** and MDS was **224,443/224,443**.
 
 ---
@@ -439,7 +439,7 @@ execution
 
 `noetl.event` also carries direct `stage_id` and `frame_id` columns for stage/frame lifecycle events and command events where the producer knows the projection key. Those columns are indexed for replay scans by `(execution_id, stage_id, event_id DESC)` and `(execution_id, frame_id, event_id DESC)`. `noetl.command` carries `stage_id` and `frame_id`; the cursor-worker path resolves `frame.command_id` from the command context and has a server-side fallback indexed by `(execution_id, stage_id, meta->>'worker_slot_id')`.
 
-`parent_stage_id` and `parent_frame_id` are intentionally present before all producers use them. Cursor loops currently use `loop_event_id` as the direct stage correlation key; fan-out/reduce will use parent ids to preserve the execution tree without replaying every event payload.
+`parent_stage_id` and `parent_frame_id` are the explicit traversal edges for runtime projections. Cursor loops currently use `loop_event_id` as the direct stage correlation key and mint one root frame per stage; subsequent frames in that stage carry `parent_frame_id` to form a deterministic stage-local chain. Fan-out/reduce will extend the same parent ids to preserve the execution tree without replaying every event payload.
 
 ### 5.2 Frame policy
 
@@ -508,6 +508,7 @@ Implementation status:
   - `frame.failed`
 - Frame lifecycle events now populate `stream_version` and `envelope_checksum`, so replay can order stage-local frame transitions and detect envelope drift with the same checksum contract as the event-store port.
 - Frame claims now persist `frame.command_id` from the worker command context. If an older worker omits it, the server resolves it from `(execution_id, stage_id, worker_slot_id)` using the indexed command metadata path.
+- Lazily minted runtime frames now serialize the tiny parent lookup with a stage-scoped PostgreSQL advisory lock. This keeps `parent_frame_id` deterministic under concurrent workers: every stage has one root frame and every later frame points at the prior frame in stage order.
 - When a worker reclaims an expired `CLAIMED` / `RUNNING` frame, the server emits `frame.abandoned` before the new `frame.dispatched` event. Replay therefore sees the recovery chain as append-only history rather than inferring it from a mutable row overwrite.
 - Worker-side cursor integration uses the existing `cursor_worker` path with frame policy and batched driver claims. The remaining Phase 1 work is validation, telemetry, and removing any residual per-row server coordination from non-PFT cursor shapes.
 
@@ -1052,6 +1053,7 @@ Validation notes:
 - Stage terminal events are now implemented in the Phase 0 branch: the executor emits `stage.closed`, records `closed_event_id`, and marks the stage `COMPLETED` when the loop epoch finishes. `noetl/noetl#443` remains the tracker for hardening this into the terminal stage projection/reaper path.
 - Lineage validation on local kind image `localhost/local/noetl:2026-05-17-13-32` completed PFT v2 execution `629003028435042682` in 33m36s with `completed=true` and `failed=false`. Final counters: 60 `stage.opened`, 60 `stage.closed`, 5,562 `frame.dispatched`, 5,562 `frame.committed`, zero `frame.failed`, all 60 stages `COMPLETED`, `frame.command_id`/`claimed_event_id`/`terminal_event_id` populated on all 5,562 frames, and completed frames averaged 49.34 rows with max 50.
 - Frame-mode local kind validation on image `localhost/local/noetl:2026-05-17-18-07` completed PFT v2 execution `629145120213828019` in 279.785s with `completed=true` and `failed=false`. Final counters: 5,498 frames, average 49.92 rows/frame, max 50, metrics present on every frame, all 10 facilities at 1000/1000 for the five patient domains, and MDS 224,443/224,443.
+- Frame-lineage local kind validation on image `localhost/local/noetl:2026-05-17-18-56` completed PFT v2 execution `629166136403165640` in 269.156s with `completed=true` and `failed=false`. Final counters: 60 stages opened/closed, 5,500 frames, 5,440 frames with `parent_frame_id` (one root per stage), 5,500/5,500 `claimed_event_id` and `terminal_event_id` links populated, 5,500 `frame.dispatched`, 5,500 `frame.committed`, zero `frame.failed`, all 10 facilities at 1000/1000 for the five patient domains, and MDS 224,443/224,443.
 - Replay hardening now folds direct `event.stage_id`, `event.frame_id`, and `event.command_id` columns; records stage open/close event ids and frame claim/terminal event ids; and treats `frame.abandoned` as a deterministic lease-recovery transition. The golden replay corpus checksum was updated to cover these extra lineage fields.
 - Full repository pytest collection currently has legacy collection blockers unrelated to Phase 0; tracked by `noetl/noetl#440`.
 
