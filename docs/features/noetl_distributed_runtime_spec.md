@@ -43,6 +43,7 @@ Latest implementation checkpoint:
 - 2026-05-18 serialization gate update: `noetl/noetl#456` rejects frame commit `output_ref` envelopes that advertise an IPC/shared-memory hint without any durable `ref`, `uri`, or `locator`, preserving replay authority after cache GC.
 - 2026-05-18 event mirror update: `noetl/noetl#460` wires the async batch-ingestion path into the same opt-in event mirror used by direct `/api/events` and frame lifecycle routes. Batch item events, `batch.accepted`, batch status events, and batch-generated `command.issued` envelopes now carry command, stage, frame, and parent lineage into the distribution stream after the canonical database commit.
 - 2026-05-18 execution-route mirror update: `noetl/noetl#462` mirrors `/api/execute` generated `command.issued` envelopes and `/api/executions/{execution_id}/cancel` `execution.cancelled` events after commit. Remaining direct event append paths are tracked by `noetl/noetl#461`.
+- 2026-05-18 DSL mirror update: `noetl/noetl#463` mirrors engine-owned lifecycle events plus owned-transaction `stage.opened` and `stage.closed` events after commit. Engine helpers called with caller-owned `conn=...` are intentionally not mirrored yet; `noetl/noetl#461` tracks the required after-commit strategy.
 
 ---
 
@@ -765,6 +766,7 @@ Implementation status:
 - `noetl/noetl#459` extends the same opt-in mirroring to persisted `/api/events` lifecycle events and generated `command.issued` events, publishing only after the canonical database commit succeeds.
 - `noetl/noetl#460` closes the async batch-ingestion gap by mirroring `/api/events/batch` item events, `batch.accepted`, `batch.processing`, `batch.completed`, `batch.failed`, and batch-generated `command.issued` events after their canonical commits. The mirrored envelopes preserve `command_id`, `stage_id`, `frame_id`, `parent_event_id`, and `parent_execution_id` where available so projector replay sees the same lineage as direct event ingestion.
 - `noetl/noetl#462` covers execution-route appends: initial `/api/execute` generated `command.issued` events and API `execution.cancelled` events are mirrored after their canonical commits.
+- `noetl/noetl#463` covers engine-owned DSL appends: lifecycle events from `LifecycleMixin._persist_event`, plus owned-transaction `stage.opened` and `stage.closed`, mirror only after the engine-owned commit boundary.
 - Deployment wiring has started in `noetl/ops#102` and `noetl/ops#103`: the Helm chart gains an opt-in `noetl-projector` StatefulSet, projector ConfigMap, headless service, stable shard identity from the StatefulSet pod name, automatic server event-mirror env wiring when `projector.enabled=true`, and a named `metrics` port on `9090`.
 - Projector checkpoint metadata landed in `noetl/noetl#455`: each replay-state projection write records `event_count`, `source_event_id`, `event_time_watermark`, `projected_at`, and `projection_lag_ms` in `ProjectionRecord.meta`. `noetl/noetl#458` exposes those fields as per-shard Prometheus gauges.
 - The adapter currently supports:
@@ -772,7 +774,7 @@ Implementation status:
   - `load_projection(projection_id)`;
   - `save_snapshot(snapshot)` with version-monotonic upsert semantics;
   - `load_snapshot(aggregate_id, aggregate_type=...)`.
-- Live mirrored-event projector validation and remaining direct event append paths remain tracked by `noetl/noetl#437` and `noetl/noetl#461`. The open audit list includes DSL executor stage/lifecycle events, auto-resume events, broker-service events, and legacy cleanup-stuck path classification.
+- Live mirrored-event projector validation and remaining direct event append paths remain tracked by `noetl/noetl#437` and `noetl/noetl#461`. The open audit list includes caller-owned DSL transaction after-commit handling, auto-resume events, broker-service events, and legacy cleanup-stuck path classification.
 - Non-Postgres projection adapters remain tracked by `noetl/noetl#439`.
 
 Projection backend roles:
