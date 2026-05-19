@@ -50,6 +50,7 @@ Latest implementation checkpoint:
 - 2026-05-18 execution event outbox update: `noetl/noetl#468` moves `/api/execute` initial `command.issued` envelopes and `/api/executions/{execution_id}/cancel` `execution.cancelled` envelopes to same-transaction outbox enqueue.
 - 2026-05-18 auto-resume outbox update: `noetl/noetl#469` moves recovery-generated `execution.cancelled` envelopes to the same-transaction outbox path.
 - 2026-05-18 broker event outbox update: `noetl/noetl#470` moves generic broker `EventService.emit_event` appends to same-transaction outbox enqueue.
+- 2026-05-19 command-claim outbox update: `noetl/noetl#471` moves `command.claimed` worker lifecycle events to same-transaction outbox enqueue.
 
 ---
 
@@ -775,6 +776,7 @@ Implementation status:
 - `noetl/noetl#468` applies the boundary to execution routes: `/api/execute` initial `command.issued` rows, `/api/executions/{execution_id}/cancel` `execution.cancelled` rows, and cleanup-stuck `execution.cancelled` rows enqueue before commit, then drain committed outbox rows. Command recovery publish remains separate because it is worker dispatch, not projector/event distribution.
 - `noetl/noetl#469` applies the boundary to auto-resume recovery cancellations so interrupted parent executions marked `execution.cancelled` by startup recovery participate in the same projector distribution bridge as API-generated cancellations.
 - `noetl/noetl#470` applies the boundary to generic broker event emission. `EventService.emit_event` stores the sanitized event row and outbox envelope in one transaction, preserving the broker API response while making generic emits projector-visible.
+- `noetl/noetl#471` applies the boundary to command claims. `claim_command` now stores `command.claimed` and updates the mutable command row in the same transaction as the outbox envelope, then drains committed rows after commit.
 - Frame lifecycle routes now can mirror `frame.dispatched`, `frame.started`, `frame.committed`, and `frame.failed` envelopes after the database transaction commits. Mirroring is opt-in via `NOETL_EVENT_MIRROR_ENABLED=true` and publish failures are logged but do not fail the frame API request.
 - `noetl/noetl#459` originally extended the same opt-in mirroring to persisted `/api/events` lifecycle events and generated `command.issued` events via post-commit direct publish. `noetl/noetl#466` supersedes that route-local hook with same-transaction outbox enqueue.
 - `noetl/noetl#460` closes the async batch-ingestion gap by mirroring `/api/events/batch` item events, `batch.accepted`, `batch.processing`, `batch.completed`, `batch.failed`, and batch-generated `command.issued` events after their canonical commits. The mirrored envelopes preserve `command_id`, `stage_id`, `frame_id`, `parent_event_id`, and `parent_execution_id` where available so projector replay sees the same lineage as direct event ingestion.
@@ -786,7 +788,7 @@ Implementation status:
   - `load_projection(projection_id)`;
   - `save_snapshot(snapshot)` with version-monotonic upsert semantics;
   - `load_snapshot(aggregate_id, aggregate_type=...)`.
-- Live mirrored-event projector validation and remaining direct event append paths remain tracked by `noetl/noetl#437` and `noetl/noetl#461`. The next migration step is moving frame routes from direct post-commit mirror calls to same-transaction `noetl.outbox` enqueue. The remaining audit list also includes caller-owned DSL transaction after-commit handling.
+- Live mirrored-event projector validation and remaining direct event append paths remain tracked by `noetl/noetl#437` and `noetl/noetl#461`. The next migration step is moving frame routes from direct post-commit mirror calls to same-transaction `noetl.outbox` enqueue. The remaining audit list also includes caller-owned DSL transaction after-commit handling and the backend-neutral `PostgresEventStore.append` adapter.
 - Non-Postgres projection adapters remain tracked by `noetl/noetl#439`.
 
 Projection backend roles:
