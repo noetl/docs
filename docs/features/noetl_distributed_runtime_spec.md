@@ -20,6 +20,7 @@ Implementation tracker:
 - Docs alignment: `noetl/noetl#441`.
 - Batch event mirror: `noetl/noetl#460`.
 - Remaining event append mirror audit: `noetl/noetl#461`.
+- Transactional outbox: `noetl/noetl#464`.
 Companion specs that this revision builds on (do not re-spec):
 
 - `noetl_async_sharded_architecture.md` — sharded projection workers, epoch barriers.
@@ -43,6 +44,12 @@ Latest implementation checkpoint:
 - 2026-05-18 serialization gate update: `noetl/noetl#456` rejects frame commit `output_ref` envelopes that advertise an IPC/shared-memory hint without any durable `ref`, `uri`, or `locator`, preserving replay authority after cache GC.
 - 2026-05-18 event mirror update: `noetl/noetl#460` wires the async batch-ingestion path into the same opt-in event mirror used by direct `/api/events` and frame lifecycle routes. Batch item events, `batch.accepted`, batch status events, and batch-generated `command.issued` envelopes now carry command, stage, frame, and parent lineage into the distribution stream after the canonical database commit.
 - 2026-05-18 execution-route mirror update: `noetl/noetl#462` mirrors `/api/execute` generated `command.issued` envelopes and `/api/executions/{execution_id}/cancel` `execution.cancelled` events after commit. Remaining direct event append paths are tracked by `noetl/noetl#461`.
+- 2026-05-18 outbox pivot: `noetl/noetl#464` adds `noetl.outbox` as the preferred distribution bridge. Event writers should enqueue mirrored envelopes in the same transaction as `noetl.event`; a publisher drains committed outbox rows to NATS. The table stores JSONB for operator visibility plus pre-encoded payload bytes and a codec field so the drain path can publish bytes without reserializing JSON when the subject is known.
+- 2026-05-18 core event outbox update: `noetl/noetl#466` moves direct `/api/events` lifecycle envelopes and generated `command.issued` envelopes onto the same-transaction outbox path. The route keeps HTTP semantics unchanged, but distribution intent is now durable before any publish attempt.
+- 2026-05-18 batch event outbox update: `noetl/noetl#467` applies the same boundary to `/api/events/batch`: item events, `batch.accepted`, batch status events, and batch-generated `command.issued` chunks enqueue to `noetl.outbox` before commit, then drain committed rows.
+- 2026-05-18 execution event outbox update: `noetl/noetl#468` moves `/api/execute` initial `command.issued` envelopes and `/api/executions/{execution_id}/cancel` `execution.cancelled` envelopes to same-transaction outbox enqueue.
+- 2026-05-18 auto-resume outbox update: `noetl/noetl#469` moves recovery-generated `execution.cancelled` envelopes to the same-transaction outbox path.
+- 2026-05-18 broker event outbox update: `noetl/noetl#470` moves generic broker `EventService.emit_event` appends to same-transaction outbox enqueue.
 
 ---
 
@@ -269,7 +276,8 @@ graph TD
             SV[("Search / Vector\nRetrieval shapes only\nRebuilt from event / payload source")]
         end
 
-        PG -->|mirror| DIST
+        PG -->|enqueue committed events| OUTBOX[("noetl.outbox\ntransactional distribution outbox")]
+        OUTBOX -->|publish bytes| DIST
         SRV -->|stage.opened · frame lease events| PG
         SRV -->|frame claim dispatch| W
         DIST -->|durable pull consumer| W
@@ -761,8 +769,14 @@ Implementation status:
 - `noetl/noetl#457` adds optional projector `/metrics` and `/health` endpoints (`NOETL_PROJECTOR_METRICS_PORT` / `--metrics-port`) with counters for notifications, extracted events, shard-owned events, projection records, empty/unowned notifications, errors, and last batch gauges. Access logging is suppressed for scrape paths.
 - `noetl/noetl#458` exports durable checkpoint gauges from successful projector writes: last source event id, event-time watermark, projected-at timestamp, latest projection lag, and max projection lag since process start.
 - `NATSEventPublisher` is present in `repos/noetl/noetl/core/messaging`. It mirrors canonical event envelopes to subjects shaped as `noetl.events.<tenant>.<org>.<execution>.<shard>`, creates the event stream with a wildcard subject, and retries once after reconnect on publish failure.
+- `noetl/noetl#464` adds `noetl.outbox` plus `noetl.core.outbox`. The outbox is the preferred Phase 2 commit boundary: append `noetl.event` and enqueue the distribution envelope in one database transaction, then let a publisher drain only committed rows to NATS. Rows include JSONB payloads for debugging and pre-encoded payload bytes with a codec so the publisher can avoid repeat JSON serialization when a subject is known.
+- `noetl/noetl#466` applies that boundary to direct `/api/events`: command lifecycle events, workflow/playbook lifecycle events, and engine-generated `command.issued` rows enqueue their mirrored envelopes into `noetl.outbox` before the database commit. After commit, the route asks the outbox publisher to drain committed rows. This removes the direct post-commit publish hook from the core event path without changing the external worker API.
+- `noetl/noetl#467` applies the same boundary to `/api/events/batch`: item events, `batch.accepted`, `batch.processing`, `batch.completed`, `batch.failed`, and batch-generated `command.issued` rows enqueue in the writer transaction or insert chunk. The route preserves the existing external batch-request contract; it only changes how distribution intent becomes durable.
+- `noetl/noetl#468` applies the boundary to execution routes: `/api/execute` initial `command.issued` rows, `/api/executions/{execution_id}/cancel` `execution.cancelled` rows, and cleanup-stuck `execution.cancelled` rows enqueue before commit, then drain committed outbox rows. Command recovery publish remains separate because it is worker dispatch, not projector/event distribution.
+- `noetl/noetl#469` applies the boundary to auto-resume recovery cancellations so interrupted parent executions marked `execution.cancelled` by startup recovery participate in the same projector distribution bridge as API-generated cancellations.
+- `noetl/noetl#470` applies the boundary to generic broker event emission. `EventService.emit_event` stores the sanitized event row and outbox envelope in one transaction, preserving the broker API response while making generic emits projector-visible.
 - Frame lifecycle routes now can mirror `frame.dispatched`, `frame.started`, `frame.committed`, and `frame.failed` envelopes after the database transaction commits. Mirroring is opt-in via `NOETL_EVENT_MIRROR_ENABLED=true` and publish failures are logged but do not fail the frame API request.
-- `noetl/noetl#459` extends the same opt-in mirroring to persisted `/api/events` lifecycle events and generated `command.issued` events, publishing only after the canonical database commit succeeds.
+- `noetl/noetl#459` originally extended the same opt-in mirroring to persisted `/api/events` lifecycle events and generated `command.issued` events via post-commit direct publish. `noetl/noetl#466` supersedes that route-local hook with same-transaction outbox enqueue.
 - `noetl/noetl#460` closes the async batch-ingestion gap by mirroring `/api/events/batch` item events, `batch.accepted`, `batch.processing`, `batch.completed`, `batch.failed`, and batch-generated `command.issued` events after their canonical commits. The mirrored envelopes preserve `command_id`, `stage_id`, `frame_id`, `parent_event_id`, and `parent_execution_id` where available so projector replay sees the same lineage as direct event ingestion.
 - `noetl/noetl#462` covers execution-route appends: initial `/api/execute` generated `command.issued` events and API `execution.cancelled` events are mirrored after their canonical commits.
 - Deployment wiring has started in `noetl/ops#102` and `noetl/ops#103`: the Helm chart gains an opt-in `noetl-projector` StatefulSet, projector ConfigMap, headless service, stable shard identity from the StatefulSet pod name, automatic server event-mirror env wiring when `projector.enabled=true`, and a named `metrics` port on `9090`.
@@ -772,7 +786,7 @@ Implementation status:
   - `load_projection(projection_id)`;
   - `save_snapshot(snapshot)` with version-monotonic upsert semantics;
   - `load_snapshot(aggregate_id, aggregate_type=...)`.
-- Live mirrored-event projector validation and remaining direct event append paths remain tracked by `noetl/noetl#437` and `noetl/noetl#461`. The open audit list includes DSL executor stage/lifecycle events, auto-resume events, broker-service events, and legacy cleanup-stuck path classification.
+- Live mirrored-event projector validation and remaining direct event append paths remain tracked by `noetl/noetl#437` and `noetl/noetl#461`. The next migration step is moving frame routes from direct post-commit mirror calls to same-transaction `noetl.outbox` enqueue. The remaining audit list also includes caller-owned DSL transaction after-commit handling.
 - Non-Postgres projection adapters remain tracked by `noetl/noetl#439`.
 
 Projection backend roles:
@@ -827,7 +841,7 @@ Implementation status:
   - `read(stream_id, from_version=..., limit=...)`
   - per-stream expected-version conflict detection;
   - mapping to additive event envelope columns (`stream_id`, `stream_version`, aggregate/schema/tenant fields, `payload_ref`, `envelope_checksum`).
-- NATS/Kafka/cloud-native stream adapters and projection-store ports remain tracked by `noetl/noetl#439`.
+- NATS/Kafka/cloud-native stream adapters and projection-store ports remain tracked by `noetl/noetl#439`. The default NATS publisher now has an outbox-backed path tracked by `noetl/noetl#464`; direct `/api/events` adopts it in `noetl/noetl#466`. Future adapters should drain the same `noetl.outbox` contract rather than adding writer-local publish hooks.
 
 Adapter design constraints:
 
