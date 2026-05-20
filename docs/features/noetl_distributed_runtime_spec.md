@@ -970,7 +970,7 @@ POST /api/stages/{stage_id}/frames/claim
       max_distance: zone | region | any
 ```
 
-Initial implementation: cursor workers include best-effort `node_id`, `cluster_id`, `region`, `zone`, `worker_pool`, and `runtime` locality in the frame claim body, and the server persists that object on the `frame.dispatched` event metadata. The scheduler still claims the closest available frame using the existing indexed frame predicates; enforcement of `prefer_node` / `prefer_zone` remains a follow-up so this step stays additive and replay-safe.
+Initial implementation: cursor workers include best-effort `node_id`, `cluster_id`, `region`, `zone`, `worker_pool`, and `runtime` locality in the frame claim body, and the server persists that object on the `frame.dispatched` event metadata. When possible, the server also records `worker_locator` as a canonical `noetl://tenant/.../org/.../cluster/.../node/.../worker/...` identity. The scheduler still claims the closest available frame using the existing indexed frame predicates; enforcement of `prefer_node` / `prefer_zone` remains a follow-up so this step stays additive and replay-safe.
 
 Target scheduler behavior: try the closest match. Frames produced by a worker prefer to be reduced by a worker on the same node (Tier 1.5 hit) or in the same zone (Tier 2 hit). Cross-region only when local capacity is exhausted.
 
