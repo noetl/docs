@@ -523,7 +523,7 @@ New endpoints on the NoETL server, additive to the existing `/api/commands/*`:
 
 ```text
 POST /api/stages/{stage_id}/frames/claim
-  body: { worker_id, command_id?, requested_count, lease_seconds, cursor, frame_policy }
+  body: { worker_id, command_id?, requested_count, lease_seconds, cursor, frame_policy, locality? }
   returns: [ { frame_id, cursor, lease_until, dsl_ref, frame_policy } ... ]
 
 POST /api/frames/{frame_id}/heartbeat
@@ -972,7 +972,9 @@ POST /api/stages/{stage_id}/frames/claim
       max_distance: zone | region | any
 ```
 
-The server scheduler tries the closest match. Frames produced by a worker prefer to be reduced by a worker on the same node (Tier 1.5 hit) or in the same zone (Tier 2 hit). Cross-region only when local capacity is exhausted.
+Initial implementation: cursor workers include best-effort `node_id`, `cluster_id`, `region`, `zone`, `worker_pool`, and `runtime` locality in the frame claim body, and the server persists that object on the `frame.dispatched` event metadata. When possible, the server also records `worker_locator` as a canonical `noetl://tenant/.../org/.../cluster/.../node/.../worker/...` identity. The scheduler still claims the closest available frame using the existing indexed frame predicates; enforcement of `prefer_node` / `prefer_zone` remains a follow-up so this step stays additive and replay-safe.
+
+Target scheduler behavior: try the closest match. Frames produced by a worker prefer to be reduced by a worker on the same node (Tier 1.5 hit) or in the same zone (Tier 2 hit). Cross-region only when local capacity is exhausted.
 
 ### 10.3 Autoscaling
 
@@ -1216,7 +1218,7 @@ Goal: lift the runtime from "well-behaved on one cluster" to "addressable, sched
 - StatefulSet identity for workers (not just projectors).
 - KEDA scaler with frame backlog signal. Initial Helm implementation is optional and reads `noetl_frame_backlog_total`; follow-up work should enrich the metric with tenant/stage-aware labels once those labels are present.
 - Multi-cluster supercluster docs + an `ops` playbook to provision two GKE regions feeding the same NATS supercluster.
-- Topology-aware scheduling via `locality` hint on claim.
+- Topology-aware scheduling via `locality` hint on claim. The claim payload and `frame.dispatched` event metadata now carry the hint; scheduler enforcement remains pending.
 
 ### Phase 5 — Pluggable event store / payload store / projection store (rolling, separate PRs per adapter)
 
