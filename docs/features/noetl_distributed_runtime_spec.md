@@ -55,6 +55,7 @@ Latest implementation checkpoint:
 - 2026-05-19 DSL executor outbox update: `noetl/noetl#473` moves engine-owned lifecycle, `stage.opened`, and `stage.closed` events to same-transaction outbox enqueue with explicit caller-owned transaction handling.
 - 2026-05-19 projector codec update: `noetl/noetl#479` lets projector NATS consumers decode both JSON envelopes and Arrow Feather payloads, so `noetl.outbox` can keep the low-serialization bytes path without making projector workers JSON-only.
 - 2026-05-19 outbox publisher update: `noetl/noetl#480` adds `python -m noetl.outbox` as a standalone publisher loop. Route-local drains remain a latency optimization, while the worker gives failed or deferred outbox rows a traffic-independent retry path.
+- 2026-05-20 autoscaling surface update: `noetl/ops#107` adds an optional KEDA PostgreSQL scaler for `noetl-worker` that reads the indexed frame backlog predicate (`status IN ('PENDING','CLAIMED','RUNNING')`) directly from the canonical projection table. The default chart still renders the fixed replica count / existing HPA behavior unless explicitly enabled.
 
 ---
 
@@ -973,9 +974,15 @@ The server scheduler tries the closest match. Frames produced by a worker prefer
 
 ### 10.3 Autoscaling
 
-The KEDA scaler reads two signals:
+The current deployable KEDA scaler reads the canonical frame backlog directly:
 
-- `frame_backlog_total{stage_kind=...}` — pending frames waiting for a worker.
+- Source: `SELECT COUNT(*)::int FROM noetl.frame WHERE status IN ('PENDING','CLAIMED','RUNNING')`.
+- Target: one backlog unit per desired worker by default, clamped by `worker.autoscaling.minReplicas` / `maxReplicas`.
+- Enablement: `worker.autoscaling.enabled=true` plus `worker.autoscaling.keda.enabled=true` in the Helm chart. When this mode is on, the chart renders a `ScaledObject` and suppresses the CPU/memory HPA to avoid competing scale controllers.
+
+The next scheduler-aware version should add two richer signals without changing replay semantics:
+
+- `frame_backlog_total{stage_kind=...}` — pending frames waiting for a worker, partitioned by stage kind and tenant/org when available.
 - `frame_p95_lease_duration` — moving p95 of how long frames take.
 
 Autoscale formula: `desired_workers = max(1, ceil(frame_backlog_total / target_concurrent_frames_per_worker))`, clamped by per-cluster max. No provisioned capacity number.
@@ -1193,14 +1200,14 @@ Verification:
 
 ### Phase 4 — Cloud OS surfaces (3 weeks)
 
-Status: foundational identity pieces shipped; autoscaling and multi-cluster
-surfaces remain open.
+Status: foundational identity pieces shipped; a first opt-in backlog scaler is
+available in the Helm chart; multi-cluster surfaces remain open.
 
 Goal: lift the runtime from "well-behaved on one cluster" to "addressable, schedulable, autoscalable across clusters."
 
 - Implement unified resource locator across all subsystems. The core parser/builder is now present and adopted for frame durable-reference validation plus compact result-ref normalization. Remaining work is envelope injection, topology labels, and replacing ad hoc parsing where tenant/org/topology extraction matters.
 - StatefulSet identity for workers (not just projectors).
-- KEDA scaler with frame backlog signal.
+- KEDA scaler with frame backlog signal. Initial Helm implementation is optional and reads `noetl.frame` via the existing indexed backlog predicate; follow-up work should replace the raw count with tenant/stage-aware metrics once those labels are present.
 - Multi-cluster supercluster docs + an `ops` playbook to provision two GKE regions feeding the same NATS supercluster.
 - Topology-aware scheduling via `locality` hint on claim.
 
