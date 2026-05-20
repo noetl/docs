@@ -335,9 +335,11 @@ for PFT v2 validation. That gives enough pod-level capacity for the target
 bursts too hard.
 
 The playbook's `pft_http_concurrency` variable documents the client-side
-pressure target. Until `loop.spec.max_in_flight` supports templated values at
-catalog validation time, every PFT v2 cursor loop must use the same resolved
-integer value rather than drifting to a higher hard-coded concurrency.
+pressure target. `loop.spec.max_in_flight` now accepts either a positive
+integer or a renderable expression, with the rendered value re-validated as a
+positive integer before dispatch. PFT v2 cursor loops should use that workload
+variable directly so catalog registration and runtime scheduling share one
+source of truth.
 Each PFT v2 cursor loop must also opt into `loop.spec.frame` with
 `max_rows: 50` so the stage/frame runtime is exercised. A run that leaves
 `noetl.stage` and `noetl.frame` empty is still on the legacy cursor-command
