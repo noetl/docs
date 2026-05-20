@@ -56,6 +56,7 @@ Latest implementation checkpoint:
 - 2026-05-19 projector codec update: `noetl/noetl#479` lets projector NATS consumers decode both JSON envelopes and Arrow Feather payloads, so `noetl.outbox` can keep the low-serialization bytes path without making projector workers JSON-only.
 - 2026-05-19 outbox publisher update: `noetl/noetl#480` adds `python -m noetl.outbox` as a standalone publisher loop. Route-local drains remain a latency optimization, while the worker gives failed or deferred outbox rows a traffic-independent retry path.
 - 2026-05-20 autoscaling surface update: `noetl/ops#107` adds an optional KEDA Prometheus scaler for `noetl-worker` that reads the NoETL runtime backlog metric `noetl_frame_backlog_total`. The scaler consumes the NoETL metric contract, not the current storage implementation, so the default chart still renders the fixed replica count / existing HPA behavior unless explicitly enabled.
+- 2026-05-20 tenant backlog metric update: `noetl/noetl#491` adds `noetl_frame_backlog_detail_total` with tenant, organization, stage-kind, and status labels. KEDA keeps using the global `noetl_frame_backlog_total` series, while policy engines and dashboards can inspect tenant/org pressure without coupling to a storage table.
 
 ---
 
@@ -979,12 +980,13 @@ The current deployable KEDA scaler reads the NoETL runtime backlog metric:
 - Source: `noetl_frame_backlog_total{stage_kind="all",status="all"}` via a Prometheus-compatible metrics endpoint.
 - Target: one backlog unit per desired worker by default, clamped by `worker.autoscaling.minReplicas` / `maxReplicas`.
 - Enablement: `worker.autoscaling.enabled=true` plus `worker.autoscaling.keda.enabled=true` in the Helm chart. When this mode is on, the chart renders a `ScaledObject` and suppresses the CPU/memory HPA to avoid competing scale controllers.
+- Detail signal: `noetl_frame_backlog_detail_total{tenant_id=...,organization_id=...,stage_kind=...,status=...}` exposes the same runtime backlog grouped by tenant and organization for dashboards and future policy engines. It is intentionally separate from the global KEDA metric so tenant cardinality does not affect the default scaler query.
 
 No orchestration component should query the runtime database directly for scaling. Postgres is the current storage/projection implementation; the autoscaling contract is the NoETL metric stream so the backing store can change without rewriting cluster control surfaces.
 
-The next scheduler-aware version should add two richer signals without changing replay semantics:
+The next scheduler-aware version should use two richer signals without changing replay semantics:
 
-- `frame_backlog_total{stage_kind=...}` — pending frames waiting for a worker, partitioned by stage kind and tenant/org when available.
+- `noetl_frame_backlog_detail_total{tenant_id=...,organization_id=...,stage_kind=...,status=...}` — pending frames waiting for a worker, partitioned by stage kind and tenant/org.
 - `frame_p95_lease_duration` — moving p95 of how long frames take.
 
 Autoscale formula: `desired_workers = max(1, ceil(frame_backlog_total / target_concurrent_frames_per_worker))`, clamped by per-cluster max. No provisioned capacity number.
