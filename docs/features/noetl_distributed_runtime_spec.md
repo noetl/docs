@@ -58,7 +58,7 @@ Latest implementation checkpoint:
 - 2026-05-20 autoscaling surface update: `noetl/ops#107` adds an optional KEDA Prometheus scaler for `noetl-worker` that reads the NoETL runtime backlog metric `noetl_frame_backlog_total`. The scaler consumes the NoETL metric contract, not the current storage implementation, so the default chart still renders the fixed replica count / existing HPA behavior unless explicitly enabled.
 - 2026-05-20 tenant backlog metric update: `noetl/noetl#491` adds `noetl_frame_backlog_detail_total` with tenant, organization, stage-kind, and status labels. KEDA keeps using the global `noetl_frame_backlog_total` series, while policy engines and dashboards can inspect tenant/org pressure without coupling to a storage table.
 - 2026-05-20 topology label update: `noetl/noetl#492` adds `cluster_id`, `region`, and `zone` labels to worker-local metrics when the environment provides them; `noetl/ops#108` exposes matching Helm values. This gives operators a locality signal for IPC/cache hit analysis before scheduler claim hints become enforceable.
-- 2026-05-20 topology helper update: `noetl/noetl#494` centralizes worker locality extraction and canonical worker-locator construction in `noetl.core.runtime.topology`, so worker metrics, frame claims, and frame-dispatch metadata use the same identity rules.
+- 2026-05-20 topology helper update: `noetl/noetl#494` centralizes worker locality extraction, canonical worker-locator construction, and locality-distance comparison (`node`, `zone`, `region`, `cluster`, `any`) in `noetl.core.runtime.topology`, so worker metrics, frame claims, frame-dispatch metadata, and scheduler enforcement use the same identity rules.
 
 ---
 
