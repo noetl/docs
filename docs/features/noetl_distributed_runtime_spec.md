@@ -96,6 +96,7 @@ Latest implementation checkpoint:
 - 2026-05-20 replay live-row export adapter phase update: `noetl/noetl#529` adds `scripts/export_live_projection_rows_postgres.py` as the current reference adapter for producing the storage-neutral live-row JSON artifact from deployed clusters. The exporter uses plain reads against the current projection tables and replay-state projection record; the validation contract remains the JSON row artifact consumed by `scripts/build_live_projection_checksums.py`, so future storage engines can replace the adapter without changing replay parity gates.
 - 2026-05-20 replay live-row artifact gate phase update: `noetl/noetl#530` makes the exported live-row evidence self-describing and independently checkable. Live-row artifacts now carry `schema_version`, `exported_at`, per-surface `row_counts`, and a canonical `rows_checksum`; `scripts/check_live_projection_rows.py` validates those fields before checksum generation, and `scripts/run_replay_validation.py` inserts a `live_rows_integrity` step before `live_checksums`.
 - 2026-05-20 replay validation artifact-index phase update: `noetl/noetl#531` adds `scripts/package_replay_validation_artifacts.py` and `run_replay_validation.py --artifact-index-output ...` so local-kind/GKE evidence can be shipped as one storage-neutral index. The index records each validation artifact role, path, existence, size, and SHA-256 digest, and can be checked later for missing files or digest drift.
+- 2026-05-20 replay artifact-index manifest finalization update: `noetl/noetl#532` makes `run_replay_validation.py --artifact-index-output ...` record the `artifact_index` step in the validation manifest before packaging. The index therefore hashes the final manifest content, including the artifact-index step and path, instead of an intermediate manifest.
 
 ---
 
@@ -1216,7 +1217,7 @@ python scripts/run_replay_validation.py \
   --artifact-index-output "$ARTIFACT_DIR/artifact-index-$EXECUTION_ID.json"
 ```
 
-That runner writes `replay-$EXECUTION_ID.json`, `live-rows-$EXECUTION_ID.json`, `live-checksums-$EXECUTION_ID.json`, `validation-$EXECUTION_ID.json`, and `artifact-index-$EXECUTION_ID.json`. The manifest records both the source live-row export and the derived live checksum artifact so `--check-artifacts` proves the full evidence chain exists. The artifact index records SHA-256 and size for each evidence file, so the whole bundle can be moved out of the cluster and rechecked for drift:
+That runner writes `replay-$EXECUTION_ID.json`, `live-rows-$EXECUTION_ID.json`, `live-checksums-$EXECUTION_ID.json`, `validation-$EXECUTION_ID.json`, and `artifact-index-$EXECUTION_ID.json`. The manifest records both the source live-row export and the derived live checksum artifact so `--check-artifacts` proves the full evidence chain exists. When `--artifact-index-output` is used, the runner records the `artifact_index` step in the final manifest before packaging, so the artifact index hashes the same manifest operators inspect. The artifact index records SHA-256 and size for each evidence file, so the whole bundle can be moved out of the cluster and rechecked for drift:
 
 ```bash
 python scripts/check_replay_validation_manifest.py \
