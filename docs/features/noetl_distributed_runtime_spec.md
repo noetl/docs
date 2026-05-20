@@ -241,6 +241,10 @@ Replay verification becomes a release gate for every phase after Phase 0: run li
 
 The first golden checksum gate is intentionally small. It does not replace live PFT replay parity; it gives every future serializer/upcaster/projection change a cheap deterministic test that fails before a full cluster run.
 
+Implementation status:
+
+- `noetl/noetl#481` adds the local replay/serialization release gate at `scripts/check_replay_release_gate.sh`. The gate runs replay golden corpus checksums, upcaster behavior, replay route folding, projector folding/metrics, outbox publishing, command/broker/executor outbox coverage, frame event serialization, Arrow Feather serialization, and IPC durability/cache tests. Use `PYTHON_BIN=/path/to/python scripts/check_replay_release_gate.sh` when the default `.venv/bin/python` is not available.
+
 ### 3.3 Visual component diagram
 
 The diagram below maps all named components to their roles, storage tiers, and primary data flows. Solid arrows are runtime data paths; dashed arrows are control or fallback paths.
@@ -1311,6 +1315,12 @@ These conditions must be true before work begins on Phase 0:
 ### 17.4 Replay parity release gate
 
 Every phase after Phase 0 must pass all of the following before any merge to `main`:
+
+Run the fast deterministic local gate first:
+
+```bash
+scripts/check_replay_release_gate.sh
+```
 
 ```
 [ ] Event envelope validation passes for 100% of events emitted in the phase's PFT v2 run.
