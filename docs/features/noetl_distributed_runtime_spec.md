@@ -58,6 +58,7 @@ Latest implementation checkpoint:
 - 2026-05-20 autoscaling surface update: `noetl/ops#107` adds an optional KEDA Prometheus scaler for `noetl-worker` that reads the NoETL runtime backlog metric `noetl_frame_backlog_total`. The scaler consumes the NoETL metric contract, not the current storage implementation, so the default chart still renders the fixed replica count / existing HPA behavior unless explicitly enabled.
 - 2026-05-20 tenant backlog metric update: `noetl/noetl#491` adds `noetl_frame_backlog_detail_total` with tenant, organization, stage-kind, and status labels. KEDA keeps using the global `noetl_frame_backlog_total` series, while policy engines and dashboards can inspect tenant/org pressure without coupling to a storage table.
 - 2026-05-20 topology label update: `noetl/noetl#492` adds `cluster_id`, `region`, and `zone` labels to worker-local metrics when the environment provides them; `noetl/ops#108` exposes matching Helm values. This gives operators a locality signal for IPC/cache hit analysis before scheduler claim hints become enforceable.
+- 2026-05-20 topology helper update: `noetl/noetl#494` centralizes worker locality extraction and canonical worker-locator construction in `noetl.core.runtime.topology`, so worker metrics, frame claims, and frame-dispatch metadata use the same identity rules.
 
 ---
 
@@ -1214,7 +1215,7 @@ available in the Helm chart; multi-cluster surfaces remain open.
 
 Goal: lift the runtime from "well-behaved on one cluster" to "addressable, schedulable, autoscalable across clusters."
 
-- Implement unified resource locator across all subsystems. The core parser/builder is now present and adopted for frame durable-reference validation plus compact result-ref normalization. Worker metrics now accept cluster/region/zone labels; remaining work is envelope injection and replacing ad hoc parsing where tenant/org/topology extraction matters.
+- Implement unified resource locator across all subsystems. The core parser/builder is now present and adopted for frame durable-reference validation plus compact result-ref normalization. Worker metrics, frame claims, and frame-dispatch metadata now share the same topology helper; remaining work is envelope injection and scheduler enforcement of locality hints.
 - StatefulSet identity for workers (not just projectors).
 - KEDA scaler with frame backlog signal. Initial Helm implementation is optional and reads `noetl_frame_backlog_total`; follow-up work should enrich the metric with tenant/stage-aware labels once those labels are present.
 - Multi-cluster supercluster docs + an `ops` playbook to provision two GKE regions feeding the same NATS supercluster.
