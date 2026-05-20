@@ -1136,6 +1136,9 @@ Deliverable: dashboard URL + memory entry with baseline numbers, plus a replay p
 
 ### Phase 1 — Frame-shaped cursor loops (2 weeks)
 
+Status: implementation shipped; live revalidation pending in local kind/GKE after
+the current workspace Podman issue is resolved.
+
 Goal: collapse N single-row cursor claims into N/50 multi-row frame claims and allow selected steps to run the declared task pipeline once per frame.
 
 - Extend `cursor_worker.py` to enforce the `frame_policy` payload now emitted alongside the existing cursor spec. The first implementation is in `noetl/noetl#435`: bounded claim windows are processed in-process and captured as Arrow IPC frame refs.
@@ -1143,6 +1146,7 @@ Goal: collapse N single-row cursor claims into N/50 multi-row frame claims and a
 - Worker either iterates the claimed rows in-process (`frame.process: row`) or executes the task pipeline once with `frame.rows` (`frame.process: frame`). Both paths serialize the frame row window as Arrow IPC through TempStore. This pulls a narrow Tier 1.5 slice forward because serialization correctness is required before the frame API can be the sole path.
 - Worker commits the frame with one event per frame instead of one per row.
 - Migrate `test_pft_flow_v2.yaml` to opt in via `loop.spec.frame:` on each `mode: cursor` step. The high-volume PFT steps use `process: frame` to batch HTTP calls and Postgres writes from the declared playbook, rather than hiding the loop in Python.
+- `loop.spec.max_in_flight` now accepts either a positive integer or a renderable expression such as `{{ workload.pft_http_concurrency }}`. The rendered value is re-validated as a positive integer before collection/cursor dispatch and cursor recovery paths reuse the same resolver. This closes the catalog-registration workaround that previously forced PFT v2 to hard-code the resolved concurrency value.
 
 Verification:
 
@@ -1152,12 +1156,16 @@ Verification:
 
 ### Phase 2 — Decentralized projection (2 weeks)
 
+Status: implementation shipped behind opt-in deployment/config; live mirrored-event
+projector validation against PFT v2 remains pending.
+
 Goal: extract projection from server, run as a StatefulSet, scale independently.
 
 - New `noetl-projector` binary entrypoint reusing the existing projection worker code.
 - Helm chart adds the StatefulSet, NATS durable consumer per replica, projection-store-only DB user.
 - Remove the in-process projection loop from the server. Server now appends canonical events and mirrors frame lifecycle, direct event ingestion, async batch ingestion, execution-route command/cancel events, and generated command events to the distribution stream.
 - Add per-shard projection lag/checkpoint metrics from durable projection metadata. Initial gauges are in `noetl/noetl#458`; dashboard wiring and live mirrored-event validation remain.
+- `noetl.outbox` is now the canonical distribution bridge for server, frame, execution, broker, command-claim, backend-neutral event-store, and DSL executor events. The standalone `python -m noetl.outbox` publisher gives deferred rows a traffic-independent retry path, and projector subscribers decode both JSON envelopes and Arrow Feather payload bytes.
 
 Verification:
 
@@ -1166,14 +1174,16 @@ Verification:
 
 ### Phase 3 — Arrow IPC Tier 1.5 (3 weeks)
 
+Status: Python implementation shipped for cursor/frame payloads; colocated
+projector/worker hit-ratio validation remains pending.
+
 Goal: add zero-copy data plane for colocated workers and projectors.
 
-- Add `pyarrow` and `arrow-rs` (`arrow`, `arrow-ipc`) to dependencies. Mark as required for cursor/frame paths.
-- Implement Tier 1.5 in `result_store.py` (Python) and equivalent in `repos/noetl/crates/noetl-core/src/storage/` (Rust).
-- Extend `PayloadReference` with optional `IpcHint`.
-- Producer worker writes RecordBatch to shm + Tier 3; emits hint in envelope.
-- Consumer (projector, reducer, downstream stage) checks hint, attaches, falls back.
-- Per-node IPC budget + grace + reaper.
+- Add `pyarrow` and `arrow-rs` (`arrow`, `arrow-ipc`) to dependencies. `pyarrow` is required for Python cursor/frame serialization; a Rust storage crate is not present in this repository yet, so the Rust parity item remains future adapter work.
+- Implement Tier 1.5 in `result_store.py` (Python). `TempStore.put_ipc_bytes` writes durable bytes first, then admits an optional same-node IPC hint.
+- Extend `PayloadReference` with optional `IpcHint`, including `node_id` so foreign-node hints become deterministic cache misses.
+- Producer worker writes RecordBatch bytes to durable storage plus best-effort shared memory; consumers use `TempStore.resolve()` / `get_ipc_bytes()` to try IPC first and fall back to durable bytes before decoding rows at the consumer boundary.
+- Per-node IPC budget + lease expiry sweep are implemented in `ArrowIpcSharedMemoryCache`; broader node-broker/multi-process coordination remains future work.
 - Metrics: `noetl_storage_ipc_read_hit_ratio` and `noetl_storage_ipc_*` counters per server/worker process; dashboard rollups should group by worker pool, runtime, node, and tenant when those labels become available.
 
 Verification:
@@ -1183,9 +1193,12 @@ Verification:
 
 ### Phase 4 — Cloud OS surfaces (3 weeks)
 
+Status: foundational identity pieces shipped; autoscaling and multi-cluster
+surfaces remain open.
+
 Goal: lift the runtime from "well-behaved on one cluster" to "addressable, schedulable, autoscalable across clusters."
 
-- Implement unified resource locator across all subsystems. The core parser/builder is now present; remaining work is envelope injection, topology labels, and replacing ad hoc parsing in hot paths.
+- Implement unified resource locator across all subsystems. The core parser/builder is now present and adopted for frame durable-reference validation plus compact result-ref normalization. Remaining work is envelope injection, topology labels, and replacing ad hoc parsing where tenant/org/topology extraction matters.
 - StatefulSet identity for workers (not just projectors).
 - KEDA scaler with frame backlog signal.
 - Multi-cluster supercluster docs + an `ops` playbook to provision two GKE regions feeding the same NATS supercluster.
