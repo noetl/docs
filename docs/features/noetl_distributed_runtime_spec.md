@@ -940,7 +940,7 @@ Tenants, organizations, workers, projectors, MCP servers, JetStream streams, Tie
 Implementation status:
 
 - `repos/noetl/noetl/core/resource_locator.py` provides the first side-effect-free parser/builder for canonical `noetl://...` locators. It validates the scheme, rejects query/fragment data, percent-encodes path segments, extracts alternating key/value pairs, and supports existing execution result refs such as `noetl://execution/<id>/result/<step>/<ref>`.
-- Initial adoption is intentionally non-invasive. Hot paths that currently accept raw locator strings keep their behavior; follow-up PRs should replace ad hoc `startswith("noetl://")` parsing with this utility where validation, topology, or tenant/org extraction is required.
+- Initial adoption is intentionally non-invasive. Frame commit durable-reference validation, DSL compact result-ref normalization, and agent compact result-ref normalization now parse `noetl://` locators with this utility. Remaining follow-up PRs should replace ad hoc `startswith("noetl://")` parsing where topology or tenant/org extraction is required.
 
 ### 10.1.1 Multitenant isolation
 
