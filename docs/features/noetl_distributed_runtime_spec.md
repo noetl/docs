@@ -937,6 +937,11 @@ Examples:
 
 Tenants, organizations, workers, projectors, MCP servers, JetStream streams, Tier 3 payloads, cache entries, projection shards, and frame leases are all referenceable. The locator is the join key across the event store, projection store, and observability layer.
 
+Implementation status:
+
+- `repos/noetl/noetl/core/resource_locator.py` provides the first side-effect-free parser/builder for canonical `noetl://...` locators. It validates the scheme, rejects query/fragment data, percent-encodes path segments, extracts alternating key/value pairs, and supports existing execution result refs such as `noetl://execution/<id>/result/<step>/<ref>`.
+- Initial adoption is intentionally non-invasive. Hot paths that currently accept raw locator strings keep their behavior; follow-up PRs should replace ad hoc `startswith("noetl://")` parsing with this utility where validation, topology, or tenant/org extraction is required.
+
 ### 10.1.1 Multitenant isolation
 
 Multitenancy is enforced at the event/payload boundary first, then projected outward:
@@ -1178,7 +1183,7 @@ Verification:
 
 Goal: lift the runtime from "well-behaved on one cluster" to "addressable, schedulable, autoscalable across clusters."
 
-- Implement unified resource locator across all subsystems.
+- Implement unified resource locator across all subsystems. The core parser/builder is now present; remaining work is envelope injection, topology labels, and replacing ad hoc parsing in hot paths.
 - StatefulSet identity for workers (not just projectors).
 - KEDA scaler with frame backlog signal.
 - Multi-cluster supercluster docs + an `ops` playbook to provision two GKE regions feeding the same NATS supercluster.
