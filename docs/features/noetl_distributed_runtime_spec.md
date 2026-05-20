@@ -60,6 +60,7 @@ Latest implementation checkpoint:
 - 2026-05-20 topology label update: `noetl/noetl#492` adds `cluster_id`, `region`, and `zone` labels to worker-local metrics when the environment provides them; `noetl/ops#108` exposes matching Helm values. This gives operators a locality signal for IPC/cache hit analysis before scheduler claim hints become enforceable.
 - 2026-05-20 topology helper update: `noetl/noetl#494` centralizes worker locality extraction, canonical worker-locator construction, and locality-distance comparison (`node`, `zone`, `region`, `cluster`, `any`) in `noetl.core.runtime.topology`, so worker metrics, frame claims, frame-dispatch metadata, and scheduler enforcement use the same identity rules.
 - 2026-05-20 placement evaluation update: `noetl/noetl#495` records `source_locality` and placement evaluation (`distance`, `max_distance`, `within_max_distance`) on `frame.dispatched` metadata when a frame cursor carries `source_locality` / `producer_locality`. This makes locality decisions replayable before frame selection is changed.
+- 2026-05-20 runtime-event topology update: `noetl/noetl#496` enriches worker-reported runtime events with `meta.locality` and a canonical `meta.worker_locator` from the shared topology helper. Explicit caller-provided locality or locator metadata remains authoritative, so event replay can distinguish observed worker identity from producer-owned placement context.
 
 ---
 
@@ -1216,7 +1217,7 @@ available in the Helm chart; multi-cluster surfaces remain open.
 
 Goal: lift the runtime from "well-behaved on one cluster" to "addressable, schedulable, autoscalable across clusters."
 
-- Implement unified resource locator across all subsystems. The core parser/builder is now present and adopted for frame durable-reference validation plus compact result-ref normalization. Worker metrics, frame claims, and frame-dispatch metadata now share the same topology helper; remaining work is envelope injection and scheduler enforcement of locality hints.
+- Implement unified resource locator across all subsystems. The core parser/builder is now present and adopted for frame durable-reference validation plus compact result-ref normalization. Worker metrics, frame claims, frame-dispatch metadata, and worker-reported runtime events now share the same topology helper; remaining work is broader server-side envelope injection and scheduler enforcement of locality hints.
 - StatefulSet identity for workers (not just projectors).
 - KEDA scaler with frame backlog signal. Initial Helm implementation is optional and reads `noetl_frame_backlog_total`; follow-up work should enrich the metric with tenant/stage-aware labels once those labels are present.
 - Multi-cluster supercluster docs + an `ops` playbook to provision two GKE regions feeding the same NATS supercluster.
