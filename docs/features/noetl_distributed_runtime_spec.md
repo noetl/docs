@@ -62,6 +62,7 @@ Latest implementation checkpoint:
 - 2026-05-20 placement evaluation update: `noetl/noetl#495` records `source_locality` and placement evaluation (`distance`, `max_distance`, `within_max_distance`) on `frame.dispatched` metadata when a frame cursor carries `source_locality` / `producer_locality`. This makes locality decisions replayable before frame selection is changed.
 - 2026-05-20 runtime-event topology update: `noetl/noetl#496` enriches worker-reported runtime events with `meta.locality` and a canonical `meta.worker_locator` from the shared topology helper. Explicit caller-provided locality or locator metadata remains authoritative, so event replay can distinguish observed worker identity from producer-owned placement context.
 - 2026-05-20 command-claim topology update: `noetl/noetl#497` lets command claim requests carry optional worker locality and records `locality`, `worker_locator`, `source_locality`, and placement evaluation on `command.claimed` metadata. Existing clients remain compatible, while topology-aware workers make command ownership replayable by placement distance.
+- 2026-05-20 replay command projection update: `noetl/noetl#498` folds `command.issued`, `command.claimed`, `command.started`, and terminal command events into the deterministic replay state. The reconstructed command view now carries stage/frame linkage, parent command id, worker id, locality, `worker_locator`, source locality, and placement evaluation, closing the command-ownership gap in point-in-time replay.
 
 ---
 
@@ -223,7 +224,7 @@ Implementation status:
 - The live reader tolerates pre-migration event tables during rolling rollout. If the additive tenant/org envelope columns are not present yet, replay treats only `tenant_id=default` and `organization_id=default` as visible legacy events.
 - A core replay upcaster registry now exists in Phase 0 (`noetl.core.replay.EventUpcasterRegistry`) and is wired into `ReplayService.replay_state`. The default registry preserves legacy events as `schema_name=noetl.event`, `schema_version=1`.
 - Replay state includes `upcaster_registry_digest`, a stable SHA-256 digest of the registered `(schema_name, from_version)` transitions used for the fold.
-- A golden replay corpus now lives under `tests/fixtures/replay/` in `repos/noetl` and asserts a stable fold checksum for execution, stage, frame, payload-reference, and registry-digest state.
+- A golden replay corpus now lives under `tests/fixtures/replay/` in `repos/noetl` and asserts a stable fold checksum for execution, command, stage, frame, payload-reference, and registry-digest state.
 - Event-position snapshot selection now exists for `projection_snapshot` rows with `aggregate_type=replay_state` and `aggregate_id=execution/<execution_id>/<projection>`. Replay can seed from the snapshot, skip earlier events, and fold the remaining stream.
 - Time-based snapshot selection, payload resolution, registered production upcasters for future schema revisions, and business-object projection folds remain tracked by `noetl/noetl#440`.
 
