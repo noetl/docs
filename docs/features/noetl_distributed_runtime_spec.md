@@ -99,6 +99,7 @@ Latest implementation checkpoint:
 - 2026-05-20 replay artifact-index manifest finalization update: `noetl/noetl#532` makes `run_replay_validation.py --artifact-index-output ...` record the `artifact_index` step in the validation manifest before packaging. The index therefore hashes the final manifest content, including the artifact-index step and path, instead of an intermediate manifest.
 - 2026-05-20 replay artifact-index role gate update: `noetl/noetl#533` makes `scripts/package_replay_validation_artifacts.py --check` validate the evidence role contract in addition to file existence, size, and SHA-256 drift. A portable validation bundle must contain exactly one `manifest`, `replay`, and `report` artifact, and live-row evidence must be paired with the derived live-checksum artifact when either role is present. `scripts/check_replay_validation_manifest.py --check-artifacts` now validates the referenced artifact index, rejects indexes that point at a different manifest, and requires the `artifact_index` step to be present and final when `artifacts.artifact_index` is set, so the manifest gate verifies the complete shipped evidence bundle.
 - 2026-05-20 replay artifact-index portability update: `noetl/noetl#534` stores artifact-index paths relative to the artifact-index directory when possible and resolves relative paths from that directory during `--check`. The checker also validates the top-level `path_base` marker and manifest pointer. Validation bundles can now be copied and rechecked from a different working directory without rewriting paths; external artifacts outside the bundle remain absolute.
+- 2026-05-20 replay validation bundle checker update: `noetl/noetl#535` adds `scripts/check_replay_validation_bundle.py` as the operator entrypoint for shipped local-kind/GKE evidence. It runs the manifest gate with artifact checks, validates the referenced artifact index, and rejects mismatches between an explicit `--artifact-index` argument and the manifest's own index reference.
 
 ---
 
@@ -1228,6 +1229,9 @@ python scripts/check_replay_validation_manifest.py \
 
 python scripts/package_replay_validation_artifacts.py \
   --check "$ARTIFACT_DIR/artifact-index-$EXECUTION_ID.json"
+
+python scripts/check_replay_validation_bundle.py \
+  --manifest "$ARTIFACT_DIR/validation-$EXECUTION_ID.json"
 ```
 
 For non-Postgres stores or offline adapter development, export the same live-row JSON shape separately and pass it to the runner:
