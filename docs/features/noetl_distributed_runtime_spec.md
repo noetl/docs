@@ -93,6 +93,7 @@ Latest implementation checkpoint:
 - 2026-05-20 replay validation manifest phase update: `noetl/noetl#526` upgrades `scripts/run_replay_validation.py` from a gate launcher into a reproducible validation manifest writer. Runs now include config, UTC timestamps, per-step duration, parsed JSON stdout when available, optional `--report-output`, runner-level cutoff validation, and fetch-artifact existence checks; `scripts/fetch_replay_state_report.py` also rejects non-object replay JSON before writing gate input.
 - 2026-05-20 replay live checksum artifact phase update: `noetl/noetl#527` adds `scripts/build_live_projection_checksums.py` so any storage adapter can export live projection rows as JSON and produce the canonical live checksum bundle. `scripts/run_replay_validation.py` now accepts `--live-rows`, builds `live-checksums-<execution_id>.json`, and runs parity from that artifact while rejecting simultaneous `--live-checksums` / `--live-rows` inputs.
 - 2026-05-20 replay validation manifest gate phase update: `noetl/noetl#528` adds `scripts/check_replay_validation_manifest.py` so local-kind/GKE validation manifests are independently gateable. The manifest checker validates config shape, timestamps, required step order, step return codes/durations, optional artifact existence, and mutually exclusive live parity inputs; the replay release gate now covers this checker.
+- 2026-05-20 replay live-row export adapter phase update: `noetl/noetl#529` adds `scripts/export_live_projection_rows_postgres.py` as the current reference adapter for producing the storage-neutral live-row JSON artifact from deployed clusters. The exporter uses plain reads against the current projection tables and replay-state projection record; the validation contract remains the JSON row artifact consumed by `scripts/build_live_projection_checksums.py`, so future storage engines can replace the adapter without changing replay parity gates.
 
 ---
 
@@ -1196,6 +1197,53 @@ Validation notes:
 - Replay validation orchestration now has a runner: `scripts/run_replay_validation.py --base-url ... --execution-id ... --output-dir ... [--live-checksums live.json | --live-rows live-rows.json] [--resolve-payloads] [--report-output validation.json]`. It captures replay state, verifies the fetch artifact was produced, optionally builds `live-checksums-<execution_id>.json` from adapter-exported live projection rows, runs offline gates, and emits a reproducible validation manifest with config, UTC timestamps, per-step duration, command output, and parsed JSON stdout for local kind and GKE evidence.
 - Replay validation manifests are themselves gateable: `scripts/check_replay_validation_manifest.py --manifest validation.json [--check-artifacts]` verifies manifest config shape, ISO timestamps, required step order, successful step return codes, non-negative durations, optional artifact paths, and mutually exclusive live parity inputs. Failed manifests can be inspected with `--allow-failed`, but release evidence should pass without it.
 - Live parity artifacts are storage-neutral: `scripts/build_live_projection_checksums.py --rows live-rows.json --output live-checksums.json` consumes adapter-exported JSON row arrays for `execution`, `stages`, `frames`, `commands`, `business_objects`, and `loops`, validates row shape, and writes the canonical `projection_checksums` bundle plus row counts. Postgres is only one possible exporter; the checksum builder operates on rows, not database routines.
+- The current deployed-cluster live-row exporter is `scripts/export_live_projection_rows_postgres.py --execution-id ... --tenant-id ... --organization-id ... --output live-rows.json`. It is intentionally an adapter, not the contract: it emits the same `rows.{execution,stages,frames,commands,business_objects,loops}` JSON shape any future storage backend can produce. It uses ordinary reads from `noetl.execution`, `noetl.stage`, `noetl.frame`, `noetl.command`, `noetl.event`, and the replay-state projection record; no database functions or routines are required for validation evidence.
+- A complete local-kind or GKE parity run can now produce all validation artifacts from one command when the current reference storage adapter is available:
+
+```bash
+python scripts/run_replay_validation.py \
+  --base-url "$NOETL_BASE_URL" \
+  --execution-id "$EXECUTION_ID" \
+  --tenant-id "$TENANT_ID" \
+  --organization-id "$ORGANIZATION_ID" \
+  --export-live-rows-postgres \
+  --resolve-payloads \
+  --output-dir "$ARTIFACT_DIR" \
+  --report-output "$ARTIFACT_DIR/validation-$EXECUTION_ID.json"
+```
+
+That runner writes `replay-$EXECUTION_ID.json`, `live-rows-$EXECUTION_ID.json`, `live-checksums-$EXECUTION_ID.json`, and `validation-$EXECUTION_ID.json`. The manifest records both the source live-row export and the derived live checksum artifact so `--check-artifacts` proves the full evidence chain exists.
+
+```bash
+python scripts/check_replay_validation_manifest.py \
+  --manifest "$ARTIFACT_DIR/validation-$EXECUTION_ID.json" \
+  --check-artifacts
+```
+
+For non-Postgres stores or offline adapter development, export the same live-row JSON shape separately and pass it to the runner:
+
+```bash
+python scripts/export_live_projection_rows_postgres.py \
+  --execution-id "$EXECUTION_ID" \
+  --tenant-id "$TENANT_ID" \
+  --organization-id "$ORGANIZATION_ID" \
+  --output "$ARTIFACT_DIR/live-rows-$EXECUTION_ID.json"
+
+python scripts/run_replay_validation.py \
+  --base-url "$NOETL_BASE_URL" \
+  --execution-id "$EXECUTION_ID" \
+  --tenant-id "$TENANT_ID" \
+  --organization-id "$ORGANIZATION_ID" \
+  --live-rows "$ARTIFACT_DIR/live-rows-$EXECUTION_ID.json" \
+  --resolve-payloads \
+  --output-dir "$ARTIFACT_DIR" \
+  --report-output "$ARTIFACT_DIR/validation-$EXECUTION_ID.json"
+
+python scripts/check_replay_validation_manifest.py \
+  --manifest "$ARTIFACT_DIR/validation-$EXECUTION_ID.json" \
+  --check-artifacts
+```
+
 - Replay validation now starts with state-report integrity: `scripts/check_replay_state_report.py --report replay.json` requires the canonical replay envelope, validates required string fields plus strict JSON integer fields, enforces `checksum_algorithm=sha256`, requires the complete canonical `projection_checksums` surface set, and recomputes the replay state's top-level checksum plus projection checksum bundles from the replay JSON. Mutated state, incomplete envelope data, malformed field types or snapshot metadata, missing/unknown checksum surfaces, or surface-level drift fail before parity or payload gates run.
 - Replay parity validation now treats bundle shape and checksum shape as part of the contract: `scripts/check_replay_parity_report.py` requires the complete canonical surface set (`execution`, `stages`, `frames`, `commands`, `business_objects`, `loops`) for replayed and live bundles, rejects unknown surfaces, and requires lowercase SHA-256 hex values unless `--allow-invalid-checksum-shape` is used for a legacy ad-hoc report.
 - Payload-resolution validation now treats row shape, resolved payload checksums, and summary shape as part of the replay contract: `scripts/check_replay_payload_resolution_report.py` requires every `payload_resolution` entry and its `resolution` value to be objects, requires lowercase SHA-256 hex values for every resolved payload checksum, and validates supplied `payload_resolution_summary` objects with exact fields, strict non-negative integer counters, boolean `all_resolved`, and lowercase SHA-256 checksum shape before accepting the summary.
