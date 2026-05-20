@@ -68,6 +68,7 @@ Latest implementation checkpoint:
 - 2026-05-20 business-object replay parity update: `noetl/noetl#501` adds normalized live/replayed business-object projection rows and `business_object_projection_checksum`, covering object identity, lifecycle/event lineage, payload summaries, and folded attributes.
 - 2026-05-20 loop replay parity update: `noetl/noetl#502` adds normalized live/replayed loop projection rows and `loop_projection_checksum`, covering loop totals, done/failed counters, completion state, and last event linkage.
 - 2026-05-20 execution replay parity update: `noetl/noetl#503` adds normalized live/replayed execution projection rows and `execution_projection_checksum`, covering tenant/org scope, execution status, last node/event, event count, payload-reference summary, projection name, and upcaster registry digest.
+- 2026-05-20 stage replay parity update: `noetl/noetl#504` adds normalized live/replayed stage projection rows and `stage_projection_checksum`, covering stage status, kind, parent/loop linkage, open/close event ids, frame/row/emitted/failed counters, and last event linkage.
 
 ---
 
@@ -1159,6 +1160,7 @@ Validation notes:
 - Business-object replay parity now has normalized checksum helpers for live business-object projection rows and replayed `business_objects` state, including object ids, status/version, event lineage, deletion marker, latest payload summary, payload-ref count, and folded attributes.
 - Loop replay parity now has normalized checksum helpers for live loop progress rows and replayed `loops` state, including totals, done/failed counters, completion state, and last folded event id.
 - Execution replay parity now has normalized checksum helpers for live execution projection rows and replayed top-level execution state, including tenant/org scope, status, last node/event, event count, latest payload summary, and upcaster registry digest.
+- Stage replay parity now has normalized checksum helpers for live stage projection rows and replayed `stages` state, including stage status, kind, parent/loop linkage, open/close event ids, frame/row/emitted/failed counters, and last folded event id.
 - Closed completed Phase 1 cleanup trackers after merged validation: `noetl/noetl#443` stage terminal projection, `noetl/noetl#444` distributed workload override handling via merged CLI fix, `noetl/noetl#446` frame recovery hardening, `noetl/noetl#447` frame payload replay parity, and `noetl/noetl#448` loop supervision event-id compatibility. Active hardening PRs are `noetl/noetl#453` for the frame claim hot path and `noetl/noetl#454` for execution status projection stability.
 - Full repository pytest collection currently has legacy collection blockers unrelated to Phase 0; tracked by `noetl/noetl#440`.
 
