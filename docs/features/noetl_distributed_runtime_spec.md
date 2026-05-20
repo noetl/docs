@@ -77,6 +77,7 @@ Latest implementation checkpoint:
 - 2026-05-20 replay validation runner update: `noetl/noetl#510` adds `scripts/run_replay_validation.py`, a single local-kind/GKE smoke command that fetches replay state and runs the offline projection parity and payload-resolution gates, emitting a JSON run report with per-step command output.
 - 2026-05-20 replay upcaster registry injection update: `noetl/noetl#511` makes `ReplayService` use a configurable or per-call `EventUpcasterRegistry` instead of hard-coding the process default. Validation tools and future storage adapters can now replay with an explicit schema registry and compare its digest without changing endpoint behavior.
 - 2026-05-20 replay time-cutoff snapshot update: `noetl/noetl#512` lets the reference replay reader use replay-state snapshots for `as_of_time` requests when the snapshot version is at or before the resolved cutoff event id, avoiding unnecessary full-history folds while keeping the `ReplayEventReader` port storage-neutral.
+- 2026-05-20 replay snapshot registry guard update: `noetl/noetl#513` makes `ReplayService` ignore snapshot seeds whose recorded upcaster registry digest does not match the registry used for the current fold. Snapshots remain accelerators only; mismatched schema reducers fall back to canonical events.
 
 ---
 
@@ -241,6 +242,7 @@ Implementation status:
 - Replay state includes `upcaster_registry_digest`, a stable SHA-256 digest of the registered `(schema_name, from_version)` transitions used for the fold.
 - A golden replay corpus now lives under `tests/fixtures/replay/` in `repos/noetl` and asserts a stable fold checksum for execution, command, business-object, stage, frame, payload-reference, and registry-digest state.
 - Event-position snapshot selection now exists for `projection_snapshot` rows with `aggregate_type=replay_state` and `aggregate_id=execution/<execution_id>/<projection>`. Replay can seed from the snapshot, skip earlier events, and fold the remaining stream.
+- Snapshot seeds are accepted only when their recorded upcaster registry digest matches the registry used for the current replay fold.
 - Time-based snapshot selection now resolves the time cutoff to an event position before selecting a safe snapshot. Payload resolution, registered production upcasters for future schema revisions, and domain-specific business-object reducers remain tracked by `noetl/noetl#440`.
 
 Replay reconstructs state by:
@@ -1178,6 +1180,7 @@ Validation notes:
 - Replay state report capture now has a small API fetcher: `scripts/fetch_replay_state_report.py --base-url ... --execution-id ... --output replay.json [--resolve-payloads]`. The output is stable JSON intended for the offline projection parity and payload-resolution gates.
 - Replay validation orchestration now has a runner: `scripts/run_replay_validation.py --base-url ... --execution-id ... --output-dir ... [--live-checksums live.json] [--resolve-payloads]`. It captures replay state and runs the offline gates as one reproducible smoke command for local kind and GKE.
 - Time-cutoff replay can now seed from `projection_snapshot` by first resolving `as_of_time` to the maximum visible event id at or before that timestamp, then applying the same `version <= cutoff_event_id` guard used by position-based replay. This keeps snapshots as accelerators only; events after the snapshot version are still folded through the requested cutoff.
+- Replay snapshot compatibility now checks `upcaster_registry_digest` before seeding. If a candidate snapshot was produced by a different registry, replay ignores it and reloads from canonical events instead of mixing reducer/schema versions.
 - Closed completed Phase 1 cleanup trackers after merged validation: `noetl/noetl#443` stage terminal projection, `noetl/noetl#444` distributed workload override handling via merged CLI fix, `noetl/noetl#446` frame recovery hardening, `noetl/noetl#447` frame payload replay parity, and `noetl/noetl#448` loop supervision event-id compatibility. Active hardening PRs are `noetl/noetl#453` for the frame claim hot path and `noetl/noetl#454` for execution status projection stability.
 - Full repository pytest collection currently has legacy collection blockers unrelated to Phase 0; tracked by `noetl/noetl#440`.
 
