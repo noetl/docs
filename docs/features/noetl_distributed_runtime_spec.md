@@ -796,6 +796,7 @@ Implementation status:
 - The adapter currently supports:
   - `save_projection(record)` with version-monotonic upsert semantics;
   - `load_projection(projection_id)`;
+  - `query_projections(query)` by tenant, organization, projection type, execution id, and limit;
   - `save_snapshot(snapshot)` with version-monotonic upsert semantics;
   - `load_snapshot(aggregate_id, aggregate_type=...)`.
 - Live mirrored-event projector validation and remaining direct event append paths remain tracked by `noetl/noetl#437` and `noetl/noetl#461`. The next migration step is deploying the full outbox path in kind/GKE and validating projector replay against PFT v2.
