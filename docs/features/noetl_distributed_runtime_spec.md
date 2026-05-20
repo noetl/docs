@@ -638,7 +638,7 @@ Implementation status:
 
 - `repos/noetl` now exposes `IpcHint` on `ResultRef` / `TempRef`.
 - `ResultRefMeta` records Arrow/replay-relevant payload metadata: `media_type`, `schema_digest`, and `row_count`.
-- `IpcHint` is explicitly best-effort. It carries `shm_name`, `schema_digest`, `byte_length`, optional `row_count`, `producer`, `lease_expires_at`, and media type.
+- `IpcHint` is explicitly best-effort. It carries `shm_name`, `schema_digest`, `byte_length`, optional `row_count`, `producer`, `node_id`, `lease_expires_at`, and media type. `NOETL_NODE_ID` is populated from Kubernetes `spec.nodeName` in the worker/projector/outbox publisher pods when deployed through Helm.
 - `ArrowIpcSharedMemoryCache` now provides the first Tier 1.5 implementation surface in `noetl.core.storage.ipc_cache`: budget enforcement, POSIX shared-memory allocation, `IpcHint` creation, read/attach, delete, and expired-lease sweep.
 - `TempStore.put_ipc_bytes` / `get_ipc_bytes` now provide an explicit raw Arrow IPC path: durable bytes are always written, IPC admission is optional, and reads fall back to the durable tier when the shared-memory hint is expired or missing.
 - `TempStore.ipc_stats()` exposes local counters for admission attempts/success/failures, read attempts/hits/misses, and durable fallback reads.
@@ -647,7 +647,7 @@ Implementation status:
 - `noetl.core.storage.arrow_ipc` now provides the runtime serialization primitive: `rows_to_arrow_ipc` and `arrow_ipc_to_rows`. Schema digests are computed from Arrow's serialized schema, not from row values, so replay/projector code can compare logical frame shape independently from payload content.
 - `cursor_worker` now writes multi-row frame captures through this path when `frame_policy.max_rows > 1` or `NOETL_CURSOR_FRAME_CAPTURE_ENABLED=true`. `NOETL_CURSOR_FRAME_IPC_ENABLED=false` disables only the same-node IPC admission; the durable payload write remains authoritative.
 - `TempStore.resolve(result_ref)` is Arrow-aware for `application/vnd.apache.arrow.stream` references: it attempts the same-node IPC hint first, falls back to durable bytes, then decodes to row dictionaries only at the consumer boundary. Generic JSON result refs continue through the existing JSON resolver.
-- The durable `ResultRef` remains authoritative; consumers must treat expired or missing IPC hints as cache misses and fall back through durable storage.
+- The durable `ResultRef` remains authoritative; consumers must treat expired, missing, or foreign-node IPC hints as cache misses and fall back through durable storage.
 - Worker-side metrics aggregation into dashboards and colocated worker/projector validation remains tracked by `noetl/noetl#438`.
 
 ### 6.4 Producer / consumer protocol
