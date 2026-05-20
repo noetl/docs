@@ -59,6 +59,7 @@ Latest implementation checkpoint:
 - 2026-05-20 tenant backlog metric update: `noetl/noetl#491` adds `noetl_frame_backlog_detail_total` with tenant, organization, stage-kind, and status labels. KEDA keeps using the global `noetl_frame_backlog_total` series, while policy engines and dashboards can inspect tenant/org pressure without coupling to a storage table.
 - 2026-05-20 topology label update: `noetl/noetl#492` adds `cluster_id`, `region`, and `zone` labels to worker-local metrics when the environment provides them; `noetl/ops#108` exposes matching Helm values. This gives operators a locality signal for IPC/cache hit analysis before scheduler claim hints become enforceable.
 - 2026-05-20 topology helper update: `noetl/noetl#494` centralizes worker locality extraction, canonical worker-locator construction, and locality-distance comparison (`node`, `zone`, `region`, `cluster`, `any`) in `noetl.core.runtime.topology`, so worker metrics, frame claims, frame-dispatch metadata, and scheduler enforcement use the same identity rules.
+- 2026-05-20 placement evaluation update: `noetl/noetl#495` records `source_locality` and placement evaluation (`distance`, `max_distance`, `within_max_distance`) on `frame.dispatched` metadata when a frame cursor carries `source_locality` / `producer_locality`. This makes locality decisions replayable before frame selection is changed.
 
 ---
 
@@ -973,7 +974,7 @@ POST /api/stages/{stage_id}/frames/claim
       max_distance: zone | region | any
 ```
 
-Initial implementation: cursor workers include best-effort `node_id`, `cluster_id`, `region`, `zone`, `worker_pool`, and `runtime` locality in the frame claim body, and the server persists that object on the `frame.dispatched` event metadata. When possible, the server also records `worker_locator` as a canonical `noetl://tenant/.../org/.../cluster/.../node/.../worker/...` identity. The scheduler still claims the closest available frame using the existing indexed frame predicates; enforcement of `prefer_node` / `prefer_zone` remains a follow-up so this step stays additive and replay-safe.
+Initial implementation: cursor workers include best-effort `node_id`, `cluster_id`, `region`, `zone`, `worker_pool`, and `runtime` locality in the frame claim body, and the server persists that object on the `frame.dispatched` event metadata. When possible, the server also records `worker_locator` as a canonical `noetl://tenant/.../org/.../cluster/.../node/.../worker/...` identity. If the frame cursor includes `source_locality` or `producer_locality`, the server records a placement evaluation (`distance`, requested `max_distance`, and `within_max_distance`) on the dispatch event. The scheduler still claims the closest available frame using the existing indexed frame predicates; enforcing `prefer_node` / `prefer_zone` against selection is the next step after producer locality is persisted consistently.
 
 Target scheduler behavior: try the closest match. Frames produced by a worker prefer to be reduced by a worker on the same node (Tier 1.5 hit) or in the same zone (Tier 2 hit). Cross-region only when local capacity is exhausted.
 
@@ -1219,7 +1220,7 @@ Goal: lift the runtime from "well-behaved on one cluster" to "addressable, sched
 - StatefulSet identity for workers (not just projectors).
 - KEDA scaler with frame backlog signal. Initial Helm implementation is optional and reads `noetl_frame_backlog_total`; follow-up work should enrich the metric with tenant/stage-aware labels once those labels are present.
 - Multi-cluster supercluster docs + an `ops` playbook to provision two GKE regions feeding the same NATS supercluster.
-- Topology-aware scheduling via `locality` hint on claim. The claim payload and `frame.dispatched` event metadata now carry the hint; scheduler enforcement remains pending.
+- Topology-aware scheduling via `locality` hint on claim. The claim payload and `frame.dispatched` event metadata now carry the hint plus replayable placement evaluation when source locality exists; selection enforcement remains pending.
 
 ### Phase 5 — Pluggable event store / payload store / projection store (rolling, separate PRs per adapter)
 
