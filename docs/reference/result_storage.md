@@ -56,7 +56,7 @@ The event log stores: metadata + ResultRef + extracted fields + preview.
 {
   "kind": "result_ref",
   "ref": "noetl://execution/123/step/fetch/task/fetch_page/run/abc123",
-  "store": "nats_kv|object-store|gcs|postgres",
+  "store": "memory|kv|disk|s3|gcs|db|eventlog",
   "scope": "step|execution|workflow|permanent",
   "expires_at": "2026-02-01T13:00:00Z",
   "meta": {
@@ -64,6 +64,17 @@ The event log stores: metadata + ResultRef + extracted fields + preview.
     "bytes": 52480,
     "sha256": "abc123...",
     "compression": "gzip"
+  },
+  "ipc": {
+    "kind": "arrow_ipc",
+    "shm_name": "noetl_frame_e2606e14_8918ba44",
+    "schema_digest": "ca41f6...",
+    "byte_length": 448,
+    "row_count": 2,
+    "producer": "noetl-worker-...",
+    "node_id": "noetl-control-plane",
+    "lease_expires_at": "2026-05-21T05:08:09Z",
+    "media_type": "application/vnd.apache.arrow.stream"
   },
   "extracted": {
     "has_more": true,
@@ -81,6 +92,8 @@ The event log stores: metadata + ResultRef + extracted fields + preview.
 ### 2.2 Logical vs physical addressing
 - `ref` is a **logical URI** (`noetl://...`) stable across backends.
 - Physical details (bucket/key/object/table range) live in `meta` and/or a server mapping.
+- `ipc` is an optional same-node acceleration hint. It is never the source of
+  truth; the durable `ref` must remain resolvable without it.
 
 ---
 
@@ -94,7 +107,31 @@ Use for:
 Recommended ResultRef meta:
 - `meta.bucket`, `meta.key`
 
-### 3.2 S3-compatible object storage (medium and large)
+### 3.2 Arrow IPC shared memory (same-node accelerator)
+Use for:
+- cursor frame rows
+- tabular payloads that a co-located worker may consume immediately
+- producer-side map/reduce style fan-out where durable fallback is still required
+
+This is Tier 1.5 in the event-store design. The payload is serialized as
+Apache Arrow streaming IPC and may be written into a lease-bound shared-memory
+segment. The `ResultRef` carries an optional `ipc` hint with the shared-memory
+name, Arrow schema digest, byte length, row count, producer identity, node
+identity, lease expiration, and media type.
+
+Resolution policy:
+
+1. Validate the hint is present, unexpired, and local to the current node.
+2. Attempt to attach and read Arrow IPC bytes from shared memory.
+3. If the IPC read fails, increment a miss counter and fall back to the durable `ref`.
+4. Decode Arrow IPC bytes into rows for consumers that request materialized payloads.
+
+The implementation records metrics for admission attempts/success/failures,
+read attempts/hits/misses, fallback reads, and hit ratio. A live Phase 3 proof
+validated an IPC read, forced eviction of the hint, and then validated durable
+fallback returned identical rows.
+
+### 3.3 S3-compatible object storage (medium and large)
 Use for:
 - multi-MB payloads
 - page payloads and streamed chunks that should not live in KV
@@ -110,7 +147,7 @@ Guidance:
   auto-remapped to `store: "disk"` (local SSD cache + async cloud
   spill). See [Storage and Streaming Alignment with RisingWave](../features/noetl_storage_and_streaming_alignment.md).
 
-### 3.3 Google Cloud Storage (large / durable)
+### 3.4 Google Cloud Storage (large / durable)
 Use for:
 - large payloads
 - longer retention
@@ -119,7 +156,7 @@ Use for:
 Recommended ResultRef meta:
 - `meta.bucket`, `meta.object` (or `meta.uri`)
 
-### 3.4 Postgres (queryable)
+### 3.5 Postgres (queryable)
 Use for:
 - queryable intermediate tables (facts, audit rows)
 - projections and indices for refs
@@ -141,6 +178,10 @@ A runtime SHOULD support `store.kind: auto` with size-aware selection:
 - else → GCS (or Postgres table when queryability is required)
 
 Thresholds are runtime config, but the **tier model** is stable.
+
+Arrow IPC shared memory is not chosen as the durable store in `store.kind`.
+It is attached opportunistically to a durable reference by runtime features such
+as cursor frame capture.
 
 ---
 
