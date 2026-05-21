@@ -1056,6 +1056,13 @@ Autoscale formula: `desired_workers = max(1, ceil(frame_backlog_total / target_c
 
 For multi-cluster, the NATS JetStream supercluster routes the same `noetl.events.*` subjects across clusters. The scheduler can claim frames from peer clusters when local backlog has cleared. This is opt-in and gated by an egress cost budget.
 
+Initial operations surface: `noetl/ops#109` adds `automation/infrastructure/nats_supercluster.yaml`, an opt-in playbook that renders and deploys a gateway-enabled NATS JetStream member for the active Kubernetes context. The existing single-cluster NATS manifest remains unchanged. Operators pass a logical `cluster_name`, externally reachable `gateway_advertise` address, and explicit `remote_gateways` entries. This matches the NATS gateway model: gateways use a dedicated gateway port, connect clusters into a supercluster, and each gateway node needs bidirectional reachability to remote gateway nodes. The playbook also exposes a `gatewayz` action for inspecting gateway links.
+
+References:
+
+- [NATS Super-cluster with Gateways](https://docs.nats.io/running-a-nats-service/configuration/gateways)
+- [NATS Gateway Configuration](https://docs.nats.io/running-a-nats-service/configuration/gateways/gateway)
+
 ### 10.4 Resilience
 
 - Frame lease + cursor checkpoint = recovery primitive. Worker crash within a frame loses at most one frame's worth of work; the next worker resumes from the last committed cursor.
@@ -1352,7 +1359,7 @@ Goal: lift the runtime from "well-behaved on one cluster" to "addressable, sched
 - Implement unified resource locator across all subsystems. The core parser/builder is now present and adopted for frame durable-reference validation plus compact result-ref normalization. Worker metrics, frame claims, command claims, frame-dispatch metadata, and worker-reported runtime events now share the same topology helper; remaining work is broader server-side envelope injection and scheduler enforcement of locality hints.
 - StatefulSet identity for workers (not just projectors).
 - KEDA scaler with frame backlog signal. Initial Helm implementation is optional and reads `noetl_frame_backlog_total`; follow-up work should enrich the metric with tenant/stage-aware labels once those labels are present.
-- Multi-cluster supercluster docs + an `ops` playbook to provision two GKE regions feeding the same NATS supercluster.
+- Multi-cluster supercluster docs + an `ops` playbook to provision two GKE regions feeding the same NATS supercluster. Initial opt-in playbook exists for rendering/deploying a gateway-enabled NATS member; GKE-specific load-balancer/TLS defaults remain pending.
 - Topology-aware scheduling via `locality` hint on claim. The claim payload and `frame.dispatched` event metadata now carry the hint plus replayable placement evaluation when source locality exists; selection enforcement remains pending.
 
 ### Phase 5 — Pluggable event store / payload store / projection store (rolling, separate PRs per adapter)
