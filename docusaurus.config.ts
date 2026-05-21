@@ -32,6 +32,11 @@ const config: Config = {
     defaultLocale: 'en',
     locales: ['en'],
   },
+  markdown: {
+    mermaid: true,
+  },
+  themes: ['@docusaurus/theme-mermaid'],
+
   // https://github.com/cmfcmf/docusaurus-search-local
   plugins: [
     [
@@ -164,6 +169,22 @@ const config: Config = {
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
+    },
+    mermaid: {
+      // theme: {
+      //   light: 'neutral',
+      //   dark: 'dark',
+      // },
+      options: {
+        startOnLoad: false,
+        zoom: 1,
+        minZoom: 0.25,
+        maxZoom: 4,
+        zoomingEnabled: true,
+        userZoomingEnabled: true,
+        panningEnabled: true,
+        userPanningEnabled: true,
+      },
     },
   } satisfies Preset.ThemeConfig,
 };

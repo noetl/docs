@@ -1,0 +1,52 @@
+.wrapper {
+  margin-bottom: 1.5rem;
+}
+
+.toolbar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.button {
+  border: 1px solid var(--ifm-color-border-muted);
+  background: var(--ifm-background-surface);
+  color: var(--ifm-font-color-base);
+  border-radius: 0.375rem;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.button:hover,
+.button:focus {
+  background: var(--ifm-color-primary-10);
+  border-color: var(--ifm-color-primary);
+  outline: none;
+}
+
+.label {
+  color: var(--ifm-font-color-secondary);
+  font-size: 0.95rem;
+}
+
+.preview {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid var(--ifm-color-border-muted);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: var(--ifm-background-surface);
+}
+
+.container {
+  display: block;
+  width: 100%;
+}
+
+.container svg {
+  width: 100%;
+  height: auto;
+}
