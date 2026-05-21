@@ -54,12 +54,53 @@ recovery / scaling story without rebuilding one from scratch.
 | Control plane | `noetl.event` / `noetl.command` / `noetl.execution` | unchanged |
 | Data plane | TempStore (KV / Object / S3 / GCS / DB) | **TempStore restructured into Memory / Disk / Cloud**; NATS Object Store removed |
 
+## Current implementation status
+
+The event-store design prompt describes the long-term three-layer platform:
+event stream, projection/state store, and payload reference/shared cache. The
+current NoETL implementation has shipped the reference-first payload layer and
+the first same-node IPC accelerator pieces, while the fully swappable event
+stream and projection-store adapters remain roadmap work.
+
+Implemented now:
+
+- PostgreSQL remains the authoritative append-only execution event store and
+  projection backend.
+- NATS JetStream is the command-notification transport for workers, not the
+  authoritative event log.
+- Result envelopes carry lightweight `ResultRef` / `TempRef` pointers instead
+  of large inline payloads.
+- `IpcHint` metadata can be attached to a result reference for same-node Arrow
+  IPC access.
+- Cursor workers can serialize claimed frames as Arrow streaming IPC bytes,
+  store the durable payload, and attach a best-effort shared-memory hint.
+- Resolution tries the IPC hint when valid and falls back to the durable
+  reference when the hint is missing, expired, evicted, or not local to the
+  node.
+- Worker metrics expose IPC admission, read hit/miss, fallback, and hit-ratio
+  counters for Phase 3 evidence.
+
+Not yet generalized:
+
+- Event stream adapters for Kafka, Pub/Sub, Event Hubs, Kinesis, and MSK.
+- Projection/state adapters for Firestore, DynamoDB, Cosmos DB, Cassandra,
+  ClickHouse, OpenSearch, and vector databases.
+- Cross-language Rust/Python Arrow shared-memory interoperability as a stable
+  public contract.
+- Cluster-wide shared memory. Tier 1.5 is intentionally same-node only.
+
+The live Phase 3 proof exercised the shipped path end to end: a distributed
+cursor frame produced Arrow IPC bytes, emitted an IPC hint, read via shared
+memory, evicted the hint, then confirmed durable fallback returned the same
+rows. The validation bundle required worker IPC evidence and passed.
+
 ## Storage tiers after alignment
 
 | Tier | Backend | Size band | Scope | Survives pod restart? |
 | --- | --- | --- | --- | --- |
 | `MEMORY` | in-process dict | `< 10 KB` | step | No |
 | `KV` | NATS JetStream KV | `< 1 MB` | execution | Yes (distributed) |
+| **`IPC` / Tier 1.5** | same-node shared memory carrying Arrow IPC bytes | frame-scoped tabular payloads | lease-bound execution accelerator | No; falls back to durable ref |
 | **`DISK` (new)** | local NVMe/SSD cache (PVC) | `1 MB – 10 MB` primary; larger with spill | execution / workflow | Yes (warm-start via `recover_mode=Quiet`) |
 | `S3` | S3 / S3-compatible object store (S3 endpoint) | any | execution / workflow / forever | Yes (durable) |
 | `GCS` | Google Cloud Storage | any | execution / workflow / forever | Yes (durable) |
@@ -76,6 +117,7 @@ functionally with DISK + cloud for every size band.
 ```
 size < 10 KB          → MEMORY
 size < 1 MB           → KV
+cursor frame rows     → durable ref + optional IPC hint
 size >= 1 MB          → DISK
                            ├── in-process: local cache (hot read)
                            └── async spill: cloud tier (durable)
@@ -86,6 +128,11 @@ force_tier=<x>        → <x>
 A `DISK` write is locally cached on the worker and asynchronously
 uploaded to the configured cloud tier so durability matches cloud
 storage semantics while read latency matches local SSD.
+
+The `IPC` tier is not selected as a durable store. It is attached as an
+optional `ipc` hint on a durable result reference. Consumers use it only when
+the hint is local, unexpired, and readable; otherwise they resolve the durable
+reference normally.
 
 ### Disk cache internals (phase 1)
 

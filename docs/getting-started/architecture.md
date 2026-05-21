@@ -38,6 +38,26 @@ Central coordination service:
 - Reconstructs workflow state from event table
 - Used by CLIs, UIs, and integrations
 
+### Event Store and Projections
+
+NoETL's current event-sourced runtime uses PostgreSQL as the authoritative
+event and projection store:
+
+- `noetl.event` is the append-only execution history.
+- Projection tables such as executions, commands, stages, frames, and runtime
+  state are rebuildable from events.
+- Replay validation reads the event stream and checks projected runtime state
+  without depending on worker memory.
+- NATS JetStream is used for command notification and worker delivery, not as
+  the authoritative event store in the current implementation.
+
+The broader event-store abstraction described in the architecture roadmap keeps
+the same separation of concerns but allows future deployments to bind the event
+stream to NATS JetStream, Kafka, Pub/Sub, Event Hubs, Kinesis, or MSK, and bind
+projection state to PostgreSQL or cloud-native/document/analytic stores. The DSL
+and playbooks stay backend-neutral; infrastructure configuration selects the
+adapters.
+
 ### Worker Pools
 
 Stateless background executors:
@@ -56,6 +76,29 @@ Message broker for task distribution:
 - Messages contain pointers to Control Plane API for task details
 - Durable subscriptions ensure no task loss
 - Supports multiple worker pools and load balancing
+
+### Result References and Shared Cache
+
+Workers do not push large payloads through the event stream. Task outcomes use a
+reference-first model:
+
+- Small values may be inline.
+- Larger results are stored behind a `ResultRef` / `TempRef` with a logical
+  `noetl://...` URI.
+- The durable reference remains the source of truth and can resolve from KV,
+  disk, S3-compatible storage, GCS, or PostgreSQL depending on tier and runtime
+  configuration.
+- Tabular cursor-frame payloads can be serialized as Apache Arrow IPC
+  (`application/vnd.apache.arrow.stream`).
+- Co-located producer/consumer workers can attach to an optional same-node
+  shared-memory `ipc` hint on the reference. This is Tier 1.5: a best-effort
+  acceleration path, not authoritative state.
+- If the IPC hint is missing, expired, evicted, or belongs to a different node,
+  resolution falls back to the durable `ResultRef`.
+
+The live Phase 3 IPC proof validated this path end to end: a cursor frame wrote
+Arrow IPC bytes, emitted an IPC hint, read via shared memory, evicted the hint,
+then successfully read the same rows through durable fallback.
 
 ### Catalog & Credentials
 
@@ -106,6 +149,9 @@ Connectors for external systems:
 7. **Workers** execute steps and report events to Control Plane API
 8. **Control Plane** stores events in PostgreSQL `noetl.event` table
 9. **Control Plane** monitors events to determine next steps in workflow
+10. **Large results** are stored by reference; events carry ResultRef metadata
+11. **Cursor frames** may attach an optional Arrow IPC shared-memory hint for
+    same-node consumers, while durable storage remains the fallback
 
 ## Database Schema
 
