@@ -118,6 +118,199 @@ Latest implementation checkpoint:
 
 ---
 
+## 0. Status — all seven phases done (2026-05-23 close-out)
+
+**The v2 distributed-runtime spec is complete across all seven
+phases (0–6).** NoETL reached v2.100.2 across the closing
+session. The per-phase landing PRs:
+
+| Phase | Topic | Closing PR(s) |
+|---|---|---|
+| 0 | Instrumentation + stage/frame tables + replay API | `#435` … `#550` |
+| 1 | Frame-shaped cursor loops | `#585` |
+| 2 | Projector StatefulSet behind NATS durable consumers | predates the close-out session |
+| 3 | Apache Arrow IPC Tier 1.5 | `#587` |
+| 4 | URN + KEDA + NATS supercluster | `#593` (URN) · `#594` (KEDA) · `#595` (NATS topology) · `#596` (supercluster runtime fixes) · `#597` (KEDA NATS-account fix) |
+| 5 | Port/adapter event/projection/payload | `#582` … `#592` (rounds 1–5) |
+| 6 | Stage planner for fanout/reduce | `#588` |
+
+The architectural shape the spec described is now operational:
+events flow through durable JetStream consumers; projectors are
+sharded StatefulSets; Arrow IPC Tier 1.5 is wired; KEDA scales
+worker pools off NATS consumer lag; the URN scheme encodes
+locality and supports per-segment subject derivation; PayloadStore
+has a Protocol + adapters for filesystem + S3 + GCS + Azure +
+SeaweedFS-via-S3; `EventRecord.payload_ref` accepts a typed
+`PayloadReference` and serializes through a canonical dict
+discriminator; a multi-cluster NATS supercluster generator emits
+gateway-meshed JetStream topologies.
+
+### Phase 4 — three rounds, all merged
+
+- **Round 1, `#593` — URN extension.** `KNOWN_RESOURCE_KINDS`
+  taxonomy, `NoetlResourceLocator.to_nats_subject()` /
+  `from_nats_subject()`, `locality()` extraction,
+  `dataset_locator` / `stream_locator` / `partition_locator`
+  builders. `WorkerLocatorParts` gains `region` / `zone`;
+  `worker_locator()` emits coarse-to-fine
+  (`tenant → org → region → zone → cluster → node → worker`).
+- **Round 2, `#594` — KEDA scaler.** `ScaledObjectSpec` +
+  `build_worker_scaledobject()` + `dump_scaledobject_yaml()`.
+  Sample manifest at
+  `ci/manifests/keda/scaledobject-worker-cpu-01.yaml` (now in
+  `noetl/ops` — see "Scope A/B" below). Live kind validation
+  drove `noetl-worker` 1 → 12 → 1 under a 200-message lag burst.
+- **Round 3, `#595` + `#596` — NATS supercluster.** Multi-cluster
+  topology generator + 2-cluster sample at
+  `ci/manifests/nats-supercluster/`. Three live-validation
+  fixes baked in (`#596`): unique `server_name` per pod via
+  downward API, split `/healthz` endpoints
+  (`?js-server-only=true` for liveness, `?js-enabled-only=true`
+  for readiness, plus a long-`failureThreshold` `startupProbe`),
+  and `publishNotReadyAddresses: true` on the headless Service
+  so gateway DNS doesn't deadlock on cluster startup.
+- **Round 3 follow-up, `#597` — KEDA NATS account fix.** Live
+  scale-up smoke caught that `ScaledObjectSpec.nats_account`
+  defaulted to the global `$G` account, but NoETL's `noetl`
+  user lives in the `NOETL` account — the scaler was silently
+  reading 0 lag. Default fixed to `"NOETL"` with a pinning
+  assertion. With the fix, the end-to-end scale-up loop
+  validated: burst → `TARGETS=200/10 (avg)` → `replicas=4` →
+  `8` → `16` → `20` (cap) → drain → `1` via HPA stabilization.
+
+### Phase 5 — five rounds, port + adapters + envelope binding
+
+- **Round 1, `#582` — PayloadStore Protocol + FilesystemPayloadStore.**
+  Sharded layout (`<root>/<sha[:2]>/<sha[2:4]>/<sha>`), atomic
+  writes via tempfile + fsync + `os.replace`, optional
+  metadata sidecar.
+- **Round 2, `#589` — S3PayloadStore + parametrized compliance
+  suite.** Sync boto3 + `asyncio.to_thread` to keep `moto`
+  compatibility; documented as the canonical cloud-adapter
+  pattern (every subsequent adapter follows the same shape).
+- **Round 3, `#590` — GCSPayloadStore.** Sync
+  `google-cloud-storage` + `unittest.mock` tests (no
+  in-process emulator equivalent of `moto`; `fake-gcs-server`
+  is a process-based binary deferred to a future test-infra
+  round).
+- **Round 4, `#591` — AzureBlobPayloadStore + SeaweedFS-via-S3
+  docs.** Adds `azure-storage-blob>=12.20.0` runtime dep.
+- **Round 5, `#592` — `EventRecord.payload_ref` typed binding.**
+  The `payload_ref` field accepts either a `PayloadReference`
+  or the legacy `dict[str, Any]`; the envelope serializes
+  through `payload_ref_to_dict()` to a canonical shape carrying
+  a `kind: "payload_store"` discriminator. The
+  `replay_payload_ref_locator` helper recognizes the
+  discriminator. **Closes Phase 5.**
+
+## 0.1 Post-closeout — manifest consolidation (Scopes A + B)
+
+After the seven phases closed, two follow-up rounds consolidated
+the operational artifacts that had been drifting in parallel
+between `noetl/noetl/ci/manifests/` and `noetl/ops/ci/manifests/`:
+
+- **Scope A** (`noetl/ops#112` + `noetl/noetl#598`) — moved the
+  Phase 4 KEDA + NATS supercluster sample manifests from
+  `noetl/noetl/ci/manifests/` to `noetl/ops/ci/manifests/`.
+- **Scope B** (`noetl/ops#113` + `noetl/noetl#599`) — completed
+  the move for the remaining 11 directories (analytics,
+  clickhouse, gateway, jupyterlab, nats, noetl, postgres,
+  qdrant, test-server, tshoot, etc.) and updated
+  `noetl/ops/automation/development/noetl.yaml` to read from
+  local `ci/manifests/...` paths. `noetl/noetl` now carries
+  only a `ci/MOVED.md` breadcrumb where its `ci/manifests/`
+  used to be.
+- **Scope B operator follow-ups** (`noetl/ops#114`) — adds
+  `action=reset` to the deploy playbook (clears NoETL
+  namespaces + patches static PV `claimRef`s so the next
+  deploy rebinds cleanly), adds retry/backoff around the
+  test-server contract verifier's first `/health` call, and
+  targets a Ready paginated-api pod by name to avoid
+  exec-mid-rollout SIGKILL.
+
+After Scopes A + B, **`noetl/ops/ci/manifests/` is the sole
+home for NoETL operational manifests**. The Python generators
+(`noetl/core/runtime/keda.py`, `noetl/core/runtime/nats_topology.py`)
+stay in `noetl/noetl`; only the committed sample YAML moved.
+
+## 0.2 Documentation conventions (for AI agents + humans)
+
+"Where to look" for everything the v2-spec implementation
+touches:
+
+| What you need | Where it lives |
+|---|---|
+| Application code | [`noetl/noetl`](https://github.com/noetl/noetl) |
+| Operational manifests, deployment playbooks, infra automation | [`noetl/ops`](https://github.com/noetl/ops) |
+| Design docs, feature specs (this doc) | [`noetl/docs`](https://github.com/noetl/docs) |
+| Python API + DSL semantics reference | [`noetl/noetl` wiki](https://github.com/noetl/noetl/wiki) |
+| Operational guides (install / verify / tuning) | [`noetl/ops` wiki](https://github.com/noetl/ops/wiki) |
+| AI session state, handoffs, rules | [`noetl/ai-meta`](https://github.com/noetl/ai-meta) |
+
+Wiki entry points for the v2 work:
+
+- [`noetl/wiki/resource_locator`](https://github.com/noetl/noetl/wiki/resource_locator)
+  — URN scheme + NATS subject derivation (Phase 4 round 1).
+- [`noetl/wiki/keda`](https://github.com/noetl/noetl/wiki/keda)
+  + [`ops/wiki/manifests-keda`](https://github.com/noetl/ops/wiki/manifests-keda)
+  — KEDA scaler generator (Python API + operational guide).
+- [`noetl/wiki/nats_supercluster`](https://github.com/noetl/noetl/wiki/nats_supercluster)
+  + [`ops/wiki/manifests-nats-supercluster`](https://github.com/noetl/ops/wiki/manifests-nats-supercluster)
+  — supercluster topology (generator + operational guide).
+- [`noetl/wiki/payload_store`](https://github.com/noetl/noetl/wiki/payload_store)
+  — PayloadStore Protocol + adapters + the
+  `EventRecord.payload_ref` binding.
+
+Two-wiki convention codified in
+[`ai-meta/agents/rules/wiki-maintenance.md`](https://github.com/noetl/ai-meta/blob/main/agents/rules/wiki-maintenance.md)
+Rule 0: Python API / DSL / core architecture docs live in the
+`noetl/noetl` wiki; operational / deployment / infra docs live
+in the `noetl/ops` wiki; hybrid topics split across both with
+prominent cross-link callouts.
+
+## 0.3 Local-kind validation evidence (2026-05-23)
+
+After the Scope B consolidation merged, the full lifecycle was
+exercised end-to-end in a local kind cluster (`kind-noetl`,
+single control-plane node, podman backend):
+
+- **Teardown + provision:** namespaces deleted, then
+  `noetl run automation/development/noetl.yaml --runtime local
+  --set action=deploy --set image_tag=2026-05-22-09-37` from
+  `repos/ops/` provisioned cleanly. (The "PV claimRef" + "test-
+  server contract" friction was caught here and is fixed in
+  `noetl/ops#114`.)
+- **NoETL API:** `/api/health` HTTP 200 in 2.8 ms. 415
+  playbooks listable from catalog (Postgres PV is `Retain`, so
+  state survived the teardown).
+- **DB connection footprint:** 8 idle (server pool) + 5 idle
+  (projector) + 2 idle (outbox-publisher) + 0 (workers — NATS-
+  only by design) = **15 idle**, matching the pre-Scope-B
+  baseline of 11–12 within normal pool variance. **No
+  connection-count regression.**
+- **Test playbook latency:** 5× `test/simple_python` runs:
+  1.20s → 0.97s → 0.73s → 0.67s → 0.66s. Steady-state ~0.66s
+  warm.
+- **KEDA scale-up loop:** 200-message lag burst against the
+  paused `noetl_worker_pool` consumer drove HPA `TARGETS=0/10`
+  → `200/10` and `replicas=1` → `4` → `8` → `16` → `20` (cap)
+  → drain → `1` via HPA `stabilizationWindowSeconds`.
+- **Supercluster gateway mesh:** with `cluster_size=1` per
+  cluster (CPU budget on single kind node),
+  `nats-cluster-a-0` reports `cluster.name=a`,
+  `gateway.outbound_gateways=['b']`,
+  `inbound_gateways=['b']`, JetStream
+  `domain=tenant_default_org_default_region_us_east_1_cluster_a`
+  — URN-derived, bidirectional.
+- **Node resource pressure:** post-validation 78% CPU
+  reservation on a 4-vCPU podman VM. Adding more pods (e.g.
+  full 3-replica supercluster + KEDA-driven worker scale-up)
+  exceeds capacity; documented in
+  [`ops/wiki/manifests-nats-supercluster`](https://github.com/noetl/ops/wiki/manifests-nats-supercluster)
+  under "Resource footprint".
+
+---
+
 ## 1. Why this revision exists
 
 The PFT v2 workload (`fixtures/playbooks/pft_flow_test/test_pft_flow_v2.yaml`) is the canonical stress test for the distributed runtime. It exercises:
