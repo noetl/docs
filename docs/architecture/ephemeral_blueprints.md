@@ -122,6 +122,48 @@ schema-evolution rules in one place. Two different clients
 calling the same playbook get the same rules — there's no
 out-of-band path that bypasses them.
 
+## Secrets and credentials
+
+Business-logic secrets do not live in worker or gateway
+environment variables.
+
+- **Business-logic credentials** — third-party API tokens
+  (Auth0, Duffel, Amadeus, OpenAI, Anthropic), tenant database
+  connection strings, OAuth client secrets, signing keys,
+  encryption keys, anything a playbook step needs in order to
+  act against an external system — are stored in the **NoETL
+  keychain** and referenced by credential alias inside playbook
+  steps. The keychain backend can resolve from secret managers,
+  wallets, or other secret storage; the playbook only ever sees
+  a credential reference (e.g. `auth: "{{ db_credential }}"`,
+  `auth: "{{ nats_credential }}"`).
+- **Platform / runtime credentials** — the worker's own NATS
+  connection, the worker's own state database, the gateway's
+  session-signing key, internal service-to-service mTLS — are
+  the worker and gateway *runtime*, not playbook business
+  logic. These may live in pod env / configmaps / k8s Secrets
+  bound at the platform layer. They are not used to authorize
+  playbook steps against external systems.
+- **Already-in-place trust** — when a worker pod runs under a
+  GKE workload identity, an IAM service account, or has an
+  established SSH tunnel to a private network, playbook tools
+  running on that worker can use those mechanisms directly.
+  The platform-level trust does not need to be re-mediated
+  through the keychain; it is already authenticated at the
+  pod or process boundary.
+
+If a proposal adds a third-party API token, a tenant database
+DSN, or any other business-logic secret to a worker or gateway
+env var, that proposal is in the wrong shape. The credential
+goes in the keychain; the playbook references it by alias; the
+tool resolves it at step execution time.
+
+The rationale matches the data access policy. Concentrating
+credential resolution in the keychain keeps rotation, audit,
+scope, and revocation in one place. Workers and gateways stay
+stateless and disposable; the credential lifecycle is decoupled
+from the runtime.
+
 ## Atomic compute blocks
 
 A playbook decomposes work into discrete steps. Each step
