@@ -84,11 +84,22 @@ The `noetl run` command accepts multiple reference formats:
 
 ### 3. Context Management
 
-Contexts store server URLs and default runtime preferences:
+Contexts store server URLs, default runtime preferences, Auth0
+application metadata, and (optionally) Kubernetes connection fields
+for the managed port-forward daemon.
 
 ```bash
-# Add a context
+# Add a context from CLI flags
 noetl context add local-dev --server-url=http://localhost:8082 --runtime=local
+
+# Bootstrap a context by reading the gateway's runtime contract
+# (discovers Auth0 client_id/redirect_uri/audience for you)
+noetl context init gke-prod --from-gateway https://gateway.mestumre.dev --set-current
+
+# Patch fields in place (no delete + re-add dance)
+noetl context update gke-prod --auth0-client-id=NewClientIdAfterRotation
+noetl context update gke-prod --kube-context=gke_demo_us-central1_noetl-cluster \
+                              --kube-namespace=noetl
 
 # Set runtime for current context
 noetl context set-runtime local
@@ -100,34 +111,90 @@ noetl context current
 
 # Switch contexts
 noetl context use prod
+
+# Manage kubectl port-forward as a daemon for a context that has
+# kube_* fields set
+noetl context port-forward gke-pf --detach    # background, PID file
+noetl context port-forward gke-pf --status    # PID + liveness
+noetl context port-forward gke-pf --stop      # kill + cleanup
 ```
 
-Gateway + Auth0 context example:
+#### Gateway + Auth0: one-command bootstrap
+
+`noetl context init --from-gateway` reads the gateway's
+`GET /api/runtime/contract`, parses the `auth0` block, prints a
+confirmation table, and writes the context — so you don't have to
+look up Auth0 application IDs in the Auth0 dashboard.
 
 ```bash
-noetl context add gke-prod \
-  --server-url https://gateway.mestumre.dev \
+# Discover + write context in one command
+noetl context init gke-prod \
+  --from-gateway https://gateway.mestumre.dev \
   --runtime distributed \
-  --auth0-domain mestumre-development.us.auth0.com \
-  --auth0-client-id '<AUTH0_CLIENT_ID>' \
-  --auth0-redirect-uri 'https://mestumre.dev/login' \
   --set-current
 
-noetl auth login --auth0-callback-url 'https://mestumre.dev/login#id_token=...'
+# Then log in (caches session token onto the context)
+noetl auth login --browser-pkce
 
 # gcloud-style browser/device login (no token copy)
 noetl auth login --browser
 
-# gcloud-style browser PKCE login with localhost callback
-noetl auth login --browser-pkce
-# optional login hint and callback port override
+# Optional login hint and callback port override
 noetl auth login --browser-pkce --auth0 user@example.com --pkce-port 8765
 ```
 
-PKCE notes:
+If the gateway image is older than v2.10 (no Auth0 exposure on the
+runtime contract), fall back to `noetl context add` with the Auth0
+fields supplied directly, or use `noetl context update` after
+`context init` to fill in what the contract didn't include.
+
+#### PKCE flow notes
+
 - Default callback URI is `http://127.0.0.1:8765/callback`.
-- Override callback URI using `--auth0-redirect-uri`; it must use `localhost` or `127.0.0.1`.
-- Auth0 application must allow the callback URI in allowed callback URLs.
+- Override callback URI using `--auth0-redirect-uri`; it must use
+  `localhost` or `127.0.0.1`.
+- The Auth0 application must allow the callback URI in **Allowed
+  Callback URLs**. The CLI prints the Auth0 dashboard URL for the
+  application as part of its PKCE pre-flight so you can verify
+  this before the browser opens. If Auth0 rejects with "Callback
+  URL mismatch", add the URI shown in the pre-flight and retry.
+
+#### Per-command context override
+
+For a single command against a non-current context, use the global
+`--context <name>` flag — mirrors `kubectl --context` and
+`gcloud --account`:
+
+```bash
+noetl --context gke-prod catalog list Playbook
+noetl --context gke-pf   register credential -f duffel.json
+noetl --context smoke    exec ./playbooks/foo.yaml
+```
+
+The current context is unchanged.
+
+#### After login: no need to `export NOETL_SESSION_TOKEN`
+
+A successful `noetl auth login` caches the gateway session token
+directly onto the context file (`~/.noetl/config.toml`). Subsequent
+CLI calls read it from there automatically. The
+`export NOETL_SESSION_TOKEN=...` hint printed after login is for
+**other tools** (curl, scripts) that read the env var — not for the
+CLI itself.
+
+#### Exit code 77 — gateway session expired
+
+When the gateway returns 401 to a request that used a cached session
+token, the CLI exits with code **77** and prints a re-login hint.
+Scripts can branch on the exit code:
+
+```bash
+noetl --context gke-prod catalog list Playbook || code=$?
+if [[ "${code:-0}" -eq 77 ]]; then
+    noetl auth login --browser-pkce --context gke-prod
+    noetl --context gke-prod catalog list Playbook
+fi
+```
 
 **Common Context Workflows:**
 
@@ -429,37 +496,61 @@ noetl context set-runtime distributed
 noetl context set-runtime auto
 ```
 
-**Context Configuration File**: `~/.noetl/config.json`
+**Context Configuration File**: `~/.noetl/config.toml`
 
-```json
-{
-  "current_context": "local-dev",
-  "contexts": {
-    "local-dev": {
-      "server_url": "http://localhost:8082",
-      "runtime": "local"
-    },
-    "prod": {
-      "server_url": "https://noetl.prod.example.com",
-      "runtime": "distributed"
-    }
-  }
-}
+```toml
+current_context = "local-dev"
+
+[contexts.local-dev]
+server_url = "http://localhost:8082"
+runtime    = "local"
+
+[contexts.prod]
+server_url = "https://noetl.prod.example.com"
+runtime    = "distributed"
+
+[contexts.gke-prod]
+server_url             = "https://gateway.mestumre.dev"
+runtime                = "distributed"
+auth0_domain           = "mestumre-development.us.auth0.com"
+auth0_client_id        = "<client-id>"
+auth0_redirect_uri     = "https://mestumre.dev/login"
+gateway_session_token  = "<cached-after-noetl-auth-login>"
+
+[contexts.gke-pf]
+server_url        = "http://127.0.0.1:18082"
+runtime           = "distributed"
+kube_context      = "gke_demo_us-central1_noetl-cluster"
+kube_namespace    = "noetl"
+kube_service      = "noetl"   # default
+kube_remote_port  = 8082      # default
 ```
+
+Additionally, the managed port-forward daemon writes PID files to
+`~/.noetl/port-forwards/<context>.pid` — one per context.
 
 ## Command Categories
 
 | Category | Commands | Purpose |
 |----------|----------|---------|
-| **Execution** | `run` | Execute playbooks (local or distributed) |
-| **Context** | `context add/use/list/set-runtime` | Manage execution contexts |
+| **Execution** | `run`, `exec` | Execute playbooks (local or distributed) |
+| **Context** | `context add/init/update/use/list/current/delete/set-runtime/port-forward` | Manage execution contexts and managed kubectl tunnels |
+| **Auth** | `auth login` (`--browser-pkce`, `--browser`, `--password`, callback URL, raw token) | Authenticate against the gateway |
 | **Server** | `server start/stop` | Manage server process |
 | **Worker** | `worker start/stop` | Manage worker process |
 | **Register** | `register playbook/credential` | Add resources to catalog |
-| **Catalog** | `catalog list/get` | Query registered resources |
-| **K8s** | `k8s deploy/redeploy/remove` | Kubernetes operations |
+| **Catalog** | `catalog list/get/register` | Query registered resources |
+| **K8s** | `k8s deploy/redeploy/remove/reset` | Kubernetes operations |
 | **Database** | `db init/validate` | Database management |
-| **IaP** | `iap init/state/sync` | Infrastructure as Playbook |
+| **IaP** | `iap init/plan/apply/state/sync/workspace` | Infrastructure as Playbook |
+
+**Global flags**:
+
+| Flag | Purpose |
+|---|---|
+| `--context <NAME>` | Run one command using the named context, without changing the current one. |
+| `--gateway` | Force gateway-proxy mode. |
+| `--session-token <TOKEN>` | Override the cached session token for one command. |
 
 ## Quick Start Examples
 

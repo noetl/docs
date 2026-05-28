@@ -73,24 +73,52 @@ noetl run automation/gcp_gke/noetl_gke_fresh_stack.yaml --runtime local \
   --set bootstrap_gateway_auth=true
 ```
 
-## 4) Login and export session token
+## 4) Login
 
 ```bash
-noetl auth login --context gke-prod --auth0 you@example.com
-# paste full Auth0 callback URL when prompted (or valid JWT token)
-export NOETL_SESSION_TOKEN='<session-token-from-success-output>'
+# Recommended — interactive browser PKCE
+noetl auth login --browser-pkce --context gke-prod
+
+# Or paste a full Auth0 callback URL
+noetl auth login --context gke-prod --auth0-callback-url 'https://mestumre.dev/login#id_token=...'
 ```
+
+A successful login caches the gateway session token onto the
+context file (`~/.noetl/config.toml`); subsequent CLI calls against
+that context read it from there automatically. The
+`export NOETL_SESSION_TOKEN=...` hint printed after login is for
+**other tools** that read the env var (the curl examples in
+section 9 below, for instance) — not for the CLI itself.
 
 Notes:
 
 - A short opaque token is not a JWT and will fail with `Invalid JWT format`.
-- Use the full callback URL (`...#id_token=...`) or valid JWT form.
+- Use the full callback URL (`...#id_token=...`) or a valid JWT in the
+  `--auth0-token` / `--auth0-callback-url` modes.
+- Browser PKCE first-time setup requires the callback URI
+  (`http://127.0.0.1:8765/callback`) to be in the Auth0 application's
+  **Allowed Callback URLs**. The CLI prints the Auth0 dashboard URL
+  for the application as part of its PKCE pre-flight so you can verify
+  the allowlist before the browser opens.
+- If a later CLI call against `gke-prod` exits with code **77**, the
+  session expired — re-run the login above.
+
+For curl-based DB queries against the gateway (section 9 below),
+export the token from the context after login:
+
+```bash
+# Extract the cached gateway_session_token from the context file
+export NOETL_SESSION_TOKEN=$(awk -F'"' '/^gateway_session_token/ {print $2}' \
+  ~/.noetl/config.toml | head -n1)
+```
 
 ## 5) Verify and use context
 
 ```bash
 noetl context list
-noetl context use gke-prod
+noetl context use gke-prod                         # persistent switch
+# or, per-command without changing the current context:
+noetl --context gke-prod catalog list Playbook
 ```
 
 ## 6) Register playbooks
