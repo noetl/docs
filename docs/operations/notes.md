@@ -84,7 +84,7 @@ noetl auth login --context gke-prod --auth0-callback-url 'https://mestumre.dev/l
 ```
 
 A successful login caches the gateway session token onto the
-context file (`~/.noetl/config.toml`); subsequent CLI calls against
+context file (`~/.noetl/config.yaml`); subsequent CLI calls against
 that context read it from there automatically. The
 `export NOETL_SESSION_TOKEN=...` hint printed after login is for
 **other tools** that read the env var (the curl examples in
@@ -104,12 +104,23 @@ Notes:
   session expired — re-run the login above.
 
 For curl-based DB queries against the gateway (section 9 below),
-export the token from the context after login:
+export the token from the context after login.  The CLI stores its
+config as YAML at `~/.noetl/config.yaml`; pick whichever extractor
+fits the tools you have:
 
 ```bash
-# Extract the cached gateway_session_token from the context file
-export NOETL_SESSION_TOKEN=$(awk -F'"' '/^gateway_session_token/ {print $2}' \
-  ~/.noetl/config.toml | head -n1)
+# yq (preferred — reliable on YAML)
+export NOETL_SESSION_TOKEN=$(yq -r '.contexts."gke-prod".gateway_session_token' \
+  ~/.noetl/config.yaml)
+
+# awk fallback (no yq required) — pulls the gateway_session_token
+# from inside the gke-prod block.  Works because the serialized form
+# is unquoted scalars and the contexts map is top-level.
+export NOETL_SESSION_TOKEN=$(awk '
+  /^  gke-prod:/{flag=1; next}
+  /^  [a-z][a-z0-9_-]*:$/{flag=0}
+  flag && /gateway_session_token:/{print $2; exit}
+' ~/.noetl/config.yaml)
 ```
 
 ## 5) Verify and use context

@@ -176,7 +176,7 @@ The current context is unchanged.
 #### After login: no need to `export NOETL_SESSION_TOKEN`
 
 A successful `noetl auth login` caches the gateway session token
-directly onto the context file (`~/.noetl/config.toml`). Subsequent
+directly onto the context file (`~/.noetl/config.yaml`). Subsequent
 CLI calls read it from there automatically. The
 `export NOETL_SESSION_TOKEN=...` hint printed after login is for
 **other tools** (curl, scripts) that read the env var — not for the
@@ -496,34 +496,47 @@ noetl context set-runtime distributed
 noetl context set-runtime auto
 ```
 
-**Context Configuration File**: `~/.noetl/config.toml`
+**Context Configuration File**: `~/.noetl/config.yaml`
 
-```toml
-current_context = "local-dev"
+The CLI uses `--<flag>` names for input (e.g. `--auth0-domain`), but
+the serialized form on disk uses snake_case with a `gateway_`
+prefix for the auth0 / session fields. Inspect with
+`noetl context current` or `noetl context list` rather than reading
+the file by hand.
 
-[contexts.local-dev]
-server_url = "http://localhost:8082"
-runtime    = "local"
+```yaml
+current_context: local-dev
 
-[contexts.prod]
-server_url = "https://noetl.prod.example.com"
-runtime    = "distributed"
+contexts:
+  local-dev:
+    server_url: http://localhost:8082
+    runtime: local
 
-[contexts.gke-prod]
-server_url             = "https://gateway.mestumre.dev"
-runtime                = "distributed"
-auth0_domain           = "mestumre-development.us.auth0.com"
-auth0_client_id        = "<client-id>"
-auth0_redirect_uri     = "https://mestumre.dev/login"
-gateway_session_token  = "<cached-after-noetl-auth-login>"
+  prod:
+    server_url: https://noetl.prod.example.com
+    runtime: distributed
 
-[contexts.gke-pf]
-server_url        = "http://127.0.0.1:18082"
-runtime           = "distributed"
-kube_context      = "gke_demo_us-central1_noetl-cluster"
-kube_namespace    = "noetl"
-kube_service      = "noetl"   # default
-kube_remote_port  = 8082      # default
+  gke-prod:
+    server_url: https://gateway.mestumre.dev
+    runtime: distributed
+    gateway_session_token: <cached-after-noetl-auth-login>
+    gateway_auth0_domain: mestumre-development.us.auth0.com
+    gateway_auth0_client_id: <client-id>
+    gateway_auth0_redirect_uri: https://mestumre.dev/login
+    gateway_auth0_audience: null
+    gateway_auth0_client_secret: null
+    kube_context: null
+    kube_namespace: null
+    kube_service: null
+    kube_remote_port: null
+
+  gke-pf:
+    server_url: http://127.0.0.1:18082
+    runtime: distributed
+    kube_context: gke_demo_us-central1_noetl-cluster
+    kube_namespace: noetl
+    kube_service: noetl           # default
+    kube_remote_port: 8082        # default
 ```
 
 Additionally, the managed port-forward daemon writes PID files to
