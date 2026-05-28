@@ -341,7 +341,7 @@ NOETL_AUTH0_CLIENT_SECRET="$AUTH0_CLIENT_SECRET" noetl auth login --auth0 user@e
 #### After login: the session token is cached on the context
 
 A successful `noetl auth login` writes the gateway session token
-directly onto the context file (`~/.noetl/config.toml`):
+directly onto the context file (`~/.noetl/config.yaml`):
 
 ```
 Gateway login successful.
