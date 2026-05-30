@@ -1444,16 +1444,20 @@ The plan is structured so each phase delivers measurable value and has a clear s
 * Ship criterion: the travel and glut-probe playbooks run end-to-end on a Rust worker with the same `batch.completed.context` shape as the Python worker.
 * Stop criterion: if ≥30% of the production tool-kind surface requires Python subprocess fallback (long-tail Python tools without a Rust port), declare the worker hybrid (Rust shell handling the common cases, Python worker handling the tail) and stop here.
 
-### **Phase R-4 — Rust server hot path (decision point at ~6 months)**
+### **Phase R-4 — Rust server hot path + Polars-pattern Python wrapper (~6 months in)**
 
-* Re-evaluate based on production data, not on architectural preference.
-* If `handle_event` p90 measured in `batch.completed.context` is a material bottleneck at the new scale, port `_handle_event_inner` to Rust on `noetl/server`. Keep Python for replay analytics, MCP catalog, DSL parser, frame projector — code that is low-frequency or high-complexity and does not benefit from Rust.
-* If `handle_event` p90 is comfortable, declare Python the long-term control plane and Rust the long-term worker. The hybrid topology is the durable design.
-* Stop criterion: this phase ships only if real load data motivates it.
+R-4 is no longer a deferred decision.  The endpoint of the migration is the **Polars pattern**: Rust is the runtime, Python is a wrapper that ships in the same `pip install noetl` distribution.  See § H.9 for the full shape; the deliverables for R-4 itself are:
+
+* Port `_handle_event_inner`, the cascade event-log batching, the save_state coalescing, and the projector hot path from `noetl/noetl` (Python) into `noetl/server` (Rust).  Keep Python for replay analytics, MCP catalog tooling, DSL parser, and the long-tail of frame-projector logic — code that is low-frequency or high-complexity and does not benefit from Rust.
+* Ship the Python PyO3 wrapper (`pip install noetl`) that embeds the Rust binaries and exposes the existing `noetl/noetl` API surface so current Python users migrate without touching their playbooks.
+* Ship `noetl-sdk` (pure Python, no Rust binaries) for notebook users and remote clients who don't want the embedded runtime.
+* Ship `noetl-tools-python` so Python callables registered as `@noetl.tool` keep working — dispatched across the PyO3 FFI boundary with zero-copy Arrow `RecordBatch` interop.
+
+Ship criterion: `pip install noetl` installs the Rust runtime + Python wrapper from one wheel and runs the existing Travel and glut-probe playbooks unchanged.  Stop criterion: if PyO3 binding overhead measurably regresses the worker tail latency past round-5 baselines, ship Rust-only and provide `noetl-sdk` as the Python user surface (no embedded runtime).
 
 ## **H.6 What does not change**
 
-* The Python platform stays the production control plane through all of R-1 / R-2 / R-3.
+* The Python platform stays the production control plane through all of R-1 / R-2 / R-3.  R-4 introduces the Polars-pattern Python wrapper (§ H.9) so Python users keep their existing programmatic surface even after the runtime moves to Rust.
 * The v2-spec phase audit (table on line 968) remains the source of truth for distributed-runtime spec status. Rust migration phases are tracked separately under this appendix.
 * The wire contracts — `noetl.event` shape, NATS subject patterns, `batch.completed.context` field catalogue, `IpcHint` envelope — do not change. Rust adoption is invisible to playbook authors and to the gateway.
 * Tool authors continue to add tool kinds in `noetl-tools` (Rust) and `noetl/tools/` (Python). The orchestrator picks the worker class by tool kind; both shells coexist.
@@ -1475,3 +1479,74 @@ Each PR ships with the same engineering discipline used through `noetl/ai-meta#2
 * Should `noetl-executor` live as a fourth top-level repository, or as a workspace crate inside `noetl/cli`? Workspace crate is faster to bootstrap; separate repository is cleaner for the eventual `noetl-worker` cargo dependency. Recommendation: workspace inside `noetl/cli` for R-1, promote to standalone when `noetl-worker` is ready to depend on it.
 * Should the Rust worker speak the same `batch.accepted → batch.processing → batch.completed` lifecycle as the Python worker, or define its own status taxonomy? Recommendation: same lifecycle. Cross-stack observability is more valuable than schema purity.
 * Should `noetl-arrow-cache` and `noetl-executor` be published to crates.io or stay internal? Recommendation: stay internal until R-3 ships and the API has stabilised.
+
+## **H.9 The endpoint: Polars-pattern Python wrapper around the Rust runtime**
+
+The long-term shape of NoETL — once the Rust migration concludes — is the same shape that Polars uses to replace pandas in the Python data ecosystem: **a Rust core with a Python wrapper that ships in the same distribution**.  Python users keep their ergonomic surface (`import noetl as nt`, `@noetl.tool`, notebook-friendly types).  The runtime they call into is Rust.  Both halves ship in one `pip install noetl` wheel built with PyO3 + maturin, the same toolchain Polars, Pydantic V2, Ruff, and Ty use today.
+
+This is what makes the migration a one-way change instead of a tower of optional steps: R-4 isn't a deferred "should we rewrite the server" question — it's the ship date of the Python wrapper that lets the Rust takeover happen without breaking any Python user.
+
+### **H.9.1 Three Python surfaces**
+
+The Python distribution splits into three packages, each with a distinct audience:
+
+| Package | Ships | Audience | Use when |
+| :---- | :---- | :---- | :---- |
+| `pip install noetl` | PyO3 wrapper + embedded Rust binaries (`noetl-server`, `noetl-worker`, `noetl-cli`, `noetl-executor`, `noetl-tools`, `noetl-arrow-cache`) | Today's `noetl/noetl` Python users and Jupyter notebook authors who want a single-install runtime. | Local execution, embedded runtime in tests, prototyping, single-host deployments. |
+| `pip install noetl-sdk` | Pure Python types + thin client to a remote NoETL server | Data scientists, notebook users, partner integrations who don't want the embedded runtime. | Talking to a remote `noetl/server` over HTTP/gRPC, no local Rust binaries needed. |
+| `pip install noetl-tools-python` | PyO3 hooks that register Python callables as `noetl-tools` kinds at runtime | Anyone authoring tools as Python functions (`@noetl.tool def my_transform(...)`) | The Python tool surface that stays Python after R-3 — long-tail tools without a Rust port. |
+
+This mirrors Polars's split (`polars` → Rust core + Python wrapper; `polars-arrow` / `polars-core` available separately on crates.io for Rust consumers).  The pattern is mature and the tooling is proven.
+
+### **H.9.2 FFI shape and Arrow zero-copy across the boundary**
+
+The PyO3 boundary is not free — but it doesn't have to be expensive either, because the data plane is Arrow.
+
+* **Control plane** (`noetl.run(playbook="x.yaml", workload={...})`) crosses PyO3 once per playbook invocation.  Marshalling cost is negligible relative to playbook duration.
+* **Tool dispatch** for a Rust tool kind never crosses PyO3 — `noetl-executor` calls `noetl-tools` directly.  Python is not in the loop.
+* **Tool dispatch** for a `noetl-tools-python` (Python-callable) tool kind crosses PyO3 once per command, with the input + output as Arrow `RecordBatch` references.  PyO3's `pyarrow` interop hands the same Arrow buffer to Python without copy.  This is the same path Polars uses to expose Rust DataFrames to Python in zero-copy form.
+* **Arrow IPC cache** (`noetl-arrow-cache`) is bidirectional: Rust producers emit `IpcHint` segments that the Python wrapper mmap-reads; Python tool outputs land in the same shared-memory region for downstream Rust consumers.
+
+The Python side never sees a serialization round-trip on hot-path data.  Where Python touches the data is exactly where Polars touches it — through `pyarrow`-compatible buffers.
+
+### **H.9.3 What the migration looks like to a Python user**
+
+* **Before** (today, `noetl/noetl` v2.103.x): `pip install noetl-python` (or whatever the Python distribution is named); Python interpreter runs the engine; tools are Python functions; control plane is Python.
+* **After** (R-4 ships): `pip install noetl`; Rust binaries are embedded; the existing Python API surface (`noetl.run`, `noetl.execute_playbook`, decorators) is preserved by a PyO3 wrapper that delegates to the Rust binaries; existing Python tools registered via `@noetl.tool` keep working through `noetl-tools-python`.
+* **Their playbooks are unchanged.**  YAML doesn't care which language the runtime is written in.
+* **Their performance improves** — the cumulative gains of R-1 through R-4 land for free at upgrade time.
+
+This is the same migration path pandas users take to Polars: install the new package, change the import, and ship.  Most playbook authors won't even need to change the import — the `noetl` package name stays the same; only the wheel contents change.
+
+### **H.9.4 Tradeoffs to honour**
+
+* **Wheel size grows.** PyO3 wheels with embedded Rust binaries are larger than pure-Python wheels.  Polars ships ~30 MB wheels; NoETL's runtime will likely be similar.  Acceptable for a distribution that includes a database client (`duckdb`), HTTP client, Arrow, and a NATS client.
+* **Multi-platform wheel building gets harder.**  Need `cibuildwheel` (or equivalent) producing `manylinux_2_28_x86_64`, `manylinux_2_28_aarch64`, `macosx_*_universal2`, and `win_amd64` wheels.  The toolchain is well-trodden — Polars's CI is a usable template.
+* **GIL coordination.**  Python tools registered via `noetl-tools-python` run under the GIL by default.  Truly parallel Python tools (rare, but used in the `python` tool kind for CPU-bound transforms) need the tool author to release the GIL explicitly (`#[pyfunction(text_signature = "...", pass_module = false)]` + `py.allow_threads(...)`).  Document this in the `@noetl.tool` decorator docs; provide an opt-in `gil_release=True` flag.
+* **PyO3 ABI compatibility.**  Pin the PyO3 version per release and validate against the supported Python versions (3.10+ recommended).  Use the `abi3` feature so one wheel works across Python minor versions.
+
+### **H.9.5 What this changes in the migration plan**
+
+* **R-1, R-2, R-3 are unchanged.**  The Polars pattern is the endpoint; the path to get there is still the phased migration.
+* **R-4's ship criterion sharpens.**  Instead of "decide whether to port the server hot path," it's "ship `pip install noetl` with the embedded Rust runtime and the PyO3 wrapper, validated against the existing Travel and glut-probe playbooks."
+* **R-5 (out of scope of this appendix, planning placeholder).**  After R-4 lands and Python users migrate, the Python control-plane code paths in `noetl/noetl` can be deleted once telemetry shows no consumers remain.  The `noetl/noetl` repo becomes the PyO3 wrapper repo; the Rust runtime lives in `noetl/server`, `noetl/worker`, `noetl/executor`, `noetl/tools`, `noetl/cli`, and `noetl/arrow-cache`.
+
+### **H.9.6 Reference projects**
+
+* [Polars](https://github.com/pola-rs/polars) — the proof point.  `pl.DataFrame` is a Rust `DataFrame` exposed via PyO3 with Arrow-native interop.  Pandas-compatible enough for migration; 5–50× faster in production benchmarks.
+* [Pydantic V2 (`pydantic-core`)](https://github.com/pydantic/pydantic-core) — Pydantic moved its hot path from Python to Rust through PyO3 without breaking its public Python API.  Same pattern, smaller surface.
+* [Ruff](https://github.com/astral-sh/ruff) — Rust replacement for `flake8`/`isort`/etc with a Python interface.  Distribution shape (wheel + binary) is a template.
+* [Ty](https://github.com/astral-sh/ty) — Astral's new Rust type checker with Python wrapper.  Active project worth tracking for the latest PyO3 patterns.
+* [`maturin`](https://github.com/PyO3/maturin) — the build tool that produces PyO3 wheels.  Required toolchain for `pip install noetl`.
+
+### **H.9.7 Naming**
+
+Recommended package names at R-4 ship:
+
+* PyPI: `noetl` (renames over the current Python distribution — coordinate with PyPI maintainers).
+* PyPI: `noetl-sdk` (new, pure-Python remote client).
+* PyPI: `noetl-tools-python` (new, registers Python callables as tool kinds).
+* Crates.io (R-3 / R-4): `noetl-server`, `noetl-worker`, `noetl-cli`, `noetl-executor`, `noetl-tools`, `noetl-arrow-cache`, `noetl-gateway` (the gateway already lives here).
+* Crates.io publish flag flips from `publish = false` to `publish = true` per crate as its API stabilises.
+
+The user-visible Python import stays `import noetl as nt`.  Code that runs today against `noetl/noetl` v2.103.x runs unchanged against `pip install noetl` after R-4 lands.
