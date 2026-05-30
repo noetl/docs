@@ -1358,38 +1358,71 @@ The runtime should move toward Rust where Rust earns its keep and stay Python wh
 
 The blueprint does not endorse a full Python-to-Rust rewrite of the production platform. A rewrite restarts the regression-cost clock for code that already absorbed the v2-spec phases and the post-spec performance work.
 
-## **H.3 The architectural hinge: unified CLI + worker executor**
+## **H.3 The architectural hinge: shared utilities, distinct control loops**
 
-`repos/cli/src/playbook_runner.rs` already executes playbooks locally by invoking the `noetl-tools` crate inline. `repos/worker` executes the same `noetl-tools` calls but pulls commands from a NATS durable consumer. The two paths are roughly 95% identical execution logic and 5% command-source plumbing. Unifying them around a shared executor crate is the highest-leverage early step.
+> **Note (2026-05-30):** the original wording of this section claimed CLI and worker were "95% identical execution logic" unified behind one `CommandSource` trait.  After R-1.1 PR-1 + PR-2a landed and the post-extraction `playbook_runner.rs` was surveyed in depth, that claim was found wrong in one important way: the CLI is a **tree walker** and the worker is a **pull-model consumer**.  These control loops are fundamentally different shapes; only the utilities under them are shared.  § H.10 documents the finding and the resulting plan revision in full; the rest of this section has been rewritten to match.
 
-Target layout:
+`repos/cli/src/playbook_runner.rs` executes playbooks locally as a recursive tree walker — it loads the YAML, walks the workflow, evaluates `next` arcs / `case` conditions / `then` blocks in place, and dispatches each step to a tool implementation inline.  `repos/worker` executes one command at a time pulled from a NATS durable consumer, with no tree to walk and no recursive routing decisions — the engine on the server side made those already.
+
+These are **fundamentally different control loops**.  An attempt to flatten the CLI's tree walker into a pull-model iterator loses local-debug clarity (the tree shape is gone) and produces awkward state management around `case` / `then` recursion.  The unified-executor abstraction in the original Appendix H draft is the wrong abstraction for the CLI.
+
+What CLI and worker actually share — and what `noetl-executor` should host — are **utilities and types**, not the control loop:
+
+Revised target layout:
 
 ```
-repos/executor/   <-- new crate noetl-executor
+repos/cli/executor/    (noetl-executor workspace crate)
   Cargo.toml
   src/
     lib.rs
-    runtime.rs            // ExecutionContext, EventEmitter, CredentialResolver
-    source.rs             // trait CommandSource { async fn next() -> Option<Command>; }
-    sources/
-      local_playbook.rs   // parses YAML, generates commands inline (CLI run mode)
-      nats.rs             // subscribes to NATS durable consumer (worker mode)
-    dispatch.rs           // routes Command -> tool kind -> noetl-tools registry
-    events.rs             // emits noetl events; pluggable EventSink trait
-    state.rs              // in-memory ExecutionState mirror with replay-friendly shape
+    playbook.rs                       // YAML types (R-1.1 PR-2a, MERGED)
+    template.rs                       // Jinja2 + Rhai rendering (R-1.1 PR-2b)
+    condition.rs                      // when / case condition evaluation (R-1.1 PR-2b)
+    credentials.rs                    // $noetl_ref resolution + redaction (R-1.1 PR-2b)
+    runtime.rs                        // ExecutionContext, EventEmitter,
+                                      // CredentialResolver (R-1.1 PR-1, MERGED)
+    events.rs                         // EventSink trait + ExecutorEvent shape
+                                      // (R-1.1 PR-1, MERGED)
+    worker/                           // worker-specific control loop pieces
+      source.rs                       // trait CommandSource — WORKER-ONLY
+                                      // abstraction; CLI does not use it
+      sources/
+        nats.rs                       // NATS pull consumer (R-1.3)
+      dispatch.rs                     // route Command -> tool kind via
+                                      // noetl-tools registry (R-1.3)
 
-repos/cli/        <-- depends on noetl-executor; uses LocalPlaybookSource
-repos/worker/     <-- depends on noetl-executor; uses NatsCommandSource + persistent EventSink
+repos/cli/        <-- depends on noetl-executor; uses utilities only;
+                      keeps its own tree walker in playbook_runner.rs
+repos/worker/     <-- depends on noetl-executor; uses utilities + CommandSource
+                      + NatsCommandSource impl
 ```
 
-Both `noetl run --runtime local <playbook.yaml>` and the worker daemon flow through the same execution core. The CLI gets full distributed-runtime semantics in local mode for free (event log, replay, credential resolution); the worker gets the CLI's ergonomic single-binary debug surface. Future tools added to `noetl-tools` are available to both paths from day one.
+Both binaries depend on `noetl-executor` for the same set of utilities (template rendering, condition evaluation, credential resolution, event emission shape, YAML types).  The CLI keeps its recursive tree walker (lines 213-770 of `playbook_runner.rs` — `run`, `execute_step`, `execute_next_steps`, `execute_router_arcs`, etc.) because that shape is the natural fit for local YAML execution.  The worker keeps its NATS pull loop because that shape is the natural fit for distributed-runtime semantics.
 
-Existing CLI features that move into the shared crate:
+What this gives up vs the original vision:
 
-* Tool dispatch and kind resolution from `playbook_runner.rs`.
-* Credential / keychain `$noetl_ref` resolution (currently CLI-side).
-* Template rendering against the merged step context.
-* Event-emission semantics matching the Python worker's `noetl.runtime.events.report_event`.
+- The CLI does NOT get distributed-runtime semantics in local mode for free.  Local mode stays the lightweight tree-walker shape.  If a CLI user wants distributed-runtime semantics, they invoke a remote server via the `noetl-sdk` (R-4 / § H.9).
+- The worker does NOT get the CLI's ergonomic single-binary debug surface.  The worker is a daemon by nature.
+
+What this still gains:
+
+- Type-safe parsed playbook shape (R-1.1 PR-2a, shipped).
+- Shared Jinja2 + Rhai template rendering (R-1.1 PR-2b).
+- Shared `$noetl_ref` credential resolution + response-boundary redaction (R-1.1 PR-2b).
+- Shared event-emission shape matching the Python `noetl.runtime.events.report_event` envelope (R-1.1 PR-1, shipped).
+- Shared Arrow-IPC codec + cache (R-2).
+- Shared tool registry via `noetl-tools` (R-3).
+
+Existing CLI features that move into `noetl-executor` (R-1.1 PR-2b's revised scope):
+
+* Template rendering against the merged step context (`render_template`, `render_template_with_result`, `get_json_path`, `json_to_rhai`, `rhai_to_json_string`).
+* Condition evaluation (`evaluate_condition`, `evaluate_rhai_condition`).
+* Capability validation (`validate_capabilities`).
+
+What does NOT move into `noetl-executor`:
+
+* The tree-walker control loop (`run`, `execute_step`, `execute_next_steps`, `execute_router_arcs`) — stays in `playbook_runner.rs`.
+* The inline tool execution logic (`execute_tool`, `execute_shell_command`, `execute_http_request`, `execute_duckdb_query`, etc.) — R-1.1 PR-2c replaces these with calls into the `noetl-tools` registry.
 
 ## **H.4 Apache Arrow-native data plane in Rust**
 
@@ -1419,13 +1452,15 @@ The plan is structured so each phase delivers measurable value and has a clear s
 
 ### **Phase R-1 — `noetl-executor` shared crate (~1–2 months)**
 
-* Extract local execution logic from `repos/cli/src/playbook_runner.rs` into a new `repos/executor/` crate.
-* Define the `CommandSource` trait with `LocalPlaybookSource` and `NatsCommandSource` implementations.
-* Both `repos/cli` (`noetl run --runtime local`) and `repos/worker` (NATS daemon) depend on `noetl-executor`.
-* `noetl-tools` stays the tool registry.
-* Existing CLI tests pass against the new core.
-* Ship criterion: ≥80% shared code path between the CLI local-mode and worker NATS-mode execution.
-* Stop criterion: if extraction creates more abstraction than it removes, keep the two paths separate and revisit unification after Arrow integration (R-2).
+* **REVISED 2026-05-30 — see § H.10 for the architectural finding that forced this revision.**
+* Bootstrap `noetl-executor` as a workspace crate under `repos/cli/` (R-1.1 PR-1 — **MERGED** as noetl/cli#20).
+* Extract the YAML playbook types from `playbook_runner.rs` into `noetl-executor::playbook` (R-1.1 PR-2a — **MERGED** as noetl/cli#21).
+* Extract template rendering + condition evaluation + capability validation + credential resolution helpers into `noetl-executor::{template, condition, credentials}` (R-1.1 PR-2b — revised scope, ~430 LoC).
+* Replace the CLI's inline tool execution (`execute_tool` and friends) with calls into the `noetl-tools` registry (R-1.1 PR-2c, ~870 LoC).
+* The CLI's tree walker (`run`, `execute_step`, `execute_next_steps`, `execute_router_arcs`) **stays in `playbook_runner.rs`**.  Closing R-1.1 (PR-2d): `noetl/cli#19` closes when the CLI's tree walker only contains control-flow logic and delegates every other concern to `noetl-executor` + `noetl-tools`.
+* The worker (R-1.3) depends on `noetl-executor` for utilities and for its own `CommandSource` / `NatsCommandSource` impls.  `CommandSource` is a worker-only abstraction; the CLI does not implement or consume it.
+* Ship criterion: the CLI's local-mode runner consumes the same `noetl-executor` utility surface that the worker does; the **two binaries share types, template rendering, condition evaluation, credential resolution, and tool dispatch via `noetl-tools`**, but each owns its own control loop.
+* Stop criterion: if utility extraction creates more abstraction than it removes (e.g. template rendering needs a per-binary ExecutionContext that's too divergent), keep that utility in `playbook_runner.rs` for now and revisit after R-2 lands.
 
 ### **Phase R-2 — Apache Arrow Rust integration (~1 month, parallel to R-1)**
 
@@ -1550,3 +1585,90 @@ Recommended package names at R-4 ship:
 * Crates.io publish flag flips from `publish = false` to `publish = true` per crate as its API stabilises.
 
 The user-visible Python import stays `import noetl as nt`.  Code that runs today against `noetl/noetl` v2.103.x runs unchanged against `pip install noetl` after R-4 lands.
+
+## **H.10 Architectural finding (2026-05-30): tree walker vs pull-model**
+
+This section records an architectural finding that surfaced after R-1.1 PR-1 (executor skeleton) and PR-2a (YAML types extraction) landed and the post-extraction `playbook_runner.rs` was surveyed in depth.  The finding revises § H.3 and § H.5 R-1.1; § H.4 (Arrow) and § H.9 (Polars endpoint) are unaffected.
+
+### **H.10.1 The finding**
+
+The original Appendix H plan assumed the CLI and worker shared roughly 95% of their execution logic and that a unified `CommandSource` trait — `LocalPlaybookSource` for the CLI, `NatsCommandSource` for the worker — would be the integration surface.  Reality is different:
+
+- **CLI** (`repos/cli/src/playbook_runner.rs`, ~2,277 LoC after PR-2a): the runner is a **recursive tree walker**.  It loads the YAML playbook, walks the workflow steps recursively, evaluates `next` arcs / `case` conditions / `then` blocks in place, and dispatches each step to a tool implementation inline.  Control flow is the call stack.
+- **Worker** (`repos/worker/`, ~1.9k LoC skeleton today): the runner is a **pull-model consumer**.  It subscribes to a NATS durable consumer, pulls one command at a time, executes it, emits events, and repeats.  No tree.  No recursion.  No routing decisions — the server's engine made those already and emitted typed commands.
+
+Flattening the CLI's tree walker into a pull-model iterator is doable in principle but has real costs:
+
+- Local-debug clarity drops.  A user running `noetl run --runtime local foo.yaml` benefits from the call stack mirroring the YAML structure.  A flattened iterator loses that mapping.
+- The implementation needs explicit state management for `case` / `then` recursion.  The recursive tree walker gets this for free from the language.
+- The integration tests written against the tree shape (assertions like "step A's next arc ran after step A's tool call returned") would need rewriting.
+
+The cost-benefit doesn't justify the change.
+
+### **H.10.2 Revised target shape**
+
+`noetl-executor` becomes a **utilities-and-types crate**, not a **control-loop crate**.  Both CLI and worker depend on it for:
+
+- YAML types (`playbook::*`) — shipped in PR-2a.
+- Template rendering (Jinja2 + Rhai) — moves in PR-2b.
+- Condition evaluation (`when`, `case`) — moves in PR-2b.
+- Capability validation — moves in PR-2b.
+- Credential resolution (`$noetl_ref`) + response-boundary redaction — moves in PR-2b.
+- Event-emission shape (`ExecutorEvent`, `EventSink` trait) — shipped in PR-1.
+- Arrow-IPC codec helpers — shipped in R-2.1 PR.
+- Tool dispatch via `noetl-tools` registry — wired in PR-2c.
+
+Each binary owns its control loop:
+
+- The CLI owns its recursive tree walker (`run`, `execute_step`, `execute_next_steps`, `execute_router_arcs`).  It stays in `playbook_runner.rs`.
+- The worker owns its NATS pull loop.  `CommandSource` and `NatsCommandSource` live under `noetl-executor::worker::*` and are worker-only.
+
+### **H.10.3 What R-1.1 PR-2b looks like under the revised plan**
+
+R-1.1 PR-2b shifts from "lift the parser + command-generation logic (~1,200 LoC) into `LocalPlaybookSource`" to:
+
+- Extract shared utility methods from `playbook_runner.rs` impl into new `noetl-executor` modules:
+  - `noetl-executor::template` — `render_template`, `render_template_with_result`, `get_json_path`, `json_to_rhai`, `rhai_to_json_string`.
+  - `noetl-executor::condition` — `evaluate_condition`, `evaluate_rhai_condition`.
+  - `noetl-executor::capabilities` — `validate_capabilities` and the `RuntimeCapabilities` factory methods.
+- Replace the inline method definitions in `playbook_runner.rs` with calls into the new modules.
+- ~430 LoC of utility extraction; control loop untouched.
+
+The placeholder `LocalPlaybookSource` introduced in PR-1 (queue-backed source for testing the trait machinery) is **removed** as part of PR-2b since the abstraction it sketched is not how the CLI works.  The `CommandSource` trait moves under `noetl-executor::worker::source` to make its scope explicit.
+
+### **H.10.4 What R-1.1 PR-2c and PR-2d look like under the revised plan**
+
+- **PR-2c** (~870 LoC): replace the CLI's inline tool execution (`execute_tool`, `execute_shell_command`, `execute_rhai_script`, `execute_http_request`, `execute_duckdb_query`, etc.) with calls into the `noetl-tools` registry.  The CLI adds `noetl-tools` as a regular dependency.  After this lands, the CLI and worker run the same tool implementations.
+- **PR-2d** (small): close `noetl/cli#19` with a final pass that documents the new shape in the CLI README + wiki, and confirms via integration tests that the CLI's tree walker only contains control-flow logic.
+
+### **H.10.5 What R-1.2 and R-1.3 look like under the revised plan**
+
+- **R-1.2** is folded into PR-2b/2c — there is no separate "CLI depends on noetl-executor" PR; the CLI gains the dependency in PR-2b and uses more of the executor surface in PR-2c.
+- **R-1.3** (worker depends on noetl-executor) becomes the moment the worker grows beyond skeleton size.  It depends on `noetl-executor::{playbook, template, condition, credentials, events}` AND `noetl-executor::worker::{source, sources::nats}`.  The CLI continues to depend on the utility modules only.
+
+### **H.10.6 Why this is the right call**
+
+The original Appendix H draft was written before R-1.1 PR-1 / PR-2a landed and before the post-PR-2a state was surveyed in depth.  Three rounds of code-level inspection (the PR-1 skeleton design, the PR-2a types extraction, and the post-PR-2a survey that produced this finding) revealed that the "95% identical execution logic" framing was wrong.  The honest answer is closer to "60% identical *utility* logic, 0% identical *control loop* logic."
+
+Recording this in writing — instead of quietly proceeding with the wrong abstraction — protects future sessions from re-running the same investigation and protects R-1.3 (worker) from inheriting a shape it doesn't want.
+
+### **H.10.7 What does not change**
+
+- The Polars-pattern endpoint (§ H.9) is unchanged.  Whether `pip install noetl` ships a Rust runtime + PyO3 wrapper is independent of whether that runtime's local mode uses a tree walker or a pull loop.
+- The phased R-1 / R-2 / R-3 / R-4 cadence is unchanged.  Phases ship in the same order; only R-1's internal scope was wrong.
+- The Apache Arrow data plane (§ H.4) is unchanged.  Arrow is a payload format; it doesn't care which control loop produces or consumes the IPC bytes.
+- The compatibility contracts (Python `noetl.runtime.events.report_event` envelope shape, `noetl.command` row shape, `IpcHint` envelope) are unchanged.
+
+### **H.10.8 PRs affected**
+
+- R-1.1 PR-1 (#20, merged) — unchanged in retrospect; the `runtime`/`events`/`source`/`dispatch` modules it shipped are still the right scaffolding.  The `LocalPlaybookSource` placeholder in `sources/local_playbook.rs` gets removed in PR-2b.
+- R-1.1 PR-2a (#21, merged) — unchanged; the YAML types extraction is correct under both the old and new plan.
+- R-1.1 PR-2b (next) — rescoped per § H.10.3.  ~430 LoC of utility extraction instead of ~1,200 LoC of parser/command-generation logic.
+- R-1.1 PR-2c (after 2b) — rescoped per § H.10.4.  Replaces inline tool execution with `noetl-tools` calls.
+- R-1.1 PR-2d (after 2c) — rescoped per § H.10.4.  Documentation + integration-test pass; closes `noetl/cli#19`.
+
+### **H.10.9 Process note**
+
+Architectural findings that surface mid-implementation are normal.  The recovery path is the one this section demonstrates: stop coding, write the finding into the binding plan (this doc), and re-enter implementation with the revised scope.  Coding through an architectural mismatch is how plans become wrong on paper while the code drifts in the right direction silently — leaving future readers of the plan confused about what was decided and why.
+
+A similar process note in the noetl/ai-meta memory bank ([`2026-05-22 v2-spec Phase 3 audit refreshed`](https://github.com/noetl/ai-meta/blob/main/memory/archive/2026/05/20260522-212900-v2-spec-phase3-audit-refresh-and-observability-landed.md)) demonstrates the same recovery for the v2-spec Phase 3 audit-table drift.  Both follow the same pattern: write down the finding, revise the source of truth, then continue.
