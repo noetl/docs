@@ -57,6 +57,64 @@ via `dlopen`).
 
 [appendix-h]: ./noetl_global_hybrid_cloud_grid_distributed_architecture_blueprint.md#h-rust-migration-path-and-unified-executor-roadmap
 
+## Data access boundary — server API only for NoETL-owned data
+
+A foundational rule that shapes every system playbook below:
+
+> **NoETL platform data is accessible via the NoETL server API
+> only.**  Workers — including the system worker pool — call
+> the server's HTTP API for any read or write to NoETL-owned
+> tables (`noetl.event`, `noetl.command`, `noetl.execution`,
+> `noetl.outbox`, `noetl.catalog`, `noetl.credential`, etc.).
+
+**Why** (full rationale in
+[`agents/rules/data-access-boundary.md`](https://github.com/noetl/ai-meta/blob/main/agents/rules/data-access-boundary.md)):
+
+1. **Connection pool isolation.**  Workers scale 1→50+ on
+   backlog.  If each holds a Postgres connection from the
+   platform pool, the math collapses: server can't acquire a
+   connection for its own API, deadlock cascades.
+2. **Sharding readiness.**  Future: noetl-server runs N shards,
+   each owning a slice of executions.  Workers calling the API
+   means shard routing is transparent; workers hitting DB
+   directly locks sharding out.
+3. **Single point of consistency.**  Schema migrations, audit
+   logging, RBAC, response-boundary credential scrubbing — all
+   enforced at the server.  Distributing across workers ≈
+   re-implementing the server in each worker.
+
+**The exception** is **external-subsystem playbooks** that
+integrate NoETL with Auth0 / Okta / Vault / PagerDuty / Slack /
+etc.  Those go direct because the target isn't NoETL data, it's
+an external system.  `system/auth`, `system/credential_rotate`,
+`system/notify_alert` are external-subsystem playbooks; they
+use `tool: http` / `tool: postgres` directly.  `system/outbox_publisher`,
+`system/projector`, `system/scheduled_cleanup` are
+NoETL-state playbooks; they use the server API.
+
+### What this requires from the server
+
+The Python server's API surface today doesn't have endpoints
+for the operations the system pool's playbooks need.  These
+get added as part of the system-pool migration:
+
+| New internal endpoint | What it does | Replaces direct DB access by |
+|---|---|---|
+| `POST /api/internal/outbox/claim?limit=N` | `SELECT ... FOR UPDATE SKIP LOCKED`, mark IN_FLIGHT, return rows | Python `claim_outbox_batch` |
+| `POST /api/internal/outbox/mark-published` | Batch `UPDATE status=PUBLISHED` | Python `mark_outbox_published` |
+| `POST /api/internal/outbox/mark-failed` | Batch `UPDATE status=FAILED` with exponential backoff | Python `mark_outbox_failed` |
+| `GET /api/internal/outbox/pending-count` | Count of `PENDING`/`FAILED` rows (KEDA scaler source for the system pool) | (new) |
+| `POST /api/internal/events/project` | Batch `INSERT INTO noetl.event` with `ON CONFLICT DO NOTHING` | Python projector batch INSERT |
+| `POST /api/internal/cleanup/sweep` | TTL-based cleanup of stale rows | Python cleanup jobs (when they exist) |
+
+Auth: gated by a service-account token only the system worker
+pool's K8s ServiceAccount carries (`noetl-worker-system-pool`).
+User playbooks calling `/api/internal/*` get 403.
+
+Per [`observability.md`](https://github.com/noetl/ai-meta/blob/main/agents/rules/observability.md)
+Principle 1, each endpoint ships with its span + metric +
+`execution_id` correlation in the same change set.
+
 ## The split — compiled core vs. plug-in ring
 
 The shape that emerged from the 2026-06-02 design discussion
