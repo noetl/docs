@@ -32,6 +32,59 @@ For the higher-level shape this design extends, see
 [issue-45]: https://github.com/noetl/ai-meta/issues/45
 [issue-46]: https://github.com/noetl/ai-meta/issues/46
 
+## Implementation status (2026-06-02)
+
+The first three phases land — system worker pool runtime is live on
+kind, server API endpoints are kind-validated, first system playbook
+is registered:
+
+```
++----------------------------------------------------------------+
+|                                                                |
+|  Phase 1.a — server /api/internal/* endpoints       ✅ shipped |
+|     Python (noetl v4.10.1) ✅ kind-validated                   |
+|     Rust   (server v2.1.1) ✅ unit-tested                      |
+|                                                                |
+|  Phase 1.b — system worker pool deployment          ✅ shipped |
+|     noetl-worker-system-pool deployed + idle on                |
+|     noetl_worker_pool_system NATS consumer                     |
+|     KEDA ScaledObject READY                                    |
+|                                                                |
+|  Phase 2.a.1 — system/outbox_publisher.yaml         ✅ shipped |
+|     Playbook in noetl/ops playbooks/system/ namespace          |
+|     Uses tool: http (claim/mark) + tool: nats (publish)        |
+|     Auth via bearer token from keychain alias                  |
+|                                                                |
+|  Phase 2.a.2 — server-side system/* routing         ⏳ pending |
+|     Last piece before end-to-end kind validation possible      |
+|                                                                |
+|  Phase 2.a.3 — deployment env wiring                ⏳ in PR   |
+|     NOETL_KEYCHAIN_ENV_VARS=NOETL_INTERNAL_API_TOKEN            |
+|     (noetl/ops#143 — configuration-only, no Rust code)          |
+|                                                                |
+|  Phase 2.b — system/projector.yaml                  ⏳ blocked |
+|  Phase 3 — auth, RBAC, scheduled cleanup playbooks  ⏳ later   |
+|  Phase 4 — WASM compilation                         ⏳ later   |
+|                                                                |
++----------------------------------------------------------------+
+```
+
+Key discovery during implementation: **Phase 2.a.3 (bearer-token
+auth wiring) is configuration-only**.  The original estimate was
+2-3 hours of Rust work to extend the worker's keychain.  In reality
+the worker already supports a comma-separated env-var allow-list
+(``NOETL_KEYCHAIN_ENV_VARS``) that lifts env values into
+``ctx.secrets`` verbatim.  One Deployment-env line + the standard
+``auth: { type: bearer, credential: <alias> }`` block in the
+playbook completes the wiring.  No new code paths.  This is
+exactly the "platform extends itself with its own primitives"
+property the ADR aims for — bearer-token auth for system
+playbooks falls out of existing pieces.
+
+For the running detail of what's open / blocked / merged, see the
+ai-meta wiki dashboard:
+<https://github.com/noetl/ai-meta/wiki/Umbrella-System-Pool-Design>.
+
 ## The problem
 
 After the Rust worker migration ([Appendix H][appendix-h] of the
