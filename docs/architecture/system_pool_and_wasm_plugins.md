@@ -7,11 +7,24 @@ sidebar_position: 8
 
 # System Worker Pool and WASM Plug-in Surface
 
-**Status:** Design proposal (ADR) — tracked under
-[noetl/ai-meta#45][issue-45] (compiled replacement) and
-[noetl/ai-meta#46][issue-46] (plug-in surface).  Not yet
-implemented.  This page captures the design space so the next
-agent picking up the work has the trade-offs already mapped.
+**Status:** Design ADR — tracked under
+[noetl/ai-meta#46][issue-46] (primary migration umbrella).
+[noetl/ai-meta#30][issue-30] (Appendix H worker migration) and
+[noetl/ai-meta#45][issue-45] (originally-proposed compiled
+rewrite of publisher + projector + server) both closed
+2026-06-02 in favour of the system-playbook approach captured
+here.  Not yet implemented.
+
+**Revision history:**
+- **v1** 2026-06-02 — initial ADR; publisher + projector
+  classified as "compiled core" alongside HTTP routing.
+- **v2** 2026-06-02 — revised: publisher + projector
+  reclassified as **plug-in ring** (system playbooks).
+  The compiled core shrinks to HTTP routing + dispatch.
+  See the "Revised classification (2026-06-02 v2)" section
+  below for the rationale.
+
+[issue-30]: https://github.com/noetl/ai-meta/issues/30
 
 For the higher-level shape this design extends, see
 [Ephemeral Blueprints and the Compute-Data Boundary](./ephemeral_blueprints.md).
@@ -46,47 +59,86 @@ via `dlopen`).
 
 ## The split — compiled core vs. plug-in ring
 
-Not everything belongs as a playbook.  The shape that emerged
-from the design discussion:
+The shape that emerged from the 2026-06-02 design discussion
+(and was corrected later the same day — see "Revised
+classification" below):
 
 ### Compiled core (stays in Rust)
 
-The hot loops where playbook-dispatch overhead would cost real
-throughput:
+Things that don't fit the playbook abstraction or that gate
+every request:
 
-- **Outbox publisher** — `LISTEN/NOTIFY` on Postgres outbox table,
-  publish to `NOETL_EVENTS` NATS stream.  ~200 lines of tight loop,
-  no per-row extensibility needed.
-- **Projector** — NATS subscribe, batch-INSERT into `noetl.event`
-  table.  Thousands of events/sec at peak; WASM's 2-5× overhead
-  and cross-boundary memory copies are real cost here.
-- **HTTP route table + scrub** — `/api/catalog/*`, `/api/execute`,
-  `/api/events`, SSE.  The router itself stays compiled; the
-  customisable bits (auth check, RBAC) move to the plug-in ring.
-- **Execution-id resolution + dispatch fan-out** — the
-  inner loop of `_handle_event_inner`.
+- **HTTP route table + middleware** — `/api/catalog/*`,
+  `/api/execute`, `/api/events`, SSE.  The router itself stays
+  compiled; customisable bits inside route handlers (auth check,
+  RBAC) call into the plug-in ring.
+- **Execution-id resolution + dispatch fan-out** — the inner
+  loop of `_handle_event_inner` and the command-to-NATS publish
+  path.  Sub-millisecond budget per request.
+- **Tool registry** (`noetl/tools` crate) — the 14 built-in
+  tool kinds (http, postgres, duckdb, ...).  These are what
+  playbooks (including system playbooks) compose.
+- **Worker binary** (`noetl/worker`) — the NATS pull loop,
+  tool dispatch, event emission.  **Same binary serves user
+  pools and the system worker pool**; the difference is
+  configuration (NATS consumer + filter subject + capability
+  set), not code.
+- **Scrub** (`scrub::scrub_in_place`) — response-boundary
+  credential redaction.  Called on every response.
 
 ### Plug-in ring (system playbooks, dispatched on `worker-system-pool`)
 
-The cold loops where pluggability and per-tenant override matter
-more than per-call latency:
+Everything else.  Including the things you'd expect to be hot
+loops:
 
-- **Auth** (`system/auth`) — session validation, token lookup,
-  IdP integration.  Tenants can override with `acme/system/auth`
-  for SAML, custom MFA, etc.
-- **RBAC** (`system/rbac`) — per-action authorisation.  Customisable
-  per tenant.
-- **Scheduled cleanup** (`system/scheduled_cleanup`) — TTL
-  enforcement, stale-row reaping.  Low frequency (cron-like),
-  benefits from the catalog versioning + replay semantics.
-- **Credential rotation** (`system/credential_rotate`) — refresh
-  long-lived tokens before expiry.
-- **Custom dispatcher rules** — tenant-supplied logic for routing
-  decisions, e.g. "route all `mcp` calls for tenant X to pool Y".
+- **`system/outbox_publisher`** — replaces today's
+  `python -m noetl.outbox_publisher` Python pod.  Uses
+  `tool: postgres` (claim + mark) + `tool: nats` (publish).
+  Iteration scheduled by polling cron / KEDA-on-outbox-depth.
+- **`system/projector`** — replaces today's `python -m noetl.projector`
+  pod.  Uses `tool: nats` (subscribe) + `tool: postgres` (batch
+  INSERT).  Sharded via worker_id; one playbook execution per
+  shard.
+- **`system/auth`** — session validation, token lookup, IdP
+  integration.  Tenants can override with
+  `<tenant>/system/auth_with_saml`.
+- **`system/rbac`** — per-action authorisation.  Tenant-
+  overridable.
+- **`system/scheduled_cleanup`** — TTL enforcement, stale-row
+  reaping.
+- **`system/credential_rotate`** — refresh long-lived tokens
+  before expiry.
 
-The compiled core is **small and stable**; the plug-in ring is
-where extension happens.  Matches the "kernel + modules" pattern
-— boring, well-understood, debuggable.
+The compiled core is **small and stable** — HTTP routing,
+dispatch, the tool registry, the worker binary, scrub.  The
+plug-in ring is **everywhere extension happens** — including
+the things that used to be standalone Python services.  Matches
+the "kernel + modules" pattern, but the modules are NoETL
+playbooks instead of Linux kernel modules.
+
+### Revised classification (2026-06-02 v2)
+
+The first version of this ADR put outbox publisher + projector
+in the compiled core, arguing that throughput would suffer from
+playbook-dispatch overhead.  That reasoning was wrong:
+
+- **Publisher**: fires per outbox **batch**, not per row.  A
+  batch is 100 events by default.  Playbook dispatch is ~1ms;
+  amortised over 100 events that's 10µs/event — invisible vs.
+  the network publish.
+- **Projector**: fires per NATS **batch**, not per event.  Same
+  amortisation argument.  Plus the projector benefits from
+  audit + replay semantics that playbooks have natively.
+- **Pluggability matters**: even system services want override
+  capability (tenant-specific publishers, custom projectors for
+  multi-region fan-out).  Forcing them as compiled code denies
+  that future.
+
+So in v2 the compiled core shrinks to **request gating + dispatch
++ scrub + tool registry + the worker binary itself**.  Everything
+else lives as a playbook.  WASM compilation (Section "WASM as the
+plug-in compilation target") makes the perf argument moot for
+the playbooks that need it.
 
 ## The system worker pool
 
@@ -235,30 +287,44 @@ closest fit.
   tower); the plug-in surface should be the route handlers'
   **bodies** for customisable routes, not the routing itself.
 
-## The packaging shape
+## The packaging shape (revised v2)
+
+There's **no new compiled binary** for publisher / projector /
+system_pool.  The shape collapses:
 
 ```
-repos/server (Rust crate)
-├── src/bin/server.rs       --mode=server     (HTTP routes)
-├── src/bin/publisher.rs    --mode=publisher  (LISTEN/NOTIFY → NATS)
-├── src/bin/projector.rs    --mode=projector  (NATS → DB)
-├── src/bin/system_pool.rs  --mode=system     (wasmtime host)
-├── src/lib.rs              shared: envelope, db pool, nats client, scrub, metrics
-└── src/wasm/
-    ├── host.rs             wasmtime Linker + capability surface
-    ├── cache.rs            (path, version, digest) -> compiled Module
-    └── caller.rs           dispatch system playbook -> WASM execution
+repos/server (Rust crate, single binary)
+└── src/main.rs              HTTP server (catalog, /api/execute, /api/events, SSE)
+
+repos/worker (Rust crate, single binary — UNCHANGED)
+└── src/main.rs              Generic NATS pull worker.  Already exists.
+                             Serves user pools AND the system worker pool —
+                             the difference is configuration, not code.
 ```
 
-One image (`ghcr.io/noetl/server:<v>`).  Multiple deployments
-in Helm, each with different `args:`:
+Helm deploys the **same `noetl/worker` image three times** with
+different env:
 
-| Deployment | args | Replicas |
-|---|---|---|
-| `noetl-server` | `--mode=server` | 1-3 (HTTP) |
-| `noetl-outbox-publisher` | `--mode=publisher` | 1 |
-| `noetl-projector` | `--mode=projector` | N (sharded) |
-| `noetl-worker-system-pool` | `--mode=system` | 1-3 (KEDA on `noetl_worker_pool_system` lag) |
+| Deployment | Image | NATS_CONSUMER | NATS_FILTER_SUBJECT | Replicas |
+|---|---|---|---|---|
+| `noetl-server` | `ghcr.io/noetl/server` | (HTTP, no consumer) | — | 1-3 |
+| `noetl-worker` (Python pool) | (today's Python image) | `noetl_worker_pool` | (legacy) | 1-20 (KEDA) |
+| `noetl-worker-rust` (user pool) | `ghcr.io/noetl/worker` | `noetl_worker_pool_shared` | `noetl.commands.shared.>` | 1-20 (KEDA) |
+| `noetl-worker-system-pool` | `ghcr.io/noetl/worker` | `noetl_worker_pool_system` | `noetl.commands.system.>` | 1-5 (KEDA, smaller cap) |
+
+The Python `noetl-outbox-publisher` Deployment and the
+`noetl-projector` StatefulSet **retire** once the equivalent
+system playbooks (`system/outbox_publisher`, `system/projector`)
+are registered in the catalog and the system worker pool is
+running.
+
+WASM compilation happens **server-side at catalog register
+time** (or first execute) — the system worker pool's wasmtime
+host loads the compiled module per claim and discards on
+completion.  No additional Rust binary needed for the host —
+it lives inside the existing `noetl/worker` binary as a tool
+kind / dispatcher mode that activates when the playbook is
+flagged for WASM execution.
 
 ## Catalog model
 
