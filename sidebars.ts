@@ -32,6 +32,7 @@ const sidebars: SidebarsConfig = {
         'architecture/self_troubleshoot_agent',
         'architecture/triage_model_selection',
         'architecture/agent_failure_diagnostics',
+        'architecture/subscription_cloud_run_runtime',
       ],
     },
     {
