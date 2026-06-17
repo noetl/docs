@@ -99,9 +99,23 @@ Three problems, one model.
   model the orchestrator reads). This already exists.
 - **Materialiser pool** drains the same log, and for over-budget results
   writes Arrow Feather to object store at the logical URI's resolved
-  cell/shard prefix. The shadow
-  materialiser consumer already exists; this extends it to write the
-  durable Feather tier.
+  cell/shard prefix. The shadow materialiser consumer already exists;
+  this extends it to write the durable Feather tier.
+
+Both drain pools — and every async system service this model adds — run
+on the **system worker pool as plug-in-ring playbooks**, not as bespoke
+Rust services, per the
+[System Worker Pool and WASM Plug-in Surface](./system_pool_and_wasm_plugins.md)
+ADR. `system/outbox_publisher` and `system/projector` already run this
+way; the materialiser is the same shape — a `system/` playbook that
+drains `noetl_events` and calls the server's internal API to write the
+Feather tier. The worker's **parallel publish stays in the compiled core**
+(it is part of the worker binary's emit path, fired per atomic cycle —
+no extensibility need, no per-invocation dispatch cost). The split is:
+thin compiled publish on the hot path, system-pool playbooks for the
+heavy async drain/materialise/project work. Playbooks that later need
+native speed compile to WASM and hot-reload via catalog version bump (the
+ADR's Phase 4) — the catalog is the managed, replaceable plug-in library.
 
 ## The load-bearing decision: where the durability barrier sits
 
@@ -265,8 +279,11 @@ by derivation.
    location from identity.
 2. **Local-first dual write** — the worker's local buffer is the fast
    path; the JetStream publish is the durability channel (extends the
-   2d-3 worker-publish direction).
-3. **Arrow Feather durable tier** under the materialiser, keyed by URN.
+   2d-3 worker-publish direction). Stays in the compiled core.
+3. **Arrow Feather durable tier** under the materialiser — a **plug-in-ring
+   `system/` playbook** on the system worker pool, optionally WASM-compiled
+   for native speed and hot-reloaded via catalog version bump (the
+   [system-pool ADR](./system_pool_and_wasm_plugins.md) Phase 4).
 
 ## How it folds into the open work
 
