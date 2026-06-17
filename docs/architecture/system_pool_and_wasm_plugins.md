@@ -398,6 +398,62 @@ closest fit.
   tower); the plug-in surface should be the route handlers'
   **bodies** for customisable routes, not the routing itself.
 
+### Compile target and the capability boundary
+
+Real plug-ins compile to **`wasm32-wasip1` / `wasm32-wasip2`** (not bare
+`wasm32-unknown-unknown`) so Rust `std` and the Apache Arrow crates —
+which support these targets — build inside the module.
+
+But targeting WASI does **not** mean granting WASI's file / network /
+env APIs. That would let a plug-in open its own socket to GCS or write a
+file directly, bypassing the server boundary and violating
+[the data-access boundary](https://github.com/noetl/noetl/blob/main/agents/rules/data-access-boundary.md).
+Instead:
+
+- The granted surface is **NoETL host functions registered on the
+  `wasmtime` `Linker`** — `noetl.event_publish`, `noetl.result_put`,
+  `noetl.object_put`, etc. The host implements the actual write, so
+  placement, scrub, audit, and RBAC stay enforced. An import the host did
+  not register fails `instantiate`, so the capability ring is structural.
+- **WASI is limited to the pure subset** (clock, random) or stubbed.
+  No `fd_*` filesystem, no `sock_*` networking. A plug-in reaches the
+  outside world only through NoETL capabilities.
+
+### Data plane — Arrow across the boundary, no serialization
+
+The cost WASM adds is copying complex data across the boundary. For a
+data runtime that is the whole game, so plug-ins move **Apache Arrow IPC
+/ Feather buffers** through linear memory rather than JSON:
+
+1. the module exports an allocator (`alloc(size) -> ptr`);
+2. the host calls it for an isolated block (never writes to an arbitrary
+   offset), copies the Arrow buffer straight into the module's linear
+   memory, and invokes `run(ptr, len) -> packed(out_ptr << 32 | out_len)`;
+3. the plug-in reads the Arrow buffers **in place** via pointers +
+   lengths — no encode / decode — and writes its output buffer back.
+
+The buffer is the same Arrow bytes the worker already produces for
+over-budget results (`noetl_tools::arrow_codec`), so a result transits
+worker → object store → plug-in without ever re-serializing. The
+worker host (`noetl-worker` `plugin` module) implements this as
+`WasmPluginHost::invoke_bytes`; a round-trip test pushes a real Arrow IPC
+buffer through and asserts it returns byte-identical.
+
+For plug-ins that talk **across the network** (cell-to-cell, region-to-
+region — see the
+[Event WAL + Derivable Storage](./event_wal_and_derivable_storage.md)
+topology model) rather than in-process, the equivalent is **Arrow
+Flight**: stream RecordBatch chunks into the plug-in endpoint instead of
+the shared-memory hand-off.
+
+### Distribution
+
+Compiled modules live in the **catalog** (the managed, replaceable plug-in
+library) keyed by `(path, version, digest)`. They can also be distributed
+as **OCI artifacts** and executed container-native via a `runwasi`-style
+shim — a sub-megabyte module with sub-millisecond start, versus tens of
+megabytes and a full OS boot for a Linux container.
+
 ## The packaging shape (revised v2)
 
 There's **no new compiled binary** for publisher / projector /
