@@ -132,7 +132,7 @@ The rule: **the durability barrier sits at side-effecting tool
 boundaries, nowhere else.** Blocking every cycle is just the synchronous
 write we are escaping; blocking nowhere re-charges cards on crash.
 Concretely, before a resumed execution re-dispatches a side-effecting
-tool for `(execution_id, step, frame, attempt)`, it checks whether that
+tool for `(execution_id, step, frame, row, attempt)`, it checks whether that
 cycle's completion is already in the log (equivalently: whether the
 derived result URN already exists). If it does, the cycle is skipped and
 the recorded result adopted. This is the same shape as the
@@ -153,7 +153,7 @@ Resource Locator) rather than inventing a parallel scheme.
 ### Layer 1 — the logical URI (stable, location-independent)
 
 ```
-noetl://<tenant>/<project>/results/<execution_id>/<step>/<frame>/<attempt>@<version>
+noetl://<tenant>/<project>/results/<execution_id>/<step>/<frame>/<row>/<attempt>@<version>
 ```
 
 This is the established NoETL Resource Locator shape
@@ -168,8 +168,13 @@ name, not baked **into** it.
 - `tenant` and `project` lead — the multitenancy + sharding dimensions
   (the coordinates an earlier draft of this doc omitted).
 - `execution_id` and `step` are in the event envelope.
-- `frame` is **mandatory** for fan-out — cursor mode produces many
-  results per step; without it, row 0 and row 5 collide.
+- `frame` **and** `row` are **mandatory** for fan-out — a `mode: cursor`
+  loop fans out twice: the orchestrator claims a **frame** of rows, then
+  dispatches one body command per **row** in that frame (the body command
+  carries `metadata.cursor = {frame, row}`). Each body command produces one
+  result, so `(frame, row)` is what makes a result unique within its step;
+  `frame` alone collides across the rows of a frame. Both are `0` for a step
+  that does not fan out.
 - `attempt` / `@version` disambiguate retries: fix the version to
   **overwrite** (idempotent), bump it to **keep every attempt**.
 
@@ -188,7 +193,7 @@ which yields the §7 physical object prefix:
 ```
 noetl/env=<env>/region=<region>/cell=<cell>/shard=<shard>/
       tenant=<tenant>/project=<project>/date=<date>/
-      execution=<execution_id>/results/<step>/<frame>/<attempt>.feather
+      execution=<execution_id>/results/<step>/<frame>/<row>/<attempt>.feather
 ```
 
 A consumer that knows `(tenant, project, execution_id)` therefore
