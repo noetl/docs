@@ -10,7 +10,8 @@ sidebar_position: 9
 How NoETL makes the event and result path fast **and** crash-resilient
 at the same time: treat NATS JetStream as the write-ahead log, run
 local memory as a read cache ahead of the last durable offset, derive
-result locations from a naming convention instead of carrying
+result locations from a stable logical URI that resolves to a cell/shard
+location instead of carrying
 references, and let independent pools project the log and materialise
 results to an Arrow Feather tier in object store.
 
@@ -34,10 +35,11 @@ publish-ack is the durability boundary: the stream is the write-ahead
 log. Two independent consumer pools drain that log — a **projector**
 that rebuilds the read model (`projection_snapshot`) and a
 **materialiser** that writes over-budget result payloads as Arrow
-Feather files to object store. Result locations are **derived from a
-naming convention** (a URN computed from the execution identity), so
-state carries predicate fields and derivable coordinates, never a
-payload and never an opaque reference string. A crashed instance resumes
+Feather files to object store. Result locations are addressed by a
+**stable logical URI** (`noetl://<tenant>/<project>/results/...`) that
+resolves to a physical location through the cell / shard model, so state
+carries predicate fields and derivable coordinates, never a payload and
+never an opaque, placement-coupled reference. A crashed instance resumes
 from the last log offset its work was durably acked at and replays only
 the local-only tail.
 
@@ -81,7 +83,7 @@ Three problems, one model.
    orchestrator / worker    projector pool   materialiser pool
    read the fast path       → projection_     → Arrow Feather in
                               snapshot           object store, keyed
-                              (read model)       by derived URN
+                              (read model)       at logical-URI loc
 ```
 
 - **Local buffer = read cache.** It accelerates a process reading its
@@ -96,7 +98,8 @@ Three problems, one model.
 - **Projector pool** drains the log into `projection_snapshot` (the read
   model the orchestrator reads). This already exists.
 - **Materialiser pool** drains the same log, and for over-budget results
-  writes Arrow Feather to object store under the derived URN. The shadow
+  writes Arrow Feather to object store at the logical URI's resolved
+  cell/shard prefix. The shadow
   materialiser consumer already exists; this extends it to write the
   durable Feather tier.
 
@@ -122,40 +125,88 @@ the recorded result adopted. This is the same shape as the
 callback/hook rule — time in the external system is free; the worker
 slot is only held while a block actually runs.
 
-## Derivable URN grammar
+## Derivable addresses: the logical URI and topology resolution
 
-The location is a pure function of execution identity. It must encode
-everything that distinguishes one result from another, or fan-out and
-retries collide on the same key:
+NoETL runs as a super-cluster spanning cloud providers, regions, zones,
+hybrid datacenters, and Kubernetes clusters, so a result's **name must
+resolve to where its bytes live** — without hard-coding a mutable
+physical placement into the name. This reuses the platform's existing
+two-layer naming from the
+[Global Hybrid Supercluster Blueprint](./noetl_global_hybrid_cloud_grid_distributed_architecture_blueprint.md)
+(§4 Regional Cell and Shard Model, §7 Object Store Archive, §8 NoETL
+Resource Locator) rather than inventing a parallel scheme.
 
-```
-urn:noetl:result:<execution_id>:<step>:<frame_or_claim_index>:<attempt>
-```
-
-- `execution_id` and `step` are already in the event envelope.
-- `frame_or_claim_index` is **mandatory** for fan-out. Cursor mode
-  produces many results per step; without the index, row 0 and row 5
-  write the same object and corrupt each other.
-- `attempt` disambiguates retries when you want both kept; omit it (or
-  fix it at the latest) when you want retries to **overwrite**.
-
-The object-store key is a deterministic encoding of the URN, e.g.
+### Layer 1 — the logical URI (stable, location-independent)
 
 ```
-noetl/<execution_id>/<step>/<frame>/<attempt>.feather
+noetl://<tenant>/<project>/results/<execution_id>/<step>/<frame>/<attempt>@<version>
 ```
 
-What the convention buys:
+This is the established NoETL Resource Locator shape
+(`noetl://<tenant>/<project>/<kind>/<logical_path>@<version>`). It is
+what state carries and what dedup / replay key on, and it **never
+changes** when data is replicated, migrated, or fails over — that is the
+whole point of a *name* rather than a *locator*. Encoding
+provider/region/cluster literally into the name would couple identity to
+mutable placement and break failover; topology is **resolved from** the
+name, not baked **into** it.
 
-- **Idempotent overwrite.** A retry that fixes `attempt` rewrites the
-  same key — no orphaned objects, single atomic PUT, clean reads.
-- **Trivial garbage collection.** TTL or end-of-execution cleanup is a
-  prefix delete (`noetl/<execution_id>/`).
-- **Deterministic replay.** The projector and any consumer **compute**
-  the URN from the envelope; the event never carries it. State shrinks to
-  the coordinates already present plus the predicate block below.
-- **Prefix discovery.** "All results for execution X" is a prefix list,
-  not a reference set to thread through state.
+- `tenant` and `project` lead — the multitenancy + sharding dimensions
+  (the coordinates an earlier draft of this doc omitted).
+- `execution_id` and `step` are in the event envelope.
+- `frame` is **mandatory** for fan-out — cursor mode produces many
+  results per step; without it, row 0 and row 5 collide.
+- `attempt` / `@version` disambiguate retries: fix the version to
+  **overwrite** (idempotent), bump it to **keep every attempt**.
+
+### Layer 2 — topology resolution (derivable, then a small registry)
+
+The logical URI resolves to a physical location through the §4 shard
+model, not a per-result lookup:
+
+```
+shard_key = hash(tenant_id + project_id + execution_affinity) % shard_count
+          → region + cell + shard
+```
+
+which yields the §7 physical object prefix:
+
+```
+noetl/env=<env>/region=<region>/cell=<cell>/shard=<shard>/
+      tenant=<tenant>/project=<project>/date=<date>/
+      execution=<execution_id>/results/<step>/<frame>/<attempt>.feather
+```
+
+A consumer that knows `(tenant, project, execution_id)` therefore
+**derives** the home region / cell / shard and the prefix with zero
+central lookup — the "find without passing references" property, made
+topology-aware. The only thing that needs a registry is the small,
+slow-changing **cell endpoint map** (cell → provider / bucket /
+endpoint) — the DNS-of-cells: dozens of entries, cacheable, not a
+per-fetch single point of failure.
+
+### Replication, DR, and the location descriptor
+
+When a result is replicated across providers / regions for DR, the
+logical URI is unchanged; the §8 **location descriptor** carries N
+`locations[]` (`s3` / `gcs` / `azure` / Ceph RGW / SeaweedFS) each with a
+`replica_state` (`primary` / `async-replica`), and
+
+```
+resolve(noetl_uri, requester, purpose, preferred_region, required_capability)
+  → access plan
+```
+
+returns the nearest healthy replica. Failover renames nothing. Honoring
+the §4 cell principles, cell-to-cell exchange carries these references
+and manifests — never raw cross-cell database writes — the same boundary
+the materialiser pool already respects.
+
+What the model buys: **idempotent overwrite** (a fixed version rewrites
+the same key), **trivial GC** (per-shard / per-execution prefix delete),
+**deterministic replay** (the name is computed from the envelope + shard
+function, never carried), and **locality-aware routing** (the shard
+resolves the home cell so a consumer prefers the nearest replica).
 
 ## Result tiers
 
@@ -163,12 +214,12 @@ The size threshold that already gates inline-vs-reference
 (`NOETL_EVENT_RESULT_CONTEXT_MAX_BYTES`) selects the tier:
 
 1. **Small result** → stays inline in the event. No object-store write.
-2. **Over-budget tabular result** → Arrow Feather under the derived URN.
+2. **Over-budget tabular result** → Arrow Feather at the logical URI's resolved location.
    Feather is the on-disk/object-store form of the Arrow IPC stream the
    worker already encodes for the shared-memory cache; it is mmap-able and
    reads zero-copy from `pyarrow` and the Rust `arrow` crate.
 3. **Over-budget non-tabular result** (shell stdout, opaque HTTP JSON)
-   → JSON (or Parquet) under the derived URN. Feather is for rowsets;
+   → JSON (or Parquet) at the same resolved location. Feather is for rowsets;
    the rest needs a fallback encoding.
 
 In **all** tiers the event carries a small **predicate `extracted`
@@ -187,11 +238,12 @@ by derivation.
    offset its executions were durably acked at.
 2. It replays the local-only tail: pure condition evaluations re-derive
    for free; non-side-effecting tools re-run; side-effecting tools are
-   **skipped if their completion is already durable** (URN exists / cycle
-   acked), otherwise dispatched.
+   **skipped if their completion is already durable** (the logical URI's
+   object already exists / the cycle is acked), otherwise dispatched.
 3. The projector and materialiser are at-least-once consumers and must be
-   idempotent — dedup on `event_id`, overwrite on the derived URN. Both
-   properties are already required by the CQRS projector.
+   idempotent — dedup on `event_id`, overwrite at the logical URI's
+   resolved location. Both properties are already required by the CQRS
+   projector.
 
 ## What already exists vs what is new
 
@@ -208,7 +260,8 @@ by derivation.
 
 **New in this model (the three pieces):**
 
-1. **Derivable URN addressing** — drop the carried reference; derive the
+1. **Logical-URI addressing** — the stable `noetl://<tenant>/<project>/...`
+   Resource Locator; drop the carried opaque reference and derive the
    location from identity.
 2. **Local-first dual write** — the worker's local buffer is the fast
    path; the JetStream publish is the durability channel (extends the
@@ -231,7 +284,7 @@ umbrella they both serve.
 
 ## Open questions (red-team targets)
 
-- **Attempt semantics in the URN** — overwrite-on-retry (omit/fix
+- **Attempt/version semantics in the logical URI** — overwrite-on-retry (omit/fix
   `attempt`) vs keep-every-attempt. Overwrite is simpler and GC-friendly;
   keep-every is better for forensic replay. Likely: overwrite by default,
   keep-every behind a debug flag.
