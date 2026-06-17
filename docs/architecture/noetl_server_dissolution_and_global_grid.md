@@ -27,6 +27,12 @@ off the server), and the
 [Global Hybrid-Cloud Grid](./noetl_global_hybrid_cloud_grid_distributed_architecture_blueprint.md)
 (the topology). Read those first; this ties them together.
 
+Named plainly: **NoETL is a distributed multitenant operating system**, and this
+blueprint is its kernel design. The grid is where it runs; the
+[quantum-cloud-hybrid horizon](#the-quantum-cloud-hybrid-horizon) is what it
+will ultimately schedule. The sections below are written as an OS design even
+where they don't use the word.
+
 ## One-paragraph statement
 
 The server stops being a control plane and becomes a **stateless edge**. All
@@ -41,6 +47,45 @@ nodes, shared memory when colocated) carrying **reference URNs** instead of
 payloads, over **NATS subjects** keyed by the resource locator. The system is
 **sharded by locator key across regions, clouds, and datacenters** — a global
 NoETL network.
+
+## NoETL as a distributed multitenant operating system
+
+Naming it an OS is design discipline, not branding. Every primitive a kernel
+provides has a NoETL realization that already exists or is specified in the
+umbrellas:
+
+| OS primitive | NoETL realization |
+| :-- | :-- |
+| **Process** | an ephemeral playbook block — *worker = atomic compute block* |
+| **Process table / PCB** | the event log per `execution_id` — any process's state is replayable from it |
+| **Scheduler** | the kernel pump dispatching off **JetStream consumer lag** (KEDA-shaped) |
+| **Syscall interface** | the **WASM capability ring** — deny-by-default host functions ([#105](https://github.com/noetl/ai-meta/issues/105)) |
+| **IPC** | Arrow **shm** (colocated) + Arrow **Flight** (cross-node) + **NATS subjects** (control) |
+| **Address space / pointers** | the shared cache scoped to `execution_id+step`; **locator URNs** are the pointers ([#101](https://github.com/noetl/ai-meta/issues/101)/[#104](https://github.com/noetl/ai-meta/issues/104)) |
+| **VFS / namespace** | the object store + the **`noetl://…` locator namespace** — a global, content-addressed file system |
+| **Journaling / WAL** | the **JetStream** write-ahead log ([#104](https://github.com/noetl/ai-meta/issues/104)) |
+| **Device drivers** | **tool kinds** — the registry. `http`, `postgres`, `snowflake`… and the empty slots: `gpu`, `qpu`. |
+| **Multitenant isolation** | `shard_key` tenant pinning + WASM sandbox + capability ring + keychain + no-default-connection |
+
+Two of these are load-bearing and already built:
+
+- **The syscall boundary is the WASM capability ring.** A system playbook
+  reaches the platform only through deny-by-default host functions
+  (`object_put`, `result_put`, `event_publish`); an ungranted import fails
+  instantiation. That is a capability-based syscall interface, and it is the
+  privilege boundary between kernel services (system playbooks) and userspace
+  (user playbooks).
+- **The driver model is the tool registry.** A `tool: { kind }` is a device
+  driver; adding a backend is a registry row, not a deployment. The empty slots
+  — `gpu`, `qpu` — are why the quantum horizon below needs almost no new
+  abstraction.
+
+Naming it an OS also says what *not* to build. An OS does not keep a resident
+process per user "in case they return" — it dispatches on demand and reclaims;
+that is the ephemeral-execution rule (no persistent per-tenant agent processes).
+And multitenancy is enforced at the kernel, not bolted on: shard-key pinning,
+the sandbox, the capability ring, the keychain, and no-default-connection are
+the isolation model, mandated by the rules rather than left optional.
 
 ## 1. The inversion
 
@@ -222,6 +267,48 @@ Even fully dissolved, the edge cannot give up:
 - The **kernel scheduler + NATS consumers** — the microkernel.
 
 Everything else is a playbook.
+
+## The quantum-cloud-hybrid horizon
+
+This is positioning, not a roadmap commitment. Quantum advantage is narrow and
+NISQ-era noisy; the realistic near-term is **hybrid** — quantum as an
+accelerator for specific sub-blocks, classical playbooks doing the
+orchestration, GPU pools alongside. What matters here is that the OS substrate
+is the *right shape* to host it, which shows up as a tell: a QPU needs almost no
+new abstraction.
+
+- **A QPU is a device driver** — `tool: { kind: qpu, backend: … }` targeting a
+  quantum cell behind a locator. Vendor heterogeneity (IBM / IonQ / Quantinuum /
+  Rigetti) is exactly what the tool-registry driver layer already absorbs for
+  classical backends.
+- **A circuit execution is an atomic compute block** — and no-cloning makes this
+  the *only* honest model: a quantum state can't be checkpointed mid-circuit, so
+  a circuit must be claim → run → release-or-restart, which is the worker
+  contract verbatim. Restart-on-failure is safe because the *classical* inputs
+  (the parametrized circuit) are in the WAL; the quantum state was never meant
+  to be durable.
+- **Hybrid algorithms are playbooks with loops.** A variational loop (VQE / QAOA:
+  classical optimizer ↔ quantum expectation estimation) is the cursor/loop
+  control structure with quantum blocks in the loop body — a classical block
+  computes parameters, a quantum block runs shots, a data block reduces the
+  counts, the optimizer updates, repeat.
+- **QPU queue latency is the callback rule, verbatim.** Real hardware queues
+  jobs for minutes to hours. The block submits the job plus a callback subject,
+  releases the worker slot, and resumes on the result event — *time in the
+  external system is free.*
+- **The WAL records the classical boundary**, never the quantum state. A
+  measurement result is a counts histogram (columnar → Arrow); the parametrized
+  circuit in and the counts out are durable; the wavefunction in between is
+  ephemeral compute — exactly what the event-log-records-boundary-events model
+  already assumes.
+
+The genuinely new work, when the time comes, lives in the **cells, not the
+kernel**: error mitigation / correction as workload, shot-budget scheduling, and
+a circuit IR the `qpu` driver compiles per backend. The scheduler, the locator,
+the WAL, the capability ring, and the callback pattern don't change — which is
+the whole point of having named it an operating system. The OS schedules
+classical, GPU, and quantum resources uniformly, and a playbook composes them;
+that is "quantum-cloud-hybrid platform" stated precisely.
 
 ## Related
 
