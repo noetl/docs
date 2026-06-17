@@ -25,6 +25,7 @@ const sidebars: SidebarsConfig = {
         'getting-started/message-learning',
         'getting-started/design-philosophy',
         'getting-started/semantic-pipeline',
+        'architecture/noetl_server_dissolution_and_global_grid',
         'architecture/sink_driven_storage',
         'architecture/event_wal_and_derivable_storage',
         'architecture/cqrs_write_path_cutover',
