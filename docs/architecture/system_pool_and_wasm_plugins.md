@@ -519,6 +519,80 @@ Cons: requires building the YAML-to-WASM compiler.
 (faster to ship, validates the runtime + capability + reload
 pipeline).  Migrate to Option 2 once the compiler is built.
 
+## WASM dispatch convention
+
+The runtime built for Option 1 is shipped and validated end to end (the
+plug-in module registry, the wasmtime host + capability ring, the HTTP
+`PluginSource`, the reference plug-in, and the dispatcher's
+load → run → collect → flush loop — noetl/ai-meta#105 Rounds 1-5).  What
+remains to make it *live* is the **dispatch convention**: how a playbook
+declares WASM execution, and how the command routes to the host instead
+of the tool registry.
+
+### How a playbook opts in (author-facing)
+
+A catalog playbook — in the Option-1 phase, typically a `system/`
+playbook — opts into compiled execution with an `executor` block:
+
+```yaml
+executor:
+  runtime: wasm                 # vs the default interpreted runtime
+  plugin:
+    path: system/materialiser   # catalog path of the compiled module
+    version: 3                  # catalog version
+    # digest is NOT authored — the registry is the digest authority
+  capabilities:                 # the granted ring (a subset of the host's)
+    - object_put
+    - result_put
+    - event_publish
+```
+
+- The author never writes a digest.  The plug-in module registry
+  (`noetl.plugin_module`, served by `GET /api/internal/plugins/{path}`)
+  is the digest authority; the worker pins the digest it fetched into its
+  cache key.
+- `capabilities` narrows the host's full ring per plug-in
+  (defense-in-depth): a plug-in is granted only the host functions it
+  declares.  Omitting the list grants nothing (deny-by-default, matching
+  `NullCapabilities`).
+
+### Wire shape and routing
+
+- The orchestrator / system-pool runner, dispatching a step flagged
+  `runtime: wasm`, emits a command with **`tool_kind: "wasm"`** and an
+  `input` carrying the step's payload plus the plug-in reference
+  (`{path, version}`) and the granted capability list.  `tool_kind` is the
+  worker's dispatch discriminator, so routing needs no new command field —
+  the author-facing `executor.runtime: wasm` lowers to a `tool_kind:
+  "wasm"` command.
+- The worker dispatch, on `tool_kind == "wasm"`, resolves the digest from
+  the registry, builds the `PluginKey{path, version, digest}`, and calls
+  `WasmDispatcher::run_and_apply(key, input, client, execution_id, step)`
+  — load (catalog fetch + hot-reload on a version bump) → invoke over the
+  data-plane ABI → collect `CapIntent`s → flush to the control plane.  The
+  capability ring is scoped to the declared `capabilities`.
+- **Input** to the plug-in is the command's payload bytes (for the
+  materialiser, a batch of events / the trigger payload); its **output**
+  plus the flushed intents are the step result.
+
+### Error surfacing (resolves Open question 2)
+
+A WASM module panic is a `wasmtime::Trap`, which the host already turns
+into a `PluginError::Invoke` rather than crashing the worker.  The
+dispatcher surfaces it as a contained `call.error` structured event for
+that step — the system-pool worker keeps running and the failure is
+visible in the event log, exactly like a tool error.
+
+### The one open design choice
+
+`tool_kind: "wasm"` (a tool kind) vs an `executor` field on the command
+envelope.  **Recommendation: `tool_kind: "wasm"`** — it reuses the
+existing dispatch discriminator with zero new command/envelope fields,
+and the author-facing surface stays the richer `executor` block that
+lowers to it.  The alternative (a first-class `command.executor` field)
+is cleaner conceptually but ripples through the command schema across
+server + worker + the executor crate for no near-term benefit.
+
 ## Open questions
 
 1. **What is the minimum compiled core?** The current cut is
