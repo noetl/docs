@@ -29,6 +29,7 @@ const sidebars: SidebarsConfig = {
         'architecture/sink_driven_storage',
         'architecture/event_wal_and_derivable_storage',
         'architecture/cqrs_write_path_cutover',
+        'architecture/orchestrate_core_event_abi',
         'architecture/mcp_catalog_architecture',
         'architecture/agent_orchestration',
         'architecture/playbook_as_mcp_server',
