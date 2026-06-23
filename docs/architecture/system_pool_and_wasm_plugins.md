@@ -83,7 +83,7 @@ playbooks falls out of existing pieces.
 
 For the running detail of what's open / blocked / merged, see the
 ai-meta wiki dashboard:
-<https://github.com/noetl/ai-meta/wiki/Umbrella-System-Pool-Design>.
+[Umbrella: System Pool Design](https://github.com/noetl/ai-meta/wiki/Umbrella-System-Pool-Design).
 
 ## The problem
 
