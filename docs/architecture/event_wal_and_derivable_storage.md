@@ -246,6 +246,50 @@ the whole block is byte-bounded). It survives this model unchanged — the
 only thing that goes away is the opaque `reference.ref` string, replaced
 by derivation.
 
+## Result-tier write path: producer staging (OQ5, Option A)
+
+The materialiser was the **only** writer of the over-budget tier, and it
+sourced the bytes by **reading `noetl.result_store`** (`GET
+/api/result/resolve`). That read is the hard coupling that blocks
+**retiring `result_store`**: the tier can't exist without the store being
+read first.
+
+**Option A — the producer stages the tier object at emit time** — removes
+that coupling. When a producing worker externalises an over-budget result
+it already (a) dual-writes the payload to `result_store` and (b) stamps the
+canonical logical `reference.uri`. Option A adds one step on the producer,
+behind `NOETL_RESULT_PRODUCER_STAGE` (default off): derive the §7 physical
+key from the canonical coordinates + the server-served cell registry, encode
+the payload with the **same** deterministic encoder the materialiser uses,
+and `PUT /api/internal/objects/{key}` directly. The tier object now exists
+**without the materialiser reading `result_store`**.
+
+The byte source is re-plumbed but nothing else changes shape:
+
+- **Byte-identical.** Producer and materialiser call the same `decide_tier`
+  on the same payload at the same §7 key, so a producer-staged object equals
+  what the materialiser would write. The key is content-addressed and the
+  encode deterministic, so producer write + materialiser write + DR repair
+  are safe overwrites of identical bytes (the `extracted` block stays inline,
+  unchanged).
+- **Materialiser skip-on-exists.** For a producer-staged result the
+  materialiser probes the §7 key and **skips its `result_store` fetch**
+  entirely — so once producers stage, nothing reads `result_store` to
+  populate the tier. The materialiser remains the safety net: if the producer
+  did not stage (flag off, registry miss, write error) it falls through to the
+  normal fetch-and-write.
+- **Dual-write continues.** `result_store` stays the authoritative
+  dual-write for reversibility. **Retiring `result_store`** is the separate,
+  metric-gated decision: drop the dual-write once
+  `mint_authoritative{legacy_fallback}` is zero across a soak plus a time
+  floor. Option A is the *prerequisite* that unblocks that decision; it does
+  not itself stop the dual-write.
+- **DR re-derive (Phase F) unchanged.** The tier stays derivable from the
+  WAL; the verify-and-repair path re-derives byte-identically.
+
+Default off → the emit path is byte-identical to Phase A–F (the producer
+never stages, the materialiser never probes).
+
 ## Crash recovery semantics
 
 1. A restarted instance reads the read model and the log up to the last
