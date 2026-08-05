@@ -156,7 +156,7 @@ done
 ## 7) Execute stress test
 
 ```bash
-noetl exec catalog://tests/fixtures/playbooks/batch_execution/server_oom_stress_test_v2 \
+noetl run catalog://tests/fixtures/playbooks/batch_execution/server_oom_stress_test_v2 \
   --runtime distributed \
   --payload '{"total_items":3000,"batch_size":50,"concurrent_batches":1,"items_max_in_flight":1}' \
   --json

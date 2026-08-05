@@ -207,7 +207,7 @@ exercises an auto-troubleshoot-enabled failing agent, then pass the
 execution id to the smoke:
 
 ```bash
-EXEC_ID=$(noetl exec tests/spike/spike_e2e_test \
+EXEC_ID=$(noetl run tests/spike/spike_e2e_test \
   --runtime distributed \
   --payload '{"escalate_to":"none"}' \
   --json | jq -r '.execution_id')

@@ -106,7 +106,7 @@ noetl register widget_render_tutorial.yaml
 Then run it:
 
 ```bash
-EXEC_ID=$(noetl exec tutorials/widget_render_tutorial \
+EXEC_ID=$(noetl run tutorials/widget_render_tutorial \
   --runtime distributed \
   --json | jq -r '.execution_id')
 

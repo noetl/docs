@@ -48,7 +48,7 @@ It supports `provision`, `deploy`, `provision-deploy`, `status`, and
 plus full stack deploy in one shot:
 
 ```bash
-noetl exec automation/gcp_gke/noetl-gke-fresh-stack \
+noetl run automation/gcp_gke/noetl-gke-fresh-stack \
   --runtime local \
   --payload '{
     "action": "provision-deploy",
@@ -127,7 +127,7 @@ kubectl -n ${K8S_SA_NAMESPACE} annotate serviceaccount ${K8S_SA_NAME} \
 Confirm a worker pod can fetch a token from the metadata server:
 
 ```bash
-kubectl -n noetl exec deploy/noetl-worker -- \
+kubectl -n noetl run deploy/noetl-worker -- \
   curl -s -H "Metadata-Flavor: Google" \
   "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" \
   | jq -r '.token_type'
@@ -182,7 +182,7 @@ for verification.
 
 ```bash
 # Bump noetl-server
-noetl exec noetl/lifecycle/bump_image \
+noetl run noetl/lifecycle/bump_image \
   --runtime distributed \
   --payload '{
     "deployment": "noetl-server",
@@ -191,7 +191,7 @@ noetl exec noetl/lifecycle/bump_image \
   }'
 
 # Bump noetl-worker
-noetl exec noetl/lifecycle/bump_image \
+noetl run noetl/lifecycle/bump_image \
   --runtime distributed \
   --payload '{
     "deployment": "noetl-worker",

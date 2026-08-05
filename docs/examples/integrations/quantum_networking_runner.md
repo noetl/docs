@@ -22,7 +22,7 @@ Default mode is `nvidia_simulator`.
 Run:
 
 ```bash
-noetl exec tests/fixtures/playbooks/api_integration/quantum_networking/quantum_networking_runner.yaml -r local \
+noetl run tests/fixtures/playbooks/api_integration/quantum_networking/quantum_networking_runner.yaml -r local \
   --set provider=nvidia_simulator \
   --set shots=1024
 ```
@@ -31,7 +31,7 @@ Optional GPU request:
 
 ```bash
 export NVIDIA_USE_GPU=true
-noetl exec tests/fixtures/playbooks/api_integration/quantum_networking/quantum_networking_runner.yaml -r local \
+noetl run tests/fixtures/playbooks/api_integration/quantum_networking/quantum_networking_runner.yaml -r local \
   --set provider=nvidia_simulator \
   --set shots=4096
 ```
@@ -60,7 +60,7 @@ export IBM_QUANTUM_API_VERSION="2024-06-13"
 Run:
 
 ```bash
-noetl exec tests/fixtures/playbooks/api_integration/quantum_networking/quantum_networking_runner.yaml -r local \
+noetl run tests/fixtures/playbooks/api_integration/quantum_networking/quantum_networking_runner.yaml -r local \
   --set provider=ibm_api
 ```
 

@@ -92,7 +92,7 @@ investigation.
 Workloads opt in by passing `ollama_model: "gemma4:e4b"`:
 
 ```bash
-noetl exec tests/spike/spike_e2e_test \
+noetl run tests/spike/spike_e2e_test \
   --runtime distributed \
   --payload '{"escalate_to":"none","ollama_model":"gemma4:e4b"}'
 ```

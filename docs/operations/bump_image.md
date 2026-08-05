@@ -89,7 +89,7 @@ rollout. This is useful for validation loops:
 Deploy a released NoETL tag to all default runtime components:
 
 ```bash
-noetl exec noetl/lifecycle/bump_image \
+noetl run noetl/lifecycle/bump_image \
   --runtime distributed \
   --payload '{
     "namespace": "noetl",
@@ -109,7 +109,7 @@ Target one component explicitly when only a single deployment needs to
 move:
 
 ```bash
-noetl exec noetl/lifecycle/bump_image \
+noetl run noetl/lifecycle/bump_image \
   --runtime distributed \
   --payload '{
     "deployment": "noetl-worker",
