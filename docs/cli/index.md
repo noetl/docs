@@ -50,12 +50,12 @@ execution workload sent to the server. Both forms below set the same workload
 fields:
 
 ```bash
-noetl exec catalog://fixtures/playbooks/pft_flow_test/test_pft_flow_v2@8 \
+noetl run catalog://fixtures/playbooks/pft_flow_test/test_pft_flow_v2@8 \
   --runtime distributed \
   --set num_facilities=1 \
   --set patients_per_facility=10
 
-noetl exec catalog://fixtures/playbooks/pft_flow_test/test_pft_flow_v2@8 \
+noetl run catalog://fixtures/playbooks/pft_flow_test/test_pft_flow_v2@8 \
   --runtime distributed \
   --set workload.num_facilities=1 \
   --set workload.patients_per_facility=10

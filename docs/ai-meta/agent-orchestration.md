@@ -80,7 +80,7 @@ NoETL's server already handles capabilities 1 through 4 for playbooks. NATS prov
 
 **Discovery:** The server tracks versioned resources through `noetl.catalog.kind` and `noetl.resource.name`. Resource kinds include `playbook`, `agent`, `mcp`, `memory`, and `credential`, with capability filters for agent discovery.
 
-**Invocation:** `noetl exec <playbook> --set key=value` already starts a playbook with input parameters. An agent invocation is the same call, with `resource_kind: "agent"` when the catalog entry is registered as an agent.
+**Invocation:** `noetl run <playbook> --set key=value` already starts a playbook with input parameters. An agent invocation is the same call, with `resource_kind: "agent"` when the catalog entry is registered as an agent.
 
 **State tracking:** `noetl status` shows running, completed, and failed executions. Agent status is playbook execution status.
 
@@ -337,7 +337,7 @@ To experiment with the agent-as-playbook pattern today:
 
 1. **Write an agent playbook** with `tool.kind: agent` and `framework: adk|langchain|custom`
 2. **Deploy it** to your NoETL server like any other playbook
-3. **Invoke it** with `noetl exec <agent-playbook> --set goal="..."`
+3. **Invoke it** with `noetl run <agent-playbook> --set goal="..."`
 4. **Orchestrate multiple agents** by writing a parent playbook that calls agent playbooks as nested steps
 5. **Track results** with `noetl status` and persist decisions to `ai-meta/memory/`
 

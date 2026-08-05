@@ -8,16 +8,16 @@ Local mode is intended for development, testing, and CI/CD. Conceptually, the co
 
 ```bash
 # Execute a playbook in local mode
-noetl exec ./playbook.yaml -r local
+noetl run ./playbook.yaml -r local
 
 # With workload overrides
-noetl exec ./playbook.yaml -r local --set key=value
+noetl run ./playbook.yaml -r local --set key=value
 
 # Target a specific step label (runtime-defined)
-noetl exec ./playbook.yaml -r local --target my_step
+noetl run ./playbook.yaml -r local --target my_step
 
 # Dry-run (validate only)
-noetl exec ./playbook.yaml -r local --dry-run
+noetl run ./playbook.yaml -r local --dry-run
 ```
 
 ## current DSL semantics (what local mode must preserve)

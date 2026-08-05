@@ -80,7 +80,7 @@ playbook from `repos/ops`:
 
 ```bash
 # From the ai-meta workspace root.
-noetl exec automation/development/noetl --runtime local --payload '{
+noetl run automation/development/noetl --runtime local --payload '{
   "namespace": "noetl",
   "noetl_image": "ghcr.io/noetl/noetl:v2.37.2",
   "gateway_image": "ghcr.io/noetl/gateway:v2.10.0",
@@ -115,8 +115,8 @@ triage model. See [Triage Model Selection](../architecture/triage_model_selectio
 for the rationale and tier comparison.
 
 ```bash
-kubectl -n noetl exec deploy/ollama -- ollama pull gemma3:4b
-kubectl -n noetl exec deploy/ollama -- ollama list
+kubectl -n noetl run deploy/ollama -- ollama pull gemma3:4b
+kubectl -n noetl run deploy/ollama -- ollama list
 ```
 
 `ollama list` should show `gemma3:4b` at roughly 3.0 GB.
@@ -129,7 +129,7 @@ deliberately invokes a failing sub-playbook so the auto-troubleshoot path
 exercises end-to-end:
 
 ```bash
-EXEC_ID=$(noetl exec tests/spike/spike_e2e_test \
+EXEC_ID=$(noetl run tests/spike/spike_e2e_test \
   --runtime distributed \
   --payload '{"escalate_to":"none"}' \
   --json | jq -r '.execution_id')

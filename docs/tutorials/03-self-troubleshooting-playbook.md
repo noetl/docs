@@ -187,7 +187,7 @@ noetl catalog list | grep tutorials
 ## Step 4 — Invoke the parent
 
 ```bash
-EXEC_ID=$(noetl exec tutorials/canary_with_diagnosis \
+EXEC_ID=$(noetl run tutorials/canary_with_diagnosis \
   --runtime distributed \
   --payload '{}' \
   --json | jq -r '.execution_id')

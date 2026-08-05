@@ -232,7 +232,7 @@ Validate the stub responds to the same `triage_mcp_server` workload
 override that `mcp/vertex-ai-stub` does:
 
 ```bash
-EXEC_ID=$(noetl exec tests/spike/spike_e2e_test \
+EXEC_ID=$(noetl run tests/spike/spike_e2e_test \
   --runtime distributed \
   --payload '{
     "escalate_to": "none",
@@ -499,7 +499,7 @@ python3 scripts/live_vs_persisted_parity_smoke.py     # 5/5 with Bedrock fixture
 python3 scripts/worker_workload_forwarding_smoke.py
 
 # Real Bedrock spike
-EXEC_ID=$(noetl exec tests/spike/spike_e2e_test \
+EXEC_ID=$(noetl run tests/spike/spike_e2e_test \
   --runtime distributed \
   --payload '{
     "escalate_to": "none",
