@@ -121,6 +121,76 @@ Connectors for external systems:
 - Vector DBs: Qdrant
 - External services: HTTP APIs
 
+### Language Model Strategy: Open-Source SLMs with Hybrid LLM Escalation
+
+NoETL treats model selection the same way it treats storage or compute
+backends: as an explicit, swappable workload configuration, not a hardcoded
+dependency.
+
+- **Domain-specific small language models (SLMs) run first.** Workloads
+  default to a local, open-source SLM served via Ollama (`gemma3:4b` today)
+  tuned for a specific domain task. The pattern is proven for
+  self-troubleshoot diagnosis and extends the same way to other
+  domain-centric playbooks (risk scoring, healthcare cohort summarization,
+  observability triage, and similar). Small models keep inference local,
+  fast, and low-cost, and they run on commodity hardware — a laptop, a small
+  kind cluster, or a memory-constrained worker node.
+- **Escalation is explicit and hybrid, never silent.** When a local SLM's
+  confidence falls below a workload-defined threshold, NoETL escalates
+  through the same MCP contract to either a larger local open-source model
+  (`qwen3:32b`) or a managed cloud LLM backend (Vertex AI/Gemini, OpenAI,
+  Claude). Backend selection is always explicit per deployment or per
+  workload — NoETL does not auto-detect an environment and silently switch
+  tiers.
+- **The backend is a pluggable MCP contract, not a code branch.** Every
+  compatible tier speaks the same JSON-RPC MCP `chat_completion` interface:
+  `diagnose_execution -> tool.kind=mcp -> mcp/<backend> -> chat_completion`.
+  The same playbook runs unmodified against a laptop's local Ollama pod or a
+  production Vertex AI backend by changing `triage_mcp_server` /
+  `triage_model`, not the workflow definition.
+
+See [Triage Model Selection](/docs/architecture/triage_model_selection) and
+[Vertex AI Triage Backend](/docs/architecture/vertex_ai_triage_backend) for
+the concrete open-source-SLM-first, hybrid-escalation pattern running in
+production today, including the local-tier-to-cloud-tier mapping
+(`gemma3:4b` → `gemini-2.5-flash`, `qwen3:32b` → `gemini-2.5-pro`).
+
+## Quantum Computation Workloads
+
+NoETL's Petri-net-inspired token model (see
+[Design Philosophy — Petri Net-Inspired State & Parallelism](/docs/getting-started/design-philosophy#petri-net-inspired-state--parallelism))
+extends to quantum computation without a special case: a quantum job's
+output — measurement bitstrings, shot counts, correlation estimates, or
+derived embeddings — is a step result like any other, so it flows through
+the same replayable, event-sourced execution graph as classical steps.
+
+A typical pattern:
+
+1. A step submits a quantum circuit through a provider tool — the IBM
+   Quantum Runtime API, or an NVIDIA cuQuantum/Qiskit Aer simulator — as
+   shown in the
+   [Quantum Networking Runner](/docs/examples/integrations/quantum_networking_runner)
+   example.
+2. The provider's raw output becomes that step's result token, subject to
+   the same [Result References and Shared Cache](#result-references-and-shared-cache)
+   model as any large payload.
+3. Downstream steps route that token to GPU or CPU worker pools (see
+   [Resource Pools](#resource-pools)) for classical post-processing: error
+   mitigation, feature extraction, or training and inference against a
+   domain-specific model.
+4. Because the token is durable and replayable, customers can compose
+   playbooks that train their own models on accumulated quantum-workload
+   output — the same compositional pattern used for any other domain data
+   product in NoETL.
+
+For the dedicated quantum-orchestration layer — circuit design, provider
+routing, and quantum-specific scheduling beyond what a NoETL playbook step
+covers directly — see [saqbit — quantum orchestration](https://saqbit.com/#docs).
+NoETL's role is to make quantum job output a first-class, replayable token in
+the same execution graph as every other domain workload; saqbit is the
+dedicated quantum-orchestration layer NoETL integrates with for the
+quantum-specific parts of that pipeline.
+
 ## Data Flow
 
 ```
@@ -200,11 +270,22 @@ All execution state is persisted as events in PostgreSQL:
 
 Configure worker pools for different resource types:
 - CPU-intensive workloads
-- GPU workloads (future)
+- GPU workloads (future) — classical ML training/inference, and
+  post-processing of quantum computation results (see
+  [Quantum Computation Workloads](#quantum-computation-workloads))
 - I/O-bound operations
+- Quantum workloads — via provider-backed tools (IBM Quantum Runtime API,
+  NVIDIA cuQuantum/Qiskit Aer simulator); see
+  [Quantum Networking Runner](/docs/examples/integrations/quantum_networking_runner)
+  and [saqbit — quantum orchestration](https://saqbit.com/#docs) for the
+  dedicated quantum-orchestration layer NoETL integrates with
 
 ## See Also
 
 - [Design Philosophy](/docs/getting-started/design-philosophy) - Architectural principles
 - [Observability Services](/docs/reference/observability_services) - Monitoring stack
 - [Multiple Workers](/docs/development/multiple_workers) - Worker configuration
+- [Triage Model Selection](/docs/architecture/triage_model_selection) - Open-source SLM defaults and escalation tiers
+- [Vertex AI Triage Backend](/docs/architecture/vertex_ai_triage_backend) - Hybrid local/cloud LLM backend contract
+- [Quantum Networking Runner](/docs/examples/integrations/quantum_networking_runner) - IBM Quantum / NVIDIA cuQuantum example
+- [saqbit — quantum orchestration](https://saqbit.com/#docs) - Dedicated quantum-orchestration layer
