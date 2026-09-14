@@ -32,50 +32,80 @@ Rust-based API gateway for external clients:
 Central coordination service:
 - Exposes REST APIs for catalog, credentials, executions, and events
 - Schedules and supervises workflow executions
-- Publishes task notifications to NATS JetStream
+- Publishes task notifications to the EHDB feed (L1 command bus)
 - Receives execution events from workers
 - Manages retries and backoff policies
-- Reconstructs workflow state from event table
+- Reconstructs workflow state from the projected execution read-model, folded
+  from EHDB's authoritative event log
 - Used by CLIs, UIs, and integrations
 
 ### Event Store and Projections
 
-NoETL's current event-sourced runtime uses PostgreSQL as the authoritative
-event and projection store:
+NoETL's authoritative event log is
+[EHDB](https://github.com/noetl/ehdb) (the Event Horizon Database), an
+Arrow-native storage substrate purpose-built for the NoETL platform. EHDB's
+event-log engine has been `primary` — serving production writes and reads —
+since 2026-08-13, replacing PostgreSQL as the append-only source of truth for
+execution history:
 
-- `noetl.event` is the append-only execution history.
-- Projection tables such as executions, commands, stages, frames, and runtime
-  state are rebuildable from events.
-- Replay validation reads the event stream and checks projected runtime state
-  without depending on worker memory.
-- NATS JetStream is used for command notification and worker delivery, not as
-  the authoritative event store in the current implementation.
+- The **event log** is EHDB's source-of-truth engine: append-only,
+  single-writer-per-shard, with a total `global_sequence` order. This is the
+  engine every projection folds from.
+- The **projection** engine folds the event log into read models — executions,
+  event read-models, and analytical/vectorized retrieval views. Projection is
+  currently still served from PostgreSQL (`noetl.event` and its derived
+  tables) while the equivalent EHDB projection engine runs in shadow mode
+  alongside it, ahead of its own cutover.
+- Replay validation reads the event log and checks projected runtime state
+  without depending on worker memory — the same replay guarantee as before,
+  now backed by EHDB rather than PostgreSQL for the raw log.
+- This is exposed read-only through the **noetl server API**, under
+  `/api/ehdb/*`, and through the `noetl ehdb query` CLI — a secret-free,
+  bounded, platform-only query surface. The server stays control-plane-only
+  (it never opens EHDB's data-plane storage itself); raw per-tier reads are
+  relayed to the worker's data-plane query port.
 
-The broader event-store abstraction described in the architecture roadmap keeps
-the same separation of concerns but allows future deployments to bind the event
-stream to NATS JetStream, Kafka, Pub/Sub, Event Hubs, Kinesis, or MSK, and bind
-projection state to PostgreSQL or cloud-native/document/analytic stores. The DSL
-and playbooks stay backend-neutral; infrastructure configuration selects the
-adapters.
+EHDB is designed to progressively absorb the platform roles currently split
+across PostgreSQL, NATS JetStream, and external object stores — event log,
+projection, KV, and object are its four engines. The event-log and command-bus
+engines (below) are cut over in production today; projection, KV, and object
+engines are mid-migration (shadow-mirrored, not yet authoritative). See
+[noetl/ehdb](https://github.com/noetl/ehdb) and its
+[wiki](https://github.com/noetl/ehdb/wiki) for the live, continuously-updated
+cutover status per engine — this page describes the architectural shape, not
+a point-in-time rollout snapshot.
+
+The DSL and playbooks stay backend-neutral throughout this migration;
+infrastructure configuration selects the adapters, not the workflow
+definition.
 
 ### Worker Pools
 
 Stateless background executors:
-- Subscribe to NATS JetStream for task notifications
+- Subscribe to the EHDB feed (L1 command bus) for task notifications
 - Retrieve task details via Control Plane API
 - Run workflow steps and tools (HTTP, SQL, Python, etc.)
 - Report events back via Control Plane API
 - Scale horizontally based on load
 - Isolated execution environments
 
-### NATS JetStream
+### EHDB Feed (L1 Command Bus)
 
-Message broker for task distribution:
-- Control Plane publishes task notifications to NATS streams
-- Workers subscribe and acknowledge messages
-- Messages contain pointers to Control Plane API for task details
-- Durable subscriptions ensure no task loss
-- Supports multiple worker pools and load balancing
+[EHDB](https://github.com/noetl/ehdb)'s feed engine is the production
+command bus for task distribution, replacing NATS JetStream in this role
+since 2026-07-27:
+- Control Plane publishes task notifications to the EHDB feed
+- Workers claim and acknowledge messages through durable, per-shard delivery
+- Messages contain pointers to Control Plane API for task details, not the
+  full payload
+- Durable subscriptions and exactly-once claim semantics ensure no task loss
+- Supports multiple worker pools and load balancing, and has measured
+  materially faster dispatch latency than the NATS baseline it replaced
+
+NATS JetStream remains installed only as a rollback path during this
+migration; it is not decommissioned yet (final removal is a deliberate,
+human-gated step, not an automatic one). New architectural reasoning should
+treat the EHDB feed as the task-distribution system of record.
 
 ### Result References and Shared Cache
 
@@ -195,8 +225,8 @@ quantum-specific parts of that pipeline.
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌───────────────┐     ┌─────────────┐
-│   Web UI    │────▶│   Gateway   │────▶│ Control Plane │────▶│    NATS     │
-│  (GraphQL)  │     │   (Rust)    │     │   (FastAPI)   │     │ JetStream   │
+│   Web UI    │────▶│   Gateway   │────▶│ Control Plane │────▶│  EHDB Feed  │
+│  (GraphQL)  │     │   (Rust)    │     │   (FastAPI)   │     │(L1 cmd bus) │
 └─────────────┘     └─────────────┘     └───────┬───────┘     └──────┬──────┘
                                                 │                    │
 ┌─────────────┐                                 │              ┌─────▼─────┐
@@ -205,19 +235,22 @@ quantum-specific parts of that pipeline.
 └─────────────┘                                 │  (events)    └───────────┘
                                                 ▼                    
                                         ┌─────────────┐     
-                                        │  PostgreSQL │     
-                                        │  (Events)   │     
+                                        │    EHDB     │     
+                                        │ (Event Log) │     
                                         └─────────────┘     
 ```
 
 1. **Web UI** sends GraphQL requests to Gateway
 2. **Gateway** authenticates and forwards to Control Plane API
 3. **CLI/API** can also call Control Plane directly
-4. **Control Plane** validates, creates execution, publishes task to NATS
-5. **Workers** receive NATS message with task pointer
+4. **Control Plane** validates, creates execution, publishes task to the EHDB
+   feed (L1 command bus)
+5. **Workers** receive an EHDB feed message with task pointer
 6. **Workers** fetch task details from Control Plane API
 7. **Workers** execute steps and report events to Control Plane API
-8. **Control Plane** stores events in PostgreSQL `noetl.event` table
+8. **Control Plane** appends events to EHDB's authoritative event log (the
+   PostgreSQL-backed projection/read-model is folded from this log; see
+   [Event Store and Projections](#event-store-and-projections))
 9. **Control Plane** monitors events to determine next steps in workflow
 10. **Large results** are stored by reference; events carry ResultRef metadata
 11. **Cursor frames** may attach an optional Arrow IPC shared-memory hint for
@@ -225,37 +258,51 @@ quantum-specific parts of that pipeline.
 
 ## Database Schema
 
-The NoETL PostgreSQL schema is intentionally simple - no queue tables:
+PostgreSQL still holds NoETL's control-plane metadata, and — during the
+ongoing EHDB migration — the projection/read-model view over execution
+history:
 
 | Table | Purpose |
 |-------|---------|
 | `catalog` | Playbook definitions (path, version, content) |
-| `event` | Execution events (status, results, errors) |
+| `event` | Execution read-model (status, results, errors), folded from EHDB's authoritative event log |
 | `credential` | Encrypted credentials |
 | `keychain` | Runtime token cache with TTL |
 | `transient` | Execution-scoped variables |
 | `runtime` | Worker pool and server registration |
 | `schedule` | Cron/interval scheduled playbooks |
 
-**Control loop**: Control Plane analyzes `event` table to reconstruct execution state and determine next steps, then publishes tasks to NATS.
+The raw, source-of-truth event log itself is EHDB, not this `event` table —
+see [Event Store and Projections](#event-store-and-projections). This table
+remains the live projection/read-model source while EHDB's own projection
+engine runs in shadow mode ahead of its cutover.
+
+**Control loop**: Control Plane analyzes the projected execution state to
+reconstruct workflow progress and determine next steps, then publishes tasks
+to the EHDB feed.
 
 ## Communication Patterns
 
-### Control Plane → NATS → Worker
+### Control Plane → EHDB Feed → Worker
 
-Task distribution via NATS JetStream:
-1. Control Plane publishes task notification to NATS stream
+Task distribution via EHDB's L1 command bus (see
+[EHDB Feed (L1 Command Bus)](#ehdb-feed-l1-command-bus)):
+1. Control Plane publishes task notification to the EHDB feed
 2. Message contains execution_id and task pointer (not full payload)
-3. Worker subscribes, receives message, acknowledges
+3. Worker claims the message, acknowledges after processing
 4. Worker calls Control Plane API to get full task context
 5. Worker executes and reports events to Control Plane API
 
+NATS JetStream previously served this role and remains installed only as a
+rollback path during the migration.
+
 ### Event-Driven State
 
-All execution state is persisted as events in PostgreSQL:
-- Server reconstructs workflow state from `noetl.event` table
+All execution state is persisted as events in EHDB's authoritative event log:
+- Server reconstructs workflow state from the projected execution read-model
+  (currently PostgreSQL, folded from the EHDB event log)
 - Determines which steps completed, which are pending
-- Publishes next tasks to NATS based on workflow graph
+- Publishes next tasks to the EHDB feed based on workflow graph
 - Enables replay, debugging, and distributed execution
 
 ## Scaling
@@ -264,7 +311,9 @@ All execution state is persisted as events in PostgreSQL:
 
 - **Workers**: Add more worker replicas for throughput
 - **Server**: Single server coordinates all executions
-- **Database**: PostgreSQL handles concurrent access
+- **Database**: PostgreSQL handles concurrent access to control-plane metadata
+  and the current projection/read-model view; EHDB's event-log engine handles
+  the authoritative event log, single-writer-per-shard with a total order
 
 ### Resource Pools
 
@@ -286,6 +335,8 @@ Configure worker pools for different resource types:
 - [Observability Services](/docs/reference/observability_services) - Monitoring stack
 - [Multiple Workers](/docs/development/multiple_workers) - Worker configuration
 - [Triage Model Selection](/docs/architecture/triage_model_selection) - Open-source SLM defaults and escalation tiers
+- [EHDB](https://github.com/noetl/ehdb) - NoETL's internal event-log, projection, KV, and object storage substrate
+- [EHDB Wiki](https://github.com/noetl/ehdb/wiki) - Live architecture, cutover status, and query-interface design
 - [Vertex AI Triage Backend](/docs/architecture/vertex_ai_triage_backend) - Hybrid local/cloud LLM backend contract
 - [Quantum Networking Runner](/docs/examples/integrations/quantum_networking_runner) - IBM Quantum / NVIDIA cuQuantum example
 - [saqbit — quantum orchestration](https://saqbit.com/#docs) - Dedicated quantum-orchestration layer
