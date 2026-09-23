@@ -29,22 +29,22 @@ noetl run automation/deploy.yaml -r local
 noetl context set-runtime local
 noetl run automation/deploy.yaml  # Uses local
 
-# Auto-detect: file paths default to local
-noetl run ./playbook.yaml  # Auto-selects local (file path)
+# No flag and no context runtime: falls through to the default, local
+noetl run ./playbook.yaml
 ```
 
 ### Runtime Resolution Priority
 
 1. `--runtime` / `-r` flag (explicit: `local` or `distributed`)
-2. Context configuration (`noetl context set-runtime`)
-3. Auto-detect from reference type (file path → local)
+2. Context configuration (`noetl context set-runtime`), if that context pins one
+3. Default: `local`
 
 ## Key Features
 
 - **Standalone Execution**: No server/worker infrastructure needed
-- **Auto-Discovery**: Automatically finds `noetl.yaml` or `main.yaml` in current directory
+- **Auto-Discovery**: Finds `noetl.yaml` or `main.yaml` in the current directory (deprecated `run-legacy` only)
 - **Target-Based**: Run specific workflow steps like taskfile targets
-- **Tool Support**: Shell commands, HTTP requests, playbook composition, and Rhai scripting
+- **Tool Support**: Dispatches through the same `noetl-tools` registry as the distributed worker
 - **Variable Templating**: Jinja2-style template rendering
 - **Result Capture**: Store and pass results between steps
 - **Executor Validation**: Validates playbook requirements against local runtime capabilities
@@ -69,7 +69,7 @@ executor:
       - shell
       - http
     features:
-      - templating
+      - jinja2
 
 workflow:
   - step: start
@@ -82,14 +82,25 @@ workflow:
 **Executor Fields**:
 - `profile`: Preferred execution profile (`local` or `distributed`)
 - `version`: Runtime version string for compatibility checking
-- `requires.tools`: List of required tool kinds (shell, http, playbook, rhai)
-- `requires.features`: List of required features (templating, etc.)
+- `requires.tools`: Capability tokens validated against the local runtime's
+  declared set: `shell`, `http`, `duckdb`, `rhai`, `playbook`, `auth`, `sink`
+- `requires.features`: Validated against `case_v1`, `case_v2` (Rhai conditions),
+  `loop_v1`, `vars_v1`, `jinja2`
+
+Declaring anything outside those sets is a hard error, not a warning — the run
+aborts with `requires tool '<x>' which is not supported by local runtime`.
 
 When executing with local runtime, the CLI validates that all required tools and features are available.
 
-## Auto-Discovery
+## Auto-Discovery (deprecated `run-legacy` only)
 
-When no playbook file is explicitly specified, `noetl run` automatically searches for playbooks in the current directory with the following priority:
+:::caution
+`noetl run` requires an explicit reference. Auto-discovery lives only on the
+hidden, deprecated `noetl run-legacy` command; the bare invocations below fail
+on `run` with a missing-argument error.
+:::
+
+`noetl run-legacy` searches the current directory with the following priority:
 
 1. **`./noetl.yaml`** (priority)
 2. **`./main.yaml`** (fallback)
@@ -98,15 +109,15 @@ This enables simplified workflow automation similar to taskfiles:
 
 ```bash
 # Auto-discover playbook and run from 'start' step
-noetl run
+noetl run-legacy
 
 # Auto-discover playbook and run specific target
-noetl run bootstrap
-noetl run deploy
-noetl run test
+noetl run-legacy bootstrap
+noetl run-legacy deploy
+noetl run-legacy test
 
 # Auto-discover with variables
-noetl run bootstrap --set env=production --verbose
+noetl run-legacy bootstrap --set env=production --verbose
 ```
 
 ### File Resolution Algorithm

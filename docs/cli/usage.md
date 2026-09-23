@@ -478,7 +478,7 @@ executor:
       - shell
       - http
     features:
-      - templating
+      - jinja2
 
 workflow:
   - step: start
