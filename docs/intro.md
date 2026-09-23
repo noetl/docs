@@ -36,6 +36,7 @@ NoETL is an **AI-data-driven workflow runtime** designed for domain-centric data
 - [Installation](/docs/getting-started/installation) - Rust CLI and Kubernetes setup
 - [Playbook Structure](/docs/reference/dsl/playbook_structure) - Learn the DSL
 - [DSL Reference](/docs/reference/dsl/) - Complete specification
+- [Authoring playbooks with AI agents](/docs/tutorials/ai_agent_playbook_authoring) - Point Copilot or any agent at the playbook schema, and the traps schema validation will not catch
 - [GKE Runbook Notes](/docs/operations/notes) - Build, deploy, auth, execute, and validate on GKE
 
 ## Architecture Overview
