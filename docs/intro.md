@@ -24,7 +24,7 @@ NoETL is an **AI-data-driven workflow runtime** designed for domain-centric data
 
 | Capability | Description |
 |------------|-------------|
-| **Declarative DSL** | YAML-based playbooks with Jinja2 templating |
+| **Declarative DSL** | YAML-based playbooks with Jinja2-compatible templating (minijinja) |
 | **Multi-Tool Execution** | HTTP, Python, PostgreSQL, DuckDB, Snowflake, and more |
 | **Distributed Workers** | Horizontal scaling with stateless worker pools |
 | **Event-Driven** | All execution emits structured events for analytics |
@@ -44,7 +44,8 @@ NoETL follows a server-worker architecture:
 
 - **Server**: Orchestration + REST API (catalog, credentials, events)
 - **Workers**: Stateless executors that run workflow steps
-- **CLI**: Manages server/worker lifecycle and catalog operations
+- **CLI**: Runs playbooks directly (locally in-process by default), and manages
+  server/worker lifecycle and catalog operations
 
 For detailed architecture, see [Architecture](/docs/getting-started/architecture).
 
