@@ -17,7 +17,7 @@ NoETL uses a single `noetl run` command that can execute playbooks in two modes:
 - **Local Runtime**: Execute directly using the Rust interpreter (no server required)
 - **Distributed Runtime**: Execute via NoETL server-worker architecture
 
-The runtime is selected automatically based on context or can be explicitly specified.
+The runtime comes from an explicit `--runtime` flag, else the active context, else the default of `local`.
 
 ## Core Capabilities
 
@@ -26,7 +26,7 @@ The runtime is selected automatically based on context or can be explicitly spec
 Run NoETL playbooks with automatic runtime selection:
 
 ```bash
-# Basic execution (runtime auto-detected based on context)
+# Basic execution (runtime from context, else local)
 noetl run automation/deploy.yaml
 
 # Force local execution (Rust interpreter, no server)
@@ -36,7 +36,7 @@ noetl run automation/deploy.yaml -r local
 noetl run catalog://my-playbook@1.0 -r distributed
 
 # With variables
-noetl run automation/deploy.yaml --set env=prod --set version=v2.5
+noetl run automation/deploy.yaml --set env=prod --set version=v3.0.0
 
 # With JSON payload
 noetl run automation/deploy.yaml --payload '{"env":"staging","debug":true}'
@@ -68,19 +68,24 @@ root workload object.
 
 **Runtime Resolution Priority**:
 1. `--runtime` / `-r` flag (explicit: `local` or `distributed`)
-2. Context configuration (`noetl context set-runtime`)
-3. Auto-detect from reference type (file path → local, catalog:// → distributed)
+2. Context configuration (`noetl context set-runtime`), if that context pins one
+3. Default: `local`
+
+The reference type is not consulted. `auto` is the sentinel for "not pinned" and
+falls through to rung 3.
 
 ### 2. Reference Types
 
 The `noetl run` command accepts multiple reference formats:
 
-| Format | Example | Default Runtime |
-|--------|---------|-----------------|
-| File path | `./playbooks/deploy.yaml` | local |
-| Catalog URI | `catalog://my-playbook@1.0` | distributed |
-| Catalog path | `workflows/etl-pipeline` | distributed |
-| Database ID | `pbk_01J...` | distributed |
+| Format | Example | Notes |
+|--------|---------|-------|
+| File path | `./playbooks/deploy.yaml` | runs locally under the default ladder |
+| Catalog URI | `catalog://my-playbook@1.0` | server-resolved; pass `-r distributed` |
+| Catalog path | `workflows/etl-pipeline` | **requires** `-r distributed` |
+| Database ID | `pbk_01J...` | server-resolved; pass `-r distributed` |
+
+All four default to `local` unless `--runtime` or the context says otherwise.
 
 ### 3. Context Management
 
@@ -168,7 +173,7 @@ For a single command against a non-current context, use the global
 ```bash
 noetl --context gke-prod catalog list Playbook
 noetl --context gke-pf   register credential -f duffel.json
-noetl --context smoke    exec ./playbooks/foo.yaml
+noetl --context smoke    run ./playbooks/foo.yaml
 ```
 
 The current context is unchanged.
@@ -213,19 +218,26 @@ noetl context use local-dev
 noetl context set-runtime local
 ```
 
-### 4. Auto-Discovery
+### 4. Auto-Discovery (deprecated `run-legacy` only)
 
-When no playbook file is specified, `noetl run` searches for playbooks in the current directory:
+:::caution
+Auto-discovery is **not** available on `noetl run`, which requires an explicit
+reference. It lives only on the hidden, deprecated `noetl run-legacy` command.
+The examples below will fail on `run` with a missing-argument error.
+:::
+
+`run-legacy` resolves a playbook from the current directory when no reference is
+given:
 
 ```bash
 # Auto-discover playbook and run target
-noetl run bootstrap
+noetl run-legacy bootstrap
 
-# Run with auto-discovery (finds ./noetl.yaml or ./main.yaml)
-noetl run
+# Auto-discovery (finds ./noetl.yaml or ./main.yaml)
+noetl run-legacy
 
 # Auto-discover with variables
-noetl run deploy --set env=prod --set version=v2.5 --verbose
+noetl run-legacy deploy --set env=prod --verbose
 ```
 
 **Auto-Discovery Priority**:
