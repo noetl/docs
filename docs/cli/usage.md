@@ -17,7 +17,7 @@ NoETL provides a unified command-line interface for executing playbooks with two
 
 The main command is `noetl`, which provides:
 
-- `noetl run` / `noetl exec` - Execute playbooks (local or distributed)
+- `noetl run` - Execute playbooks (local or distributed). `noetl exec` is a deprecated alias that still works and prints a nudge
 - `noetl status` - Check execution status
 - `noetl cancel` - Cancel running executions
 - `noetl context` - Manage execution contexts, Auth0 settings, managed kubectl tunnels
@@ -76,18 +76,22 @@ noetl run <REF> [OPTIONS]
 
 ### Reference Types
 
-| Format | Example | Default Runtime |
-|--------|---------|-----------------|
-| File path | `./playbooks/deploy.yaml` | local |
-| Catalog URI | `catalog://my-playbook@1.0` | distributed |
-| Catalog path | `workflows/etl-pipeline` | distributed |
-| Database ID | `pbk_01J...` | distributed |
+| Format | Example | Notes |
+|--------|---------|-------|
+| File path | `./playbooks/deploy.yaml` | runs locally under the default ladder |
+| Catalog URI | `catalog://my-playbook@1.0` | resolved by the server; pass `-r distributed` |
+| Catalog path | `workflows/etl-pipeline` | **requires** `-r distributed` |
+| Database ID | `pbk_01J...` | resolved by the server; pass `-r distributed` |
+
+The reference type does **not** select the runtime. Every reference resolves to
+`local` unless `--runtime` or the active context says otherwise — see
+[Runtime Resolution](#runtime-resolution) below.
 
 ### Options
 
 | Option | Description |
 |--------|-------------|
-| `-r, --runtime` | Runtime mode: `local`, `distributed`, or `auto` (default: auto) |
+| `-r, --runtime` | `local` or `distributed`. Defaults to `auto`, the sentinel that defers to the ladder (effective default: `local`) |
 | `-t, --target` | Target step to start from (local runtime only) |
 | `--set KEY=VALUE` | Set variables (can be repeated) |
 | `--payload JSON` | Pass multiple variables as JSON object |
@@ -114,7 +118,7 @@ noetl run catalog://my-playbook@1.0 -r distributed
 noetl run automation/tasks.yaml -t cleanup
 
 # Individual variables
-noetl run deploy.yaml --set env=prod --set version=v2.5.5
+noetl run deploy.yaml --set env=prod --set version=v3.0.0
 
 # JSON payload
 noetl run deploy.yaml --payload '{"env":"production","debug":true}'
@@ -136,8 +140,15 @@ noetl run automation/deploy.yaml --dry-run -v
 Runtime is determined using this priority:
 
 1. **Explicit flag**: `--runtime local` or `--runtime distributed`
-2. **Context config**: From `noetl context set-runtime`
-3. **Auto-detect**: Based on reference type (file → local, catalog:// → distributed)
+2. **Context config**: From `noetl context set-runtime`, if that context pins one
+3. **Default**: `local` — NoETL is a CLI tool first, so local is the priority default
+
+`auto` is not a third runtime; it is the sentinel meaning "I did not pin one",
+and it is what both the flag and an unset context `runtime:` field default to.
+A value of `auto` at rungs 1 and 2 simply falls through to rung 3.
+
+Each run prints the resolved runtime and which rung chose it to stderr, e.g.
+`runtime: distributed (from context 'prod')`.
 
 ### Setting Context Runtime
 
@@ -201,7 +212,7 @@ For a single command against a non-current context, use the global
 ```bash
 noetl --context gke-prod catalog list Playbook
 noetl --context gke-pf   register credential -f duffel.json
-noetl --context smoke    exec ./playbooks/foo.yaml
+noetl --context smoke    run ./playbooks/foo.yaml
 ```
 
 ### `noetl context init --from-gateway`
@@ -311,7 +322,7 @@ Then run authenticated commands through the gateway:
 
 ```bash
 noetl --context gke-prod catalog register tests/fixtures/playbooks/quantum_cudaq/quantum_cudaq.yaml
-noetl --context gke-prod exec tests/quantum/cudaq_ai_pipeline -r distributed
+noetl --context gke-prod run tests/quantum/cudaq_ai_pipeline -r distributed
 ```
 
 If your context URL is already a gateway URL (`gateway.*`),
@@ -444,7 +455,7 @@ help
 where
 context use gke-prod
 catalog list Playbook --json
-exec tests/quantum/cudaq_ai_pipeline -r distributed
+run tests/quantum/cudaq_ai_pipeline -r distributed
 exit
 ```
 
@@ -467,7 +478,7 @@ executor:
       - shell
       - http
     features:
-      - templating
+      - jinja2
 
 workflow:
   - step: start
@@ -708,14 +719,32 @@ When running playbooks, variables are resolved in this order (highest to lowest)
 
 ## Local Runtime Tools
 
-The local runtime supports these tool kinds:
+Local execution dispatches steps through the **same `noetl-tools` registry** the
+distributed worker uses, so the available tool kinds are the ones registered
+there (`shell`, `http`, `postgres`, `duckdb`, `python`, `playbook`, `rhai`, and
+the rest) rather than a short fixed list.
 
-| Tool | Description |
+Separately, if a playbook declares `executor.requires.tools`, those entries are
+validated against the local runtime's **declared capabilities**, which are a
+distinct and smaller set of capability tokens:
+
+| Declared capability | Kind |
 |------|-------------|
 | `shell` | Execute shell commands |
 | `http` | Make HTTP requests |
-| `playbook` | Call sub-playbooks |
+| `duckdb` | Embedded DuckDB queries |
 | `rhai` | Embedded scripting with Rhai |
+| `playbook` | Call sub-playbooks |
+| `auth` | Credential resolution |
+| `sink` | Result sink |
+
+Declared features: `case_v1`, `case_v2` (Rhai conditions), `loop_v1`, `vars_v1`,
+`jinja2`.
+
+Declaring a tool outside that list fails validation with
+`requires tool '<x>' which is not supported by local runtime`, even though the
+registry itself may be able to dispatch it — so declare `executor.requires.tools`
+only for capabilities you actually want enforced.
 
 ## Getting Help
 

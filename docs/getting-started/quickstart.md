@@ -98,8 +98,9 @@ noetl run automation/development/tooling_linux.yaml --set action=install-devtool
 5. Deploys PostgreSQL database
 6. Deploys NoETL server (control plane) and workers (data plane)
 7. Initializes database schema
-8. Deploys observability stack (ClickHouse, Qdrant, NATS JetStream)
-9. Sets up monitoring (if configured)
+8. Deploys NATS JetStream, Qdrant, ClickHouse, and an S3-compatible object store
+9. Deploys the monitoring stack (VictoriaMetrics, Grafana)
+10. Provisions the Gateway auth schema and a pagination test server for integration tests
 
 **Bootstrap options:**
 ```bash
@@ -112,13 +113,21 @@ noetl run boot --set kind_config=ci/kind/config-minimal.yaml
 
 **Services available after boot:**
 
+:::note Host ports assume the default kind config
+These are host ports under `ci/kind/config.yaml`, which is what `noetl run boot`
+uses by default. The alternative `ci/kind/config-minimal.yaml` maps several
+ports **identically** to their nodePort (NATS client and monitoring stay on
+`30422` / `30822`), so if you booted with `--set kind_config=…-minimal.yaml`,
+use the nodePort number instead.
+:::
+
 | Service | URL | Credentials |
 |---------|-----|-------------|
 | NoETL Server | http://localhost:8082 | - |
 | PostgreSQL | localhost:54321 | demo/demo |
 | ClickHouse HTTP | http://localhost:30123 | - |
 | Qdrant HTTP | http://localhost:30633 | - |
-| NATS Monitoring | http://localhost:30822 | - |
+| NATS Monitoring | http://localhost:32822 | - |
 
 ## Your First Playbook
 

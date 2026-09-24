@@ -6,6 +6,7 @@ import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
  * Structure:
  * - Getting Started (intro, quickstart)
  * - DSL Guide (playbook structure, workflow patterns)
+ * - A2A Agent Mesh (signal-mesh)
  * - Reference (DSL spec, CLI, tools, observability)
  * - Features (pagination, retry, caching, variables)
  * - Examples (authentication, data transfer, integrations)
@@ -52,6 +53,15 @@ const sidebars: SidebarsConfig = {
           dirName: 'tutorials',
         },
       ],
+    },
+    {
+      type: 'category',
+      label: 'A2A Agent Mesh',
+      link: {
+        type: 'doc',
+        id: 'a2a/index',
+      },
+      items: [],
     },
     {
       type: 'category',

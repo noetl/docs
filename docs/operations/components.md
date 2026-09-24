@@ -6,18 +6,17 @@ This document describes all components in the NoETL platform, their dependencies
 
 The NoETL platform consists of multiple interconnected components that work together to provide a complete data processing and observability solution in Kubernetes.
 
-## Platform Architecture Diagram
-This document describes all components in the NoETL platform, their responsibilities, and their dependencies on each other.
 ## All Components
 
 - PostgreSQL: Running in postgres namespace
-- NoETL Server: Accessible at http://localhost:30082
-- NoETL Workers: All 3 worker pools running (cpu-01, cpu-02, gpu-01)
-- NATS JetStream: Message bus for command notifications (event-driven). See operations/nats_integration.md
+- NoETL Server: Accessible at http://localhost:8082 (kind maps nodePort 30082 -> host 8082)
+- NoETL Workers: the deployed pools are `worker-rust-pool`, `worker-system-pool` and the `cmdbus-writer` (which hosts the EHDB bus)
+- EHDB feed: the command bus — the server publishes task notifications, workers claim them per shard
+- NATS JetStream: still deployed locally, but **no longer an internal transport** — it backs the user-facing `nats` tool kind and `subscription` sources. See operations/nats_integration.md
 - Runtime reaper / doctor: monitoring-callable self-healing surface around the server-side command reaper. See operations/runtime-reaper-doctor.md
-- Grafana: Accessible at http://localhost:3000 (admin/admin)
-- VictoriaMetrics: Running and accessible at http://localhost:8428/vmui/
-- VictoriaLogs: Running and accessible at http://localhost:9428
+- Grafana: Accessible at http://localhost:33000 (admin/admin) (kind maps nodePort 30300 -> host 33000)
+- VictoriaMetrics: not nodePort-mapped in kind; reach `/vmui/` with `kubectl port-forward`
+- VictoriaLogs: Accessible at http://localhost:39428 (kind maps nodePort 30428 -> host 39428)
 - Dashboards: Both NoETL server and worker dashboards provisioned
 - Datasources: Grafana datasources ConfigMap found and provisioned
 
@@ -33,8 +32,8 @@ This document describes all components in the NoETL platform, their responsibili
                                        |
 +----------------------+       +-------+--------+        +----------------------+
 |   VictoriaMetrics    |<------|   NoETL Server |---+--->|    NoETL Workers     |
-| (metrics storage)    |  scrapes  |  (API & UI) |   \   | (cpu-01, cpu-02,     |
-+----------^-----------+        |               |    \   |  gpu-01 pools)       |
+| (metrics storage)    |  scrapes  |  (API & UI) |   \   | (worker-rust-pool,   |
++----------^-----------+        |               |    \   |  worker-system-pool) |
            |                    |               |     \  +----------^-----------+
            |                emits|metrics & logs|      \            |
            |                    v               v       \           |
@@ -47,20 +46,20 @@ This document describes all components in the NoETL platform, their responsibili
                                   (dashboards & alerting)
                           reads from VM + VictoriaLogs datasources
 
-                              event notifications
+                            command notifications
                                         |
                                         v
                                    +----------+
-                                   |  NATS    |
-                                   |JetStream |
+                                   |   EHDB   |
+                                   |   feed   |
                                    +----------+
                                         ^
-                                   publish/subscribe
+                                   publish / claim
 ```
 
 Legend:
 - NoETL Server communicates with Workers (task scheduling, status updates). Both write job/task metadata to PostgreSQL.
-- NATS JetStream is used for event-driven command notifications: the Server publishes and Workers subscribe (durable pull consumers). See operations/nats_integration.md
+- The EHDB feed carries command notifications: the Server publishes and Workers claim per shard. NATS JetStream previously held this role and no longer does.
 - Metrics are scraped by VictoriaMetrics (via PodMonitor/PodScrape). Logs are shipped by agents (Vector) to VictoriaLogs.
 - Grafana reads from VictoriaMetrics and VictoriaLogs and shows pre-provisioned dashboards and datasources.
 
@@ -78,27 +77,32 @@ Legend:
   - Kubernetes (service discovery and worker orchestration)
   - Observability stack for metrics/logs export
 - Provides:
-  - API at http://localhost:30082
+  - API at http://localhost:8082
   - Metrics endpoint scraped by VictoriaMetrics
   - Logs shipped to VictoriaLogs via Vector agents
 
-### 3. NoETL Workers (cpu-01, cpu-02, gpu-01)
+### 3. NoETL Workers
 - Purpose: Execute tasks; report status and metrics.
 - Depends on:
   - NoETL Server (work assignment, heartbeats)
-  - Container runtime / GPU drivers (for gpu-01)
+  - Container runtime (plus GPU drivers for any GPU-designated pool)
 - Emits:
   - Metrics scraped by VictoriaMetrics
   - Logs shipped to VictoriaLogs
 
-### 4. NATS JetStream
-- Purpose: Event bus for lightweight command notifications and retries (no DB polling).
+### 4. EHDB feed (command bus)
+- Purpose: Task distribution — command notifications carrying a pointer, not the payload.
 - Depends on:
-  - NATS deployment (cluster or single) and JetStream enabled
-  - Proper subjects/streams (e.g., `NOETL_COMMANDS` stream, `noetl.commands` subject)
+  - The `cmdbus-writer` workload, which hosts the durable per-shard log
 - Used by:
-  - NoETL Server (publisher)
-  - NoETL Workers (durable pull consumers)
+  - NoETL Server (publishes)
+  - NoETL Workers (claim + acknowledge per shard)
+- Replaced NATS JetStream in this role; see [Architecture](/docs/getting-started/architecture).
+
+### 4b. NATS JetStream
+- Purpose: **No longer an internal transport.** It remains deployed by the local
+  bootstrap and serves playbook-facing use: the `nats` tool kind and NATS-sourced
+  `subscription` specs.
 - Configuration hints:
   - `NATS_URL` env var (e.g., `nats://noetl:noetl@nats.nats.svc.cluster.local:4222`)
   - See detailed integration: operations/nats_integration.md
@@ -123,7 +127,7 @@ Legend:
   - Datasource provisioning for VictoriaMetrics and VictoriaLogs
   - Dashboard provisioning for NoETL Server and Workers
 - Endpoints:
-  - http://localhost:3000 (admin/admin)
+  - http://localhost:33000 (admin/admin)
 
 ### 8. Provisioned Dashboards and Datasources
 - Dashboards:
@@ -137,8 +141,8 @@ Legend:
 - Namespaces: PostgreSQL runs in the `postgres` namespace; other components typically run in a unified platform namespace (e.g., `noetl-platform`).
 - Health checks: Use the unified make targets (e.g., `make unified-health-check`) to validate all components are up and endpoints are reachable.
 - Troubleshooting:
-  - Metrics scraping: see `k8s/observability/vmpodscrape-noetl.yaml`
-  - Worker metrics monitors: see `k8s/observability/podmonitor-noetl-workers.yaml`
-  - Logs shippers: see `k8s/observability/vector-values.yaml`
-  - Prometheus/VictoriaMetrics tips: `docs/observability/troubleshoot-prometheus.md`
-  - NATS/JetStream setup and flows: `documentation/docs/operations/nats_integration.md`
+  - Metrics scraping: see `ci/manifests/noetl/gmp/podmonitoring-noetl.yaml` (noetl/ops)
+  - Writer metrics monitor: see `ci/manifests/noetl/gmp/podmonitoring-cmdbus-writer.yaml` (noetl/ops)
+  - Logs shippers: see `ci/vmstack/vector-values.yaml` (noetl/ops)
+  - VictoriaMetrics stack in kind: [Local kind VM stack](/docs/observability/local_kind_vm_stack)
+  - NATS setup and flows: [NATS integration](/docs/operations/nats_integration)

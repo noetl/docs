@@ -5,6 +5,18 @@ title: NATS JetStream Integration
 
 # NATS JetStream Integration
 
+:::warning NATS is no longer an internal transport
+Command notifications moved to the **EHDB feed** (noetl/ai-meta#212). NATS no
+longer carries commands or events between the server and workers, and there is
+no NATS deployment in production.
+
+What NATS still is: a dependency the **local kind bootstrap deploys**, and the
+backing service for playbook-facing use — the `nats` tool kind and NATS-sourced
+`subscription` specs. The provisioning and verification sections below remain
+valid for that. See [Architecture](/docs/getting-started/architecture) for the
+command bus.
+:::
+
 This page documents the concrete NATS setup used by NoETL across local kind and GKE deployments, including:
 
 - where configuration lives (Helm/manifests/playbooks/code),
@@ -12,15 +24,27 @@ This page documents the concrete NATS setup used by NoETL across local kind and 
 - what environment variables are expected by Gateway, NoETL Server, and NoETL Worker,
 - how to provision and verify in kind and GKE.
 
-## Runtime Contract
+## Runtime Contract (historical)
 
-NoETL uses JetStream for command notifications, while command state stays in the NoETL API/event model.
+:::note
+This describes the retired internal command path, kept because deployments and
+fixtures created before the cutover still carry these stream/subject names. The
+live command bus is the EHDB feed.
+:::
 
-- Stream name: `NOETL_COMMANDS` (default)
-- Subject: `noetl.commands` (default)
-- Consumer: `noetl_worker_pool` (durable pull consumer)
+NoETL used JetStream for command notifications, while command state stayed in
+the NoETL API/event model.
 
-Server publishes lightweight notifications:
+The worker still reads these variables (for the user-facing `nats` paths), with
+these **actual code defaults**:
+
+| Variable | Code default |
+| --- | --- |
+| `NATS_URL` | *empty* — deliberately, so a missing URL fails visibly rather than silently against a phantom one |
+| `NATS_STREAM` | `noetl_commands` (lowercase) |
+| `NATS_CONSUMER` | `worker-pool` |
+
+The server publishes lightweight notifications:
 
 ```json
 {
@@ -104,8 +128,8 @@ Worker uses the same `NATS_*` variables plus worker-specific pull tuning:
 
 | Variable                                    | Required | Default                                             |
 | ------------------------------------------- | -------- | --------------------------------------------------- |
-| `NATS_URL`                                  | Yes      | `nats://noetl:noetl@localhost:30422` (code default) |
-| `NATS_STREAM`                               | No       | `NOETL_COMMANDS`                                    |
+| `NATS_URL`                                  | Yes      | *empty* (code default — fails visibly if unset)     |
+| `NATS_STREAM`                               | No       | `noetl_commands`                                    |
 | `NATS_SUBJECT`                              | No       | `noetl.commands`                                    |
 | `NATS_CONSUMER`                             | No       | `noetl_worker_pool`                                 |
 | `NOETL_WORKER_NATS_FETCH_TIMEOUT_SECONDS`   | No       | `30`                                                |

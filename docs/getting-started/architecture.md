@@ -19,13 +19,13 @@ NoETL uses a server-worker architecture for distributed workflow execution.
 Rust-based API gateway for external clients:
 - Exposes GraphQL API for playbook execution
 - Provides REST API for Auth0 authentication (`/api/auth/*`)
-- Session validation middleware with NATS K/V caching
+- Session validation middleware with EHDB K/V caching
 - Pure gateway design - no direct database connections
 - All data access through Control Plane API
-- NATS K/V for fast session lookups (sub-millisecond)
-- Future: WebSocket subscriptions via NATS for live updates
+- EHDB K/V for fast session lookups, served by the writer's KV face
+- Live updates stream from the EHDB event feed
 
-**Session Caching:** Gateway checks NATS K/V for cached sessions before calling auth playbooks. On cache miss, playbooks validate from PostgreSQL and refresh the cache.
+**Session Caching:** Gateway checks EHDB K/V for cached sessions before calling auth playbooks. On cache miss, playbooks validate from PostgreSQL and refresh the cache. Both gateway buckets — `sessions` and `requests` (the latter backing every SSE route) — moved from NATS K/V onto the EHDB KV face with the NATS removal.
 
 ### NoETL Control Plane
 
@@ -67,9 +67,9 @@ execution history:
 
 EHDB is designed to progressively absorb the platform roles currently split
 across PostgreSQL, NATS JetStream, and external object stores — event log,
-projection, KV, and object are its four engines. The event-log and command-bus
-engines (below) are cut over in production today; projection, KV, and object
-engines are mid-migration (shadow-mirrored, not yet authoritative). See
+projection, KV, object, and vector are its five engines. The event-log and command-bus
+engines (below) are cut over in production today; projection, KV, object, and
+vector engines are mid-migration (shadow-mirrored, not yet authoritative). See
 [noetl/ehdb](https://github.com/noetl/ehdb) and its
 [wiki](https://github.com/noetl/ehdb/wiki) for the live, continuously-updated
 cutover status per engine — this page describes the architectural shape, not
@@ -102,10 +102,13 @@ since 2026-07-27:
 - Supports multiple worker pools and load balancing, and has measured
   materially faster dispatch latency than the NATS baseline it replaced
 
-NATS JetStream remains installed only as a rollback path during this
-migration; it is not decommissioned yet (final removal is a deliberate,
-human-gated step, not an automatic one). New architectural reasoning should
-treat the EHDB feed as the task-distribution system of record.
+NATS JetStream has since been removed as an internal transport
+(noetl/ai-meta#212); there is no NATS rollback path and no NATS deployment in
+production. The EHDB feed is the task-distribution system of record.
+
+NATS survives in NoETL only as something playbooks talk *to*: the `nats` tool
+kind and the `subscription` tool's NATS source. The local kind bootstrap still
+deploys a NATS JetStream instance for those.
 
 ### Result References and Shared Cache
 
@@ -293,8 +296,8 @@ Task distribution via EHDB's L1 command bus (see
 4. Worker calls Control Plane API to get full task context
 5. Worker executes and reports events to Control Plane API
 
-NATS JetStream previously served this role and remains installed only as a
-rollback path during the migration.
+NATS JetStream previously served this role and has been removed
+(noetl/ai-meta#212).
 
 ### Event-Driven State
 
