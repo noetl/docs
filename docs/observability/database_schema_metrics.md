@@ -223,14 +223,14 @@ asyncio.run(test_cleanup())
   - Triggers cleanup (partition drops) and returns the list of dropped partitions
   - Example:
     ```bash
-    curl -s -X POST http://localhost:30082/api/metrics/cleanup | jq
+    curl -s -X POST http://localhost:8082/api/metrics/cleanup | jq
     ```
 
 - POST `/api/metrics/partitions/create?days_ahead=3`
   - Creates partitions from tomorrow up to 3 days ahead
   - Example:
     ```bash
-    curl -s -X POST "http://localhost:30082/api/metrics/partitions/create?days_ahead=3" | jq
+    curl -s -X POST "http://localhost:8082/api/metrics/partitions/create?days_ahead=3" | jq
     ```
 
 ### Notes

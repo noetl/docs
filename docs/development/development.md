@@ -140,7 +140,7 @@ kubectl logs -f -n noetl -l app=noetl-server
 kubectl logs -f -n noetl -l app=noetl-worker
 
 # Access services
-# NoETL API: http://localhost:30082/api/health
+# NoETL API: http://localhost:8082/api/health
 ```
 
 **What `redeploy` does:**
