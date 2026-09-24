@@ -262,7 +262,7 @@ You can run NoETL in debug mode to get more detailed logs:
 
 ```bash
 # Run the agent in debug mode
-noetl agent -f playbooks.yaml --debug
+noetl run playbooks.yaml -r local -v
 
 # Run the server in debug mode
 noetl server --reload --debug
