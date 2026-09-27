@@ -56,11 +56,11 @@ Python also supports the standard `script` descriptor (`uri` + `source`) to load
       dataset: "{{ workload.dataset }}"
 ```
 
-See `documentation/docs/reference/script_execution_v2.md` for the script descriptor.
+See `/docs/reference/script_execution` for the script descriptor.
 
 ---
 
 ## See also
-- Variables/scopes: `documentation/docs/reference/variables_v2.md`
-- Retry semantics: `documentation/docs/reference/retry_mechanism.md`
-- Result storage (reference-first): `documentation/docs/reference/result_storage.md`
+- Variables/scopes: `/docs/reference/variables`
+- Retry semantics: `/docs/reference/retry_mechanism`
+- Result storage (reference-first): `/docs/reference/result_storage`

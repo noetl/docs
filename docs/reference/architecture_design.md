@@ -7,9 +7,9 @@ NoETL is an event-sourced orchestration system with a strict control-plane / dat
 - **CLI**: manages server/worker lifecycle and provides operational commands.
 
 current DSL details live under:
-- `documentation/docs/reference/dsl/step_spec.md`
-- `documentation/docs/reference/dsl/spec.md`
-- `documentation/docs/reference/dsl/execution_model.md`
+- `/docs/reference/dsl/step_spec`
+- `/docs/reference/dsl/spec`
+- `/docs/reference/dsl/execution_model`
 
 ---
 
@@ -90,5 +90,5 @@ Standard rule: large outputs MUST be externalized and represented by references.
 - pass **ResultRef** objects + extracted fields, not giant inline payloads
 
 See:
-- `documentation/docs/reference/result_storage.md`
-- `documentation/docs/reference/dsl/runtime_results.md`
+- `/docs/reference/result_storage`
+- `/docs/reference/dsl/runtime_results`

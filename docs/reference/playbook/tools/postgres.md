@@ -3,4 +3,4 @@
 Use `kind: postgres` tasks inside `step.tool`.
 
 ## See also
-- standard Postgres tool: `documentation/docs/reference/tools/postgres.md`
+- standard Postgres tool: `/docs/reference/tools/postgres`

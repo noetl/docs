@@ -21,5 +21,5 @@ current DSL has no `tool: python` step type. Use a Python **tool task** (`kind: 
 ```
 
 ## See also
-- standard Python tool: `documentation/docs/reference/tools/python.md`
-- Script loading / script jobs: `documentation/docs/reference/script_execution_v2.md`
+- standard Python tool: `/docs/reference/tools/python`
+- Script loading / script jobs: `/docs/reference/script_execution`

@@ -7,6 +7,6 @@ current DSL uses HTTP as a **tool task** (`kind: http`) inside `step.tool`, with
 - routing via `step.next.arcs[]`
 
 ## See also
-- standard HTTP tool: `documentation/docs/reference/tools/http.md`
-- Loop iteration: `documentation/docs/reference/iterator_v3.md`
-- Retry: `documentation/docs/reference/retry_mechanism.md`
+- standard HTTP tool: `/docs/reference/tools/http`
+- Loop iteration: `/docs/reference/iterator`
+- Retry: `/docs/reference/retry_mechanism`

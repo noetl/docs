@@ -13,7 +13,7 @@ current DSL reminders:
 - Task outcome handling is done via `task.spec.policy.rules` (no legacy `eval`/`expr`).
 - Large outputs are reference-first (ResultRef/ManifestRef patterns).
 
-See `documentation/docs/reference/dsl/step_spec.md` for the full DSL model.
+See `/docs/reference/dsl/step_spec` for the full DSL model.
 
 ---
 
@@ -70,7 +70,7 @@ Standard approach:
 - declare required credentials under root `keychain`
 - reference credentials by name in tasks (for example `auth: pg_k8s`)
 
-See `documentation/docs/reference/auth_and_keychain_reference.md`.
+See `/docs/reference/auth_and_keychain_reference`.
 
 ---
 
@@ -101,8 +101,8 @@ Common namespaces available in templates:
 
 ## See also
 
-- `documentation/docs/reference/dsl/spec.md`
-- `documentation/docs/reference/dsl/runtime_events.md`
-- `documentation/docs/reference/dsl/runtime_results.md`
-- `documentation/docs/reference/retry_mechanism.md`
-- `documentation/docs/reference/pagination_v2.md`
+- `/docs/reference/dsl/spec`
+- `/docs/reference/dsl/runtime_events`
+- `/docs/reference/dsl/runtime_results`
+- `/docs/reference/retry_mechanism`
+- `/docs/reference/pagination`
