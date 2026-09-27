@@ -210,8 +210,8 @@ noetl context use kind-cluster
 noetl context set-runtime distributed
 
 # Register all test playbooks and credentials
-noetl register playbook tests/fixtures/playbooks/
-noetl register credential tests/fixtures/credentials/
+noetl register playbook --directory tests/fixtures/playbooks
+noetl register credential --directory tests/fixtures/credentials
 
 # Switch back to local for development
 noetl context use local-dev
@@ -612,7 +612,7 @@ Bootstrap builds only the Python server/worker image. Build Rust binaries separa
 
 ### API Testing
 
-**File**: [`automation/examples/http_example.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/http_example.yaml)
+**File**: [`automation/examples/http_example.yaml`](https://github.com/noetl/noetl/blob/main/automation/examples/http_example.yaml)
 
 ```yaml
 # automation/api_test.yaml
@@ -645,7 +645,7 @@ noetl run automation/api_test.yaml --verbose
 
 ### Multi-Stage Deployment
 
-**Files**: [`automation/examples/parent_playbook.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/parent_playbook.yaml), [`build_child.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/build_child.yaml), [`deploy_child.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/deploy_child.yaml)
+**Files**: [`automation/examples/parent_playbook.yaml`](https://github.com/noetl/noetl/blob/main/automation/examples/parent_playbook.yaml), [`build_child.yaml`](https://github.com/noetl/noetl/blob/main/automation/examples/build_child.yaml), [`deploy_child.yaml`](https://github.com/noetl/noetl/blob/main/automation/examples/deploy_child.yaml)
 
 ```yaml
 # automation/deploy.yaml
@@ -789,4 +789,4 @@ noetl iap --help
 - [Understand architecture patterns](./architecture.md)
 - [Infrastructure as Playbook guide](../features/infrastructure_as_playbook.md)
 - Try examples in `automation/examples/` directory
-- View example files: [http_example.yaml](https://github.com/noetl/noetl/blob/master/automation/examples/http_example.yaml), [parent_playbook.yaml](https://github.com/noetl/noetl/blob/master/automation/examples/parent_playbook.yaml)
+- View example files: [http_example.yaml](https://github.com/noetl/noetl/blob/main/automation/examples/http_example.yaml), [parent_playbook.yaml](https://github.com/noetl/noetl/blob/main/automation/examples/parent_playbook.yaml)

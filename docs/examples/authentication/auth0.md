@@ -10,8 +10,8 @@ This example demonstrates integrating Auth0 authentication with NoETL for user s
 
 :::tip Working Examples
 Complete OAuth playbooks are available in the repository:
-- [tests/fixtures/playbooks/oauth/](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/oauth) - Google OAuth, GCS, Secret Manager
-- [tests/fixtures/playbooks/api_integration/](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/api_integration) - Auth0 integration
+- [tests/fixtures/playbooks/oauth/](https://github.com/noetl/noetl/tree/main/tests/fixtures/playbooks/oauth) - Google OAuth, GCS, Secret Manager
+- [tests/fixtures/playbooks/api_integration/](https://github.com/noetl/noetl/tree/main/tests/fixtures/playbooks/api_integration) - Auth0 integration
 :::
 
 ## Overview
@@ -350,7 +350,7 @@ if (idToken) {
 
 ```bash
 # 1. Register the playbooks
-noetl register playbook tests/fixtures/playbooks/api_integration/auth0/provision_auth_schema.yaml
+noetl register playbook --file tests/fixtures/playbooks/api_integration/auth0/provision_auth_schema.yaml
 
 # 2. Execute locally to provision schema
 noetl run tests/fixtures/playbooks/api_integration/auth0/provision_auth_schema.yaml -v

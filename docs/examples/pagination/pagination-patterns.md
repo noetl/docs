@@ -10,7 +10,7 @@ NoETL supports multiple HTTP pagination patterns for efficiently fetching large 
 
 :::tip Working Examples
 Complete, tested pagination playbooks are available in the repository:
-- [tests/fixtures/playbooks/pagination/](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/pagination)
+- [tests/fixtures/playbooks/pagination/](https://github.com/noetl/noetl/tree/main/tests/fixtures/playbooks/pagination)
 :::
 
 ## Overview
@@ -272,7 +272,6 @@ workflow:
   - step: process_data
     tool:
       kind: python
-      libs: {}
       args:
         items: "{{ vars.fetched_items }}"
         endpoint_name: "{{ current_endpoint.name }}"

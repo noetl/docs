@@ -10,7 +10,7 @@ This guide demonstrates various patterns for transferring data from HTTP APIs to
 
 :::tip Working Examples
 Complete, tested data transfer playbooks are available in the repository:
-- [tests/fixtures/playbooks/data_transfer/](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/data_transfer)
+- [tests/fixtures/playbooks/data_transfer/](https://github.com/noetl/noetl/tree/main/tests/fixtures/playbooks/data_transfer)
 :::
 
 ## Pattern Overview
@@ -319,7 +319,6 @@ workflow:
   - step: batch_insert
     tool:
       kind: python
-      libs: {}
       args:
         items: "{{ vars.all_items }}"
         batch_size: 1000
@@ -475,4 +474,4 @@ Handle API and database errors gracefully:
 - [HTTP Tool Reference](/docs/reference/tools/http)
 - [PostgreSQL Tool Reference](/docs/reference/tools/postgres)
 - [Pagination Patterns](/docs/examples/pagination/pagination-patterns)
-- [Data Transfer Playbooks](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/data_transfer)
+- [Data Transfer Playbooks](https://github.com/noetl/noetl/tree/main/tests/fixtures/playbooks/data_transfer)

@@ -151,7 +151,6 @@ workflow:
   - step: greet
     tool:
       kind: python
-      libs: {}
       args:
         message: "{{ workload.message }}"
       code: |
@@ -165,7 +164,7 @@ workflow:
 ### 2. Register the playbook
 
 ```bash
-noetl register playbook hello_world.yaml --host localhost --port 8082
+noetl --host=localhost --port=8082 register playbook --file hello_world.yaml
 ```
 
 ### 3. Execute the playbook
@@ -227,16 +226,16 @@ The CLI supports recursive directory scanning:
 
 ```bash
 # Register all playbooks from a directory (recursive)
-noetl register playbook tests/fixtures/playbooks/ --host localhost --port 8082
+noetl --host=localhost --port=8082 register playbook --directory tests/fixtures/playbooks
 
 # Register all credentials from a directory (recursive)
-noetl register credential tests/fixtures/credentials/ --host localhost --port 8082
+noetl --host=localhost --port=8082 register credential --directory tests/fixtures/credentials
 
 # Register a single playbook
-noetl register playbook tests/fixtures/playbooks/hello_world/hello_world.yaml --host localhost --port 8082
+noetl --host=localhost --port=8082 register playbook --file tests/fixtures/playbooks/hello_world/hello_world.yaml
 
 # Register a single credential
-noetl register credential tests/fixtures/credentials/pg_k8s.yaml --host localhost --port 8082
+noetl --host=localhost --port=8082 register credential --file tests/fixtures/credentials/pg_k8s.yaml
 ```
 
 ## Cleanup
