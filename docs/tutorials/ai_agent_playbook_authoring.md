@@ -293,9 +293,12 @@ workflow:
       kind: noop
 ```
 
-Note `input:` on the Python step. Inside a `code:` block the runtime exposes
-exactly two names — `args` and `input_data` — because the body is wrapped as
-`def __noetl_step__(args, input_data, **kw)`. `workload` is not one of them.
+Note `input:` on the Python step. `workload` is **not** in scope inside a
+`code:` block — bind what the code needs through `input:`.
+
+What the code *does* see: each key of `input:` as a **bare global**
+(`globals().update(args)`), the whole mapping as both `args` and `input_data`,
+plus `variables`, `execution_id` and `step`.
 
 ### Validate, then run
 
@@ -348,11 +351,11 @@ two are not the same thing. Flagged for maintainer confirmation.
 
 **Symptom:** `NameError: name 'workload' is not defined`.
 
-The body of a `code:` block is wrapped into
-`def __noetl_step__(args, input_data, **kw)` and called as
-`result = __noetl_step__(args, input_data)`. Only `args` and `input_data` exist.
-Anything the code needs must be bound through `tool.input:` — which is the
-standard DSL key (`args:` is the legacy alias).
+The code runs in a namespace built from the step's input, not from the
+playbook's. The runtime injects each key of `input:` as a bare global, the whole
+mapping as both `args` and `input_data`, and `variables` / `execution_id` /
+`step`. `workload` is not among them. Bind anything the code needs through
+`tool.input:` — the standard DSL key (`args:` is the legacy alias).
 
 ```yaml
 # WRONG — NameError at runtime
@@ -430,7 +433,7 @@ time of writing, except where explicitly marked.
 | Required top-level keys and `Step` keys | VERIFIED (from the schema) |
 | The three tool-kind lists | VERIFIED |
 | Schema does not constrain tool kinds or the router | VERIFIED (schema's own descriptions) |
-| Trap 2 (`args` / `input_data` only) | VERIFIED |
+| Trap 2 (input keys as globals + `args`/`input_data`; `workload` absent) | VERIFIED |
 | Trap 3 (`step.skipped` for unmatched arcs) | VERIFIED |
 | Trap 1 (`metadata.version` → `commands_generated: 0`) | **OBSERVED, mechanism not traced** |
 
