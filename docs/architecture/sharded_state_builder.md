@@ -319,6 +319,27 @@ tens-of-bytes slim row + an optional bounded `extracted` snippet —
 a **1–2 order-of-magnitude** reduction before any eviction policy
 is considered.
 
+⚠ **The walk order comes from `prev_event_id`, never from sorting on
+`event_id`** (ai-meta#362, shipped 2026-09-30). A snowflake `event_id`
+is minted *before* the insert, so commit order is not id order and an
+event can commit into the *middle* of an id-ordered read — which
+silently changes every position after it. Any shard reader that
+reconstructs order by sorting reconstructs a different chain at
+different times.
+
+Two consequences for this design:
+
+- **The invariant a shard must uphold is exactly one NULL-`prev_event_id`
+  row per `execution_id`** — the genesis. More than one root makes the
+  partition unbuildable, because nothing can say which root is real.
+  ⚠ Measure it per execution: a NULL prev is correct by design, so the
+  aggregate count of NULLs carries no health signal.
+- **A shard whose chain does not resolve must refuse, not guess.** The
+  refusal taxonomy (`multiple_roots`, `no_root`, `fork`, `dangling_prev`,
+  `unreachable`) and the reasoning behind each live in
+  [Event WAL and Derivable Result Storage](./event_wal_and_derivable_storage.md).
+  A refusal falls through to Postgres, which stays authoritative.
+
 ### 4.2 Columnar layout
 
 Arrow Feather/IPC via `noetl_tools::arrow_codec` (the same encoder
