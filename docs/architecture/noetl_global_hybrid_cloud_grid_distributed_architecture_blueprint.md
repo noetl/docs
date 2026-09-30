@@ -994,24 +994,40 @@ nothing deployed, no code change.** The plan and its twelve milestone specs (M0 
 M8) are the authority — this section records the shape and the decisions so the
 blueprint does not describe a Phase 6 that the design has already moved past.
 
-### Prior art, and what is *not* being adopted
+### What EHDB is
 
-The consistency literature this draws on is Spanner and CockroachDB: external
-consistency, TrueTime, commit timestamps, leaseholders, follower reads. Those are
-**reference points for the consistency model** and nothing more.
+**EHDB is NoETL's internal database for playbook orchestration.** It holds execution
+context and state using an **event-sourcing model**: the append-only event log is the
+source of truth, and every other view is derived from it and rebuildable by replay.
 
-⚠ **Neither is adopted as a datastore, and adopting one would contradict a standing
-rule.** `agents/rules/self-sufficiency.md` states that self-sufficient means NoETL owns
-its own state: EHDB *is* the database, with no external datastore to size, upgrade,
-quorum or recover alongside NoETL. A global sequencer was evaluated for exactly this
-purpose and **rejected**, on two grounds: a cross-region round trip on the write path,
-and the external-service dependency that rule forbids. "No SQL layer" is a standing
-decision for EHDB, not an open question.
+### Reference only: NoETL does not use CockroachDB or Spanner
 
-⚠ Note the separate, unrelated mention of Spanner in
-[NoETL Distributed Runtime Spec](../features/noetl_distributed_runtime_spec.md) — that
-is a *pluggable event-store backend* option (Pub/Sub with a version side-store), which
-is a different subject from EHDB's own storage.
+⚠⚠ **NoETL does not use CockroachDB or Spanner at all, for any internal data.** They
+are not dependencies, not deployment options, and not on any roadmap.
+
+They appear in this design for exactly one purpose: as **published prior art for how to
+reason about distributed data** — external consistency, TrueTime, commit timestamps,
+leaseholders, follower reads. Those papers are a reference for the *consistency model*
+when reasoning about distributed EHDB data, and nothing more. Borrowing a concept from a
+paper is not adopting the product that paper describes.
+
+All internal orchestration data — context, state, the event log, projections — lives in
+EHDB. `agents/rules/self-sufficiency.md` is the standing rule: NoETL owns its own state,
+with no external datastore to size, upgrade, quorum or recover alongside it. "No SQL
+layer" is a settled decision for EHDB, not an open question.
+
+Concretely, that rule has already decided a design question here: a global sequencer was
+evaluated for cross-region ordering and **rejected**, on two grounds — a cross-region
+round trip on the write path, and the external-service dependency the rule forbids. The
+HLC decision below is the consequence.
+
+⚠ Spanner is also named once in
+[NoETL Distributed Runtime Spec](../features/noetl_distributed_runtime_spec.md) §8, and
+that is **not** a counter-example. It appears there inside an *unimplemented candidate
+adapter* in a catalogue of possible external event-store backends — a note on what a
+Google Pub/Sub adapter would need for `expected_version`. Only the Postgres adapter is
+implemented, and internal orchestration data lives in EHDB either way. See that section
+for the same statement in its own words.
 
 If the intent ever changes to genuine adoption of an external distributed SQL store,
 that is a reversal of `self-sufficiency.md` and needs its own explicit decision rather
