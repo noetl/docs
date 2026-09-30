@@ -987,6 +987,76 @@ If a cell fails:
 | Phase 6: Multi-region federation | Multiple cells, cross-region resolution, replication manager, data-local scheduler. | A task in one region can safely consume or request replication of a resource from another region. |
 | Phase 7: Advanced compute marketplace | University/lab/company resource pools, GPU/TPU/quantum adapters, isolated worker admission. | Tenants can publish compute capacity and consume shared resources under policy. |
 
+## **Phase 6 design direction: multi-region EHDB (planned, design-only)**
+
+Design work recorded 2026-09-18 on branch `design/multiregion-ehdb`; **nothing merged,
+nothing deployed, no code change.** The plan and its twelve milestone specs (M0 through
+M8) are the authority — this section records the shape and the decisions so the
+blueprint does not describe a Phase 6 that the design has already moved past.
+
+### Prior art, and what is *not* being adopted
+
+The consistency literature this draws on is Spanner and CockroachDB: external
+consistency, TrueTime, commit timestamps, leaseholders, follower reads. Those are
+**reference points for the consistency model** and nothing more.
+
+⚠ **Neither is adopted as a datastore, and adopting one would contradict a standing
+rule.** `agents/rules/self-sufficiency.md` states that self-sufficient means NoETL owns
+its own state: EHDB *is* the database, with no external datastore to size, upgrade,
+quorum or recover alongside NoETL. A global sequencer was evaluated for exactly this
+purpose and **rejected**, on two grounds: a cross-region round trip on the write path,
+and the external-service dependency that rule forbids. "No SQL layer" is a standing
+decision for EHDB, not an open question.
+
+⚠ Note the separate, unrelated mention of Spanner in
+[NoETL Distributed Runtime Spec](../features/noetl_distributed_runtime_spec.md) — that
+is a *pluggable event-store backend* option (Pub/Sub with a version side-store), which
+is a different subject from EHDB's own storage.
+
+If the intent ever changes to genuine adoption of an external distributed SQL store,
+that is a reversal of `self-sufficiency.md` and needs its own explicit decision rather
+than an inherited assumption.
+
+### Decisions taken
+
+- **Hybrid Logical Clocks**, not bounded-ε hardware clocks (we have none) and not a
+  global sequencer. External consistency comes from restart-on-uncertainty plus a
+  **fail-closed max-offset halt** — which needs a peer set, making gossip-based
+  membership a hard prerequisite rather than a nice-to-have.
+- **Leaderful per shard, never consensus-replicated ranges.** Immutable parts do not
+  conflict, so there is nothing for consensus to arbitrate; per-shard Raft was already
+  retired in `ehdb-l0`.
+- **Re-derive** cross-region projections from the replicated log. Do not replicate
+  derived tiers.
+- **No MVCC, no two-phase commit, no distributed transactions.**
+- **Reads reach the region; writes stay in the zone** (milestones M6/M7). The
+  lease compare-and-swap is per-cluster. Home-cluster authority holds through M7;
+  embedded consensus scoped to lease records only is a candidate for M8 under its own
+  RFC. ⚠ A compare-and-swap over a store with **no agreement underneath** is ruled out
+  permanently, not deferred.
+- **Topology lives in the event log** as an event-sourced projection, so membership
+  history, recovery and query all stay inside EHDB.
+
+### ⚠⚠ The grounding correction this design produced
+
+The `primary`-serving event-log **tier does not run on `ehdb-l0`.** It dispatches to a
+reference driver over an append-only stream that has no `ehdb-l0` dependency at all.
+`L0Engine` is opened in the same process but is a **different storage stack on a
+different port**.
+
+Which means N-way replica copy, failure domains, unreplicated tracking, sealed parts
+and manifests, seal-max-age and cold-load are all real and all on the **bus** engines —
+**not** on the serving tier. This invalidated three phases of the first draft and
+required inserting a tier-backend dispatch milestone as a prerequisite.
+
+⭐ The general form, which applies well beyond this design: **"the primitive exists" and
+"the primitive is on the path" are independent questions.** A grep that finds a
+capability has not established that the capability is reached. A supporting measurement
+on the same codebase: across 129 Rust files, `hlc`, `truetime`, `external consistency`,
+`commit_ts`, `leaseholder` and `follower_read` had **zero** hits; `region` appeared in
+seven files and was in every case a segment of an opaque key string that nothing parses.
+Reading that as existing multi-region support would have been the same error.
+
 ## **Current implementation status by phase**
 
 The following table records the current development state of the NoETL distributed runtime roadmap and should be used to drive repository issues, milestone planning, and acceptance criteria.
