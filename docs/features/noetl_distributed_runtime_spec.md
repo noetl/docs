@@ -1107,10 +1107,9 @@ configuration.
 ⚠ **NoETL's own orchestration data does not live in any of them.** EHDB is NoETL's
 internal database for playbook orchestration — it holds execution context and state
 using an event-sourcing model, with the append-only event log as the source of truth.
-In particular **NoETL does not use CockroachDB or Spanner at all for any internal
-data**; the Spanner reference in item 4 is only a note on what a Pub/Sub adapter would
-need to track `expected_version`, and Spanner appears elsewhere in the architecture docs
-solely as published prior art for reasoning about distributed consistency. See
+**No external distributed database is used for any internal NoETL data.** The
+side-store note in item 4 describes only what such an adapter would need in order to
+track `expected_version`, not anything NoETL runs. See
 [the grid blueprint's Phase 6 section](../architecture/noetl_global_hybrid_cloud_grid_distributed_architecture_blueprint.md)
 and `agents/rules/self-sufficiency.md`.
 
@@ -1119,7 +1118,7 @@ Adapters (priority order):
 1. **Postgres `noetl.event`** — canonical ledger and replay source by default. Partitioned by tenant/time/execution as volumes grow.
 2. **NATS JetStream** — reference distribution stream. Subject = `noetl.events.<tenant>.<execution>.<shard>`. Durable consumers per projector / per worker. Events are persisted to the canonical ledger and mirrored to JetStream for low-latency fan-out.
 3. **Apache Kafka / Confluent / MSK** — partition key = aggregate id; offset checks for `expected_version`.
-4. **Google Pub/Sub** — topic per category, ordering key per aggregate, side store (Spanner / Firestore) for `expected_version`. ⚠ Not implemented, and not used for NoETL internal data — see the note above.
+4. **Google Pub/Sub** — topic per category, ordering key per aggregate, plus a separate strongly-consistent KV or document store to hold `expected_version` (the transport itself has no compare-and-set). ⚠ Not implemented, and not used for NoETL internal data — see the note above.
 5. **Azure Event Hubs** — Kafka-compat mode reuses Kafka adapter; native mode uses Event Hubs SDK + Blob checkpoint store.
 6. **Amazon Kinesis Data Streams** — partition key per aggregate, DynamoDB for version tracking, KCL for consumer coordination.
 

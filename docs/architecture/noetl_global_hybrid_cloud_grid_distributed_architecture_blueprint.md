@@ -1000,38 +1000,43 @@ blueprint does not describe a Phase 6 that the design has already moved past.
 context and state using an **event-sourcing model**: the append-only event log is the
 source of truth, and every other view is derived from it and rebuildable by replay.
 
-### Reference only: NoETL does not use CockroachDB or Spanner
+### Reference only: no external distributed database is used
 
-⚠⚠ **NoETL does not use CockroachDB or Spanner at all, for any internal data.** They
-are not dependencies, not deployment options, and not on any roadmap.
+⚠⚠ **No external distributed database is used for any internal NoETL data** — not as a
+dependency, not as a deployment option, not on any roadmap. All internal orchestration
+data lives in EHDB.
 
-They appear in this design for exactly one purpose: as **published prior art for how to
-reason about distributed data** — external consistency, TrueTime, commit timestamps,
-leaseholders, follower reads. Those papers are a reference for the *consistency model*
-when reasoning about distributed EHDB data, and nothing more. Borrowing a concept from a
-paper is not adopting the product that paper describes.
+What this design borrows is a **published algorithm**, described here by what it does so
+it stands on its own:
 
-All internal orchestration data — context, state, the event log, projections — lives in
-EHDB. `agents/rules/self-sufficiency.md` is the standing rule: NoETL owns its own state,
-with no external datastore to size, upgrade, quorum or recover alongside it. "No SQL
-layer" is a settled decision for EHDB, not an open question.
+- **External consistency** — the property being borrowed. A commit order that agrees
+  with real time: if operation A completes before operation B begins, every observer
+  orders A before B. Stronger than serialisability, which permits an order no observer
+  could have witnessed.
+- **A bounded-uncertainty clock.** Physical clocks are not trusted as points but as
+  *intervals*: the clock reports an explicit error bound, and a writer that must be
+  externally consistent **waits out the interval** before acknowledging, so its
+  timestamp cannot be confused with a later writer's. This is the piece NoETL does not
+  have — see the HLC decision below.
+- **Commit timestamps as the ordering key**, assigned at commit rather than at request
+  time, so the order reflects what actually happened.
+- **Per-shard lease ownership.** One replica holds a time-bounded lease to serialise
+  writes for a shard, so the common path costs no agreement round; consensus is needed
+  only to move the lease.
+- **Safe-timestamp follower reads.** A non-owning replica may serve a read at a
+  timestamp it can *prove* it has complete data for, trading freshness for locality
+  without weakening the answer.
 
-Concretely, that rule has already decided a design question here: a global sequencer was
-evaluated for cross-region ordering and **rejected**, on two grounds — a cross-region
-round trip on the write path, and the external-service dependency the rule forbids. The
-HLC decision below is the consequence.
+Borrowing a mechanism from a paper is not adopting a product that implements it.
+`agents/rules/self-sufficiency.md` is the standing rule: NoETL owns its own state, with
+no external datastore to size, upgrade, quorum or recover alongside it. "No SQL layer"
+is a settled decision for EHDB, not an open question.
 
-⚠ Spanner is also named once in
-[NoETL Distributed Runtime Spec](../features/noetl_distributed_runtime_spec.md) §8, and
-that is **not** a counter-example. It appears there inside an *unimplemented candidate
-adapter* in a catalogue of possible external event-store backends — a note on what a
-Google Pub/Sub adapter would need for `expected_version`. Only the Postgres adapter is
-implemented, and internal orchestration data lives in EHDB either way. See that section
-for the same statement in its own words.
-
-If the intent ever changes to genuine adoption of an external distributed SQL store,
-that is a reversal of `self-sufficiency.md` and needs its own explicit decision rather
-than an inherited assumption.
+Concretely, that rule has already decided a design question here: a **global sequencer**
+was evaluated for cross-region ordering and **rejected**, on two grounds — a
+cross-region round trip on the write path, and the external-service dependency the rule
+forbids. The HLC decision below is the consequence, and it is the deliberate trade for
+lacking a bounded-uncertainty clock.
 
 ### Decisions taken
 
