@@ -1,0 +1,63 @@
+# Build the documentation site on every pull request.
+#
+# WHY THIS EXISTS: `deploy-cloudflare-pages.yml` builds the site only on `push` to
+# main, so a PR that breaks the Docusaurus build merges green and the breakage
+# surfaces on main, during a deploy. That happened: an MDX explicit-heading-id
+# (`{#custom-id}`) took the build from exit 0 to exit 1 through micromark/acorn and
+# had to be reverted — noetl/ai-meta#364. A build on the PR catches that before the
+# merge, which is the whole point of this file.
+#
+# This duplicates only the BUILD half of the deploy workflow. It does not deploy and
+# needs no secrets, so it is safe to run on pull requests.
+name: pr-build
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-pr-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: docusaurus build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # The same command the deploy workflow runs, so a green PR means the deploy's
+      # build step will not be the thing that fails. Built ONCE and tee'd, because
+      # the link report below reads this log rather than rebuilding.
+      - name: Build documentation
+        run: set -o pipefail; npm run build 2>&1 | tee /tmp/build.log
+
+      # Docusaurus treats broken internal links as WARNINGS, so they merge silently
+      # and are invisible unless something prints them. Non-blocking: the existing
+      # corpus has not been swept yet (noetl/ai-meta#364), and failing on a backlog
+      # would make this job something people skip rather than read.
+      - name: Report broken-link warnings (non-blocking)
+        if: always()
+        run: |
+          set -uo pipefail
+          n=$(grep -ciE "broken link|broken anchor" /tmp/build.log 2>/dev/null || true)
+          echo "broken-link/anchor warning lines: ${n:-0}   <- the denominator"
+          if [ "${n:-0}" -gt 0 ]; then
+            grep -iE -A2 "broken link|broken anchor" /tmp/build.log | head -60
+          else
+            echo "none in this build"
+          fi
