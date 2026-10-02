@@ -987,6 +987,97 @@ If a cell fails:
 | Phase 6: Multi-region federation | Multiple cells, cross-region resolution, replication manager, data-local scheduler. | A task in one region can safely consume or request replication of a resource from another region. |
 | Phase 7: Advanced compute marketplace | University/lab/company resource pools, GPU/TPU/quantum adapters, isolated worker admission. | Tenants can publish compute capacity and consume shared resources under policy. |
 
+## **Phase 6 design direction: multi-region EHDB (planned, design-only)**
+
+Design work recorded 2026-09-18 on branch `design/multiregion-ehdb`; **nothing merged,
+nothing deployed, no code change.** The plan and its twelve milestone specs (M0 through
+M8) are the authority — this section records the shape and the decisions so the
+blueprint does not describe a Phase 6 that the design has already moved past.
+
+### What EHDB is
+
+**EHDB is NoETL's internal database for playbook orchestration.** It holds execution
+context and state using an **event-sourcing model**: the append-only event log is the
+source of truth, and every other view is derived from it and rebuildable by replay.
+
+### Reference only: no external distributed database is used
+
+⚠⚠ **No external distributed database is used for any internal NoETL data** — not as a
+dependency, not as a deployment option, not on any roadmap. All internal orchestration
+data lives in EHDB.
+
+What this design borrows is a **published algorithm**, described here by what it does so
+it stands on its own:
+
+- **External consistency** — the property being borrowed. A commit order that agrees
+  with real time: if operation A completes before operation B begins, every observer
+  orders A before B. Stronger than serialisability, which permits an order no observer
+  could have witnessed.
+- **A bounded-uncertainty clock.** Physical clocks are not trusted as points but as
+  *intervals*: the clock reports an explicit error bound, and a writer that must be
+  externally consistent **waits out the interval** before acknowledging, so its
+  timestamp cannot be confused with a later writer's. This is the piece NoETL does not
+  have — see the HLC decision below.
+- **Commit timestamps as the ordering key**, assigned at commit rather than at request
+  time, so the order reflects what actually happened.
+- **Per-shard lease ownership.** One replica holds a time-bounded lease to serialise
+  writes for a shard, so the common path costs no agreement round; consensus is needed
+  only to move the lease.
+- **Safe-timestamp follower reads.** A non-owning replica may serve a read at a
+  timestamp it can *prove* it has complete data for, trading freshness for locality
+  without weakening the answer.
+
+Borrowing a mechanism from a paper is not adopting a product that implements it.
+`agents/rules/self-sufficiency.md` is the standing rule: NoETL owns its own state, with
+no external datastore to size, upgrade, quorum or recover alongside it. "No SQL layer"
+is a settled decision for EHDB, not an open question.
+
+Concretely, that rule has already decided a design question here: a **global sequencer**
+was evaluated for cross-region ordering and **rejected**, on two grounds — a
+cross-region round trip on the write path, and the external-service dependency the rule
+forbids. The HLC decision below is the consequence, and it is the deliberate trade for
+lacking a bounded-uncertainty clock.
+
+### Decisions taken
+
+- **Hybrid Logical Clocks**, not bounded-ε hardware clocks (we have none) and not a
+  global sequencer. External consistency comes from restart-on-uncertainty plus a
+  **fail-closed max-offset halt** — which needs a peer set, making gossip-based
+  membership a hard prerequisite rather than a nice-to-have.
+- **Leaderful per shard, never consensus-replicated ranges.** Immutable parts do not
+  conflict, so there is nothing for consensus to arbitrate; per-shard Raft was already
+  retired in `ehdb-l0`.
+- **Re-derive** cross-region projections from the replicated log. Do not replicate
+  derived tiers.
+- **No MVCC, no two-phase commit, no distributed transactions.**
+- **Reads reach the region; writes stay in the zone** (milestones M6/M7). The
+  lease compare-and-swap is per-cluster. Home-cluster authority holds through M7;
+  embedded consensus scoped to lease records only is a candidate for M8 under its own
+  RFC. ⚠ A compare-and-swap over a store with **no agreement underneath** is ruled out
+  permanently, not deferred.
+- **Topology lives in the event log** as an event-sourced projection, so membership
+  history, recovery and query all stay inside EHDB.
+
+### ⚠⚠ The grounding correction this design produced
+
+The `primary`-serving event-log **tier does not run on `ehdb-l0`.** It dispatches to a
+reference driver over an append-only stream that has no `ehdb-l0` dependency at all.
+`L0Engine` is opened in the same process but is a **different storage stack on a
+different port**.
+
+Which means N-way replica copy, failure domains, unreplicated tracking, sealed parts
+and manifests, seal-max-age and cold-load are all real and all on the **bus** engines —
+**not** on the serving tier. This invalidated three phases of the first draft and
+required inserting a tier-backend dispatch milestone as a prerequisite.
+
+⭐ The general form, which applies well beyond this design: **"the primitive exists" and
+"the primitive is on the path" are independent questions.** A grep that finds a
+capability has not established that the capability is reached. A supporting measurement
+on the same codebase: across 129 Rust files, `hlc`, `truetime`, `external consistency`,
+`commit_ts`, `leaseholder` and `follower_read` had **zero** hits; `region` appeared in
+seven files and was in every case a segment of an opaque key string that nothing parses.
+Reading that as existing multi-region support would have been the same error.
+
 ## **Current implementation status by phase**
 
 The following table records the current development state of the NoETL distributed runtime roadmap and should be used to drive repository issues, milestone planning, and acceptance criteria.
