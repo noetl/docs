@@ -16,4 +16,4 @@ workbook:
 How workbook entries are expanded/invoked is runtime/compiler-defined. Keep workbook entries in the same `kind:` task shape used in `step.tool` so they can be inlined/compiled safely.
 
 ## See also
-- `documentation/docs/reference/dsl/playbook_structure.md`
+- `/docs/reference/dsl/playbook_structure`

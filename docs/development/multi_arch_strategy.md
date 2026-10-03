@@ -133,7 +133,7 @@ Platform-agnostic - build once, copy to both images.
    - Test on Mac and Linux
 
 3. **Update documentation** (completed)
-   - Created `documentation/docs/development/multi_arch_builds.md`
+   - Created `/docs/development/multi_arch_builds`
    - Documents local dev setup, multi-arch builds, troubleshooting
 
 4. **CI/CD integration** (2-4 hours)

@@ -66,5 +66,5 @@ Standard reminders:
 ---
 
 ## See also
-- Snowflake tool: `documentation/docs/reference/tools/snowflake.md`
-- Postgres tool: `documentation/docs/reference/tools/postgres.md`
+- Snowflake tool: `/docs/reference/tools/snowflake`
+- Postgres tool: `/docs/reference/tools/postgres`

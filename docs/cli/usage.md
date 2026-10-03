@@ -409,8 +409,8 @@ noetl context use kind-cluster
 noetl context set-runtime distributed
 
 # Now register playbooks and credentials
-noetl register playbook tests/fixtures/playbooks/
-noetl register credential tests/fixtures/credentials/
+noetl register playbook --directory tests/fixtures/playbooks
+noetl register credential --directory tests/fixtures/credentials
 ```
 
 **Switch between local development and distributed execution:**

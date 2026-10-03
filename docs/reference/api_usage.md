@@ -177,7 +177,7 @@ The CLI wraps the API with a convenient interface:
 
 ```bash
 # Register playbook
-noetl register playbook ./my_playbook.yaml
+noetl register playbook --file ./my_playbook.yaml
 
 # Execute playbook (distributed mode)
 noetl run examples/my_playbook -r distributed --set key=value
@@ -186,7 +186,7 @@ noetl run examples/my_playbook -r distributed --set key=value
 noetl run ./my_playbook.yaml --set key=value
 
 # Check execution
-noetl execution status 12345
+noetl status 12345
 ```
 
 ## OpenAPI Documentation

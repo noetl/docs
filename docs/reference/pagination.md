@@ -21,8 +21,8 @@ If you need high parallelism and ordered paging:
 - **inner ordered pagination stream** (sequential per item) inside each iteration lease
 
 For the full standard walkthrough + example, see:
-- `documentation/docs/reference/dsl/pagination.md`
-- `documentation/docs/reference/dsl/step_spec.md`
+- `/docs/reference/dsl/pagination`
+- `/docs/reference/dsl/step_spec`
 
 ---
 

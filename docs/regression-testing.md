@@ -100,11 +100,10 @@ NoETL's asynchronous, event-driven architecture requires specific testing patter
 - step: wait_for_completion
   tool:
     kind: python
-    libs:
-      asyncio: asyncio
     args: {}
     code: |
-      # Pure Python code - no imports, no def main()
+      # No def main() wrapper needed; import what you use.
+      import asyncio
       await asyncio.sleep(3)  # Ensure events persisted
       result = {"status": "success", "data": {"waited": True}}
   next:
@@ -369,11 +368,10 @@ Add a new test to `master_regression_test.yaml`. The wait step ensures all child
   desc: "Ensure all child execution events are persisted"
   tool:
     kind: python
-    libs:
-      asyncio: asyncio
     args: {}
     code: |
-      # Pure Python code - no imports, no def main()
+      # No def main() wrapper needed; import what you use.
+      import asyncio
       await asyncio.sleep(3)  # Adjust based on playbook complexity
       result = {"status": "success", "data": {"waited": True}}
   next:
@@ -523,11 +521,10 @@ ORDER BY e2.created_at;
 - step: wait_step
   tool:
     kind: python
-    libs:
-      asyncio: asyncio
     args: {}
     code: |
-      # Pure Python code - no imports, no def main()
+      # No def main() wrapper needed; import what you use.
+      import asyncio
       await asyncio.sleep(3)  # Buffer for event writes
       result = {"status": "success", "data": {"waited": True}}
   next: [step: validate]
@@ -689,11 +686,10 @@ Skip tests based on conditions:
 - step: check_environment
   tool:
     kind: python
-    libs:
-      os: os
     args: {}
     code: |
-      # Pure Python code - no imports, no def main()
+      # No def main() wrapper needed; import what you use.
+      import os
       result = {
           "status": "success",
           "data": {"skip_slow_tests": os.getenv("FAST_MODE") == "true"}

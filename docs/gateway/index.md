@@ -9,7 +9,7 @@ description: NoETL Gateway - API gateway for authentication and GraphQL proxy
 The NoETL Gateway is a Rust-based API gateway that provides authentication, authorization, GraphQL compatibility, and authenticated REST proxy access to the NoETL platform.
 
 :::info Source Code
-For development documentation, local setup, and code details, see the [Gateway Crate README](https://github.com/noetl/noetl/blob/master/crates/gateway/README.md).
+For development documentation, local setup, and code details, see the [Gateway Crate README](https://github.com/noetl/noetl/blob/main/crates/gateway/README.md).
 :::
 
 ## Architecture
@@ -157,7 +157,7 @@ curl http://localhost:8091/health
 
 ## Related Resources
 
-- **Source Code**: [`crates/gateway/`](https://github.com/noetl/noetl/tree/master/crates/gateway)
-- **Helm Chart**: [`automation/helm/gateway/`](https://github.com/noetl/noetl/tree/master/automation/helm/gateway)
-- **UI Fixtures**: [`tests/fixtures/gateway_ui/`](https://github.com/noetl/noetl/tree/master/tests/fixtures/gateway_ui)
-- **Auth Playbooks**: [`tests/fixtures/playbooks/api_integration/auth0/`](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/api_integration/auth0)
+- **Source Code**: [`crates/gateway/`](https://github.com/noetl/noetl/tree/main/crates/gateway)
+- **Helm Chart**: [`automation/helm/gateway/`](https://github.com/noetl/noetl/tree/main/automation/helm/gateway)
+- **UI Fixtures**: [`tests/fixtures/gateway_ui/`](https://github.com/noetl/noetl/tree/main/tests/fixtures/gateway_ui)
+- **Auth Playbooks**: [`tests/fixtures/playbooks/api_integration/auth0/`](https://github.com/noetl/noetl/tree/main/tests/fixtures/playbooks/api_integration/auth0)

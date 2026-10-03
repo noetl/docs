@@ -34,6 +34,6 @@ current DSL uses HTTP as a **tool task** (`kind: http`) inside `step.tool`, with
 ```
 
 ## See also
-- standard HTTP tool: `documentation/docs/reference/tools/http.md`
-- Retry semantics: `documentation/docs/reference/retry_mechanism.md`
-- Pagination pattern: `documentation/docs/reference/pagination_v2.md`
+- standard HTTP tool: `/docs/reference/tools/http`
+- Retry semantics: `/docs/reference/retry_mechanism`
+- Pagination pattern: `/docs/reference/pagination`

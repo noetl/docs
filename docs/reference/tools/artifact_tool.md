@@ -90,5 +90,5 @@ Store `data` to a target `uri` and return metadata:
 ---
 
 ## See also
-- Result storage model: `documentation/docs/reference/result_storage.md`
-- ResultRef / TempRef: `documentation/docs/reference/tempref_storage.md`
+- Result storage model: `/docs/reference/result_storage`
+- ResultRef / TempRef: `/docs/reference/tempref_storage`

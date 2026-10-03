@@ -13,7 +13,8 @@ Python task modes (implementation-defined, common in NoETL runtimes):
 - **Legacy mode:** define `main(...)` and return a JSON-serializable object
 
 Standard reminders:
-- Use `workload` for immutable inputs, `ctx` for execution-scoped state, `iter` for iteration-scoped state.
+- Use `workload` for immutable inputs, `ctx` for execution-scoped state, `iter` for iteration-scoped state — these are **template** names, resolved before the code runs.
+- ⚠ They are **not** in scope inside `code:`. The code sees each input key as a bare global, plus `args` / `input_data` (the whole mapping), `variables`, `execution_id` and `step`. Bind anything the code needs through `input:` (or its legacy alias `args:`).
 - Use `task.spec.policy.rules` for retry/fail/jump/break/continue.
 
 ---
@@ -56,11 +57,11 @@ Python also supports the standard `script` descriptor (`uri` + `source`) to load
       dataset: "{{ workload.dataset }}"
 ```
 
-See `documentation/docs/reference/script_execution_v2.md` for the script descriptor.
+See `/docs/reference/script_execution` for the script descriptor.
 
 ---
 
 ## See also
-- Variables/scopes: `documentation/docs/reference/variables_v2.md`
-- Retry semantics: `documentation/docs/reference/retry_mechanism.md`
-- Result storage (reference-first): `documentation/docs/reference/result_storage.md`
+- Variables/scopes: `/docs/reference/variables`
+- Retry semantics: `/docs/reference/retry_mechanism`
+- Result storage (reference-first): `/docs/reference/result_storage`

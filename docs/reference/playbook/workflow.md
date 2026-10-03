@@ -49,5 +49,5 @@ workflow:
 ```
 
 ## References
-- `documentation/docs/reference/dsl/playbook_structure.md`
-- `documentation/docs/reference/dsl/step_spec.md`
+- `/docs/reference/dsl/playbook_structure`
+- `/docs/reference/dsl/step_spec`

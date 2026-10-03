@@ -69,5 +69,5 @@ Policies can branch on these helpers for retry vs fail-fast decisions.
 
 For large query results, prefer externalization and pass references downstream.
 See:
-- `documentation/docs/reference/result_storage.md`
-- `documentation/docs/reference/dsl/runtime_results.md`
+- `/docs/reference/result_storage`
+- `/docs/reference/dsl/runtime_results`

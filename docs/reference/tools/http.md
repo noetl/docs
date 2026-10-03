@@ -85,7 +85,7 @@ Two common patterns:
 
 If you template secret bytes into headers, ensure inputs are redacted in logs/events.
 
-See `documentation/docs/reference/auth_and_keychain_reference.md`.
+See `/docs/reference/auth_and_keychain_reference`.
 
 ---
 
@@ -108,8 +108,8 @@ Align your templates/policies to the wrapper used by your HTTP executor.
 
 current DSL pagination is a streaming pipeline pattern using `jump`/`break` and `iter.*` state.
 See:
-- `documentation/docs/reference/pagination_v2.md`
-- `documentation/docs/reference/dsl/pagination.md`
+- `/docs/reference/pagination`
+- `/docs/reference/dsl/pagination`
 
 ---
 
@@ -130,4 +130,4 @@ For large bodies, configure `spec.result` to externalize payloads and extract sm
             as: has_more
 ```
 
-See `documentation/docs/reference/result_storage.md`.
+See `/docs/reference/result_storage`.
