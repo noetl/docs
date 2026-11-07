@@ -23,6 +23,7 @@ const sidebars: SidebarsConfig = {
         'getting-started/quickstart',
         'getting-started/installation',
         'getting-started/architecture',
+        'architecture/deployment_modes',
         'getting-started/message-learning',
         'getting-started/design-philosophy',
         'getting-started/semantic-pipeline',

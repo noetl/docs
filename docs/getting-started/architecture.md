@@ -7,6 +7,10 @@ description: NoETL system architecture and components
 # Architecture
 
 NoETL uses a server-worker architecture for distributed workflow execution.
+This page describes the **distributed** mode: the clustered control loop of
+gateway, server, worker pools and EHDB. The same playbooks also run without a
+cluster, in-process through the CLI or as a resident `noetl subscribe` daemon.
+See [Deployment Modes](/docs/architecture/deployment_modes).
 
 ## Component Overview
 
@@ -66,10 +70,45 @@ execution history:
   relayed to the worker's data-plane query port.
 
 EHDB is designed to progressively absorb the platform roles currently split
-across PostgreSQL, NATS JetStream, and external object stores — event log,
-projection, KV, object, and vector are its five engines. The event-log and command-bus
-engines (below) are cut over in production today; projection, KV, object, and
-vector engines are mid-migration (shadow-mirrored, not yet authoritative). See
+across PostgreSQL, NATS JetStream, and external object stores. It owns **four
+engines**: **event log**, **projection**, **KV** and **object**. Vectorized
+retrieval and analytical views are projections, not separate engines. The
+standalone OLAP and ANN/vector engines were *removed* from scope, and nothing
+external replaces them. The catalog is a projection too.
+
+The event log and the L1 feed (the command bus, below) are cut over in
+production today. The projection, KV and object engines are mid-migration:
+shadow-mirrored, and not yet authoritative.
+
+**Single writer.** The event log's total order assumes at most one appender
+per shard. Today that is enforced by `replicas: 1` on the EHDB writer
+StatefulSet (`noetl-cmdbus-writer`). A Kubernetes-Lease election, with the
+Lease's `leaseTransitions` as the fencing epoch, and a write fence are built,
+but both are off by default and not yet authoritative. See
+[Deployment Modes](/docs/architecture/deployment_modes#distributed-the-clustered-control-loop).
+
+**On-disk compatibility.** EHDB's manifest (its catalog of immutable parts)
+changes by **expand first**:
+
+1. Release A teaches readers the new shape while writers keep the old bytes.
+2. Release B switches writers per store, behind an environment variable, only
+   after every reader runs A.
+
+Since v0.15.1, a reader that meets a well-formed manifest it can't decode
+**refuses to open the store** rather than falling back silently. The first
+change made under this rule is **bloom scheme 2** (`EHDB_BLOOM_SCHEME=2`):
+
+- Each bloom probe is an independent SplitMix64 mix, in place of the legacy
+  double-hashing scheme, which could degenerate until every probe hit one bit.
+- Filters are sized by the number of distinct keys.
+- It is serialized as `"scheme":2` in the manifest.
+
+Readers shipped in v0.15.0. Writers were armed on NoETL production on
+2026-11-07, first for the server's embedded stores and then for the
+command-bus writer. The code default is still the legacy scheme. See the
+[manifest-format compatibility spec](https://github.com/noetl/ehdb/blob/main/docs/spec/manifest-format-compat.md).
+
+See
 [noetl/ehdb](https://github.com/noetl/ehdb) and its
 [wiki](https://github.com/noetl/ehdb/wiki) for the live, continuously-updated
 cutover status per engine — this page describes the architectural shape, not
@@ -79,15 +118,46 @@ The DSL and playbooks stay backend-neutral throughout this migration;
 infrastructure configuration selects the adapters, not the workflow
 definition.
 
+### ehgraph (Topology Graph)
+
+[ehgraph](https://github.com/noetl/ehgraph) is NoETL's topology database: one
+instance per *domain*, holding nodes, edges and their relationships, and
+exposed as tools over MCP and HTTP. One engine runs in two modes, with the same
+log format, tools, grants, sessions and budgets in both:
+
+- **Embedded.** A host process opens it in-process and mounts its router. The
+  `noetl-cluster` domain is embedded in `noetl-server` at
+  `/ehgraph/noetl-cluster`. It is **off unless `NOETL_EHGRAPH_EMBEDDED=true`**,
+  and refuses to open unless the host declares itself the single writer
+  (`host_replicas = 1`). An embedded domain has no StatefulSet of its own:
+  rolling the graph is rolling the server.
+- **Standalone.** `ehgraph serve`, deployed as a `replicas: 1` StatefulSet.
+  The `network` domain (qnetmon) runs this way.
+
+ehgraph keeps its own append-only log and snapshots in its data directory. It
+does **not** store on EHDB; it only reuses EHDB's frame shape. Today each
+domain has one primary with a single writer. Read replicas and warm standby
+need a Lease election and are on the roadmap, not built. See
+[Embedding](https://github.com/noetl/ehgraph/blob/main/docs/wiki/Embedding.md)
+and [Roadmap](https://github.com/noetl/ehgraph/blob/main/docs/wiki/Roadmap.md).
+
 ### Worker Pools
 
 Stateless background executors:
-- Subscribe to the EHDB feed (L1 command bus) for task notifications
+- Subscribe to the EHDB feed (L1 command bus) for task notifications. A
+  worker's pool comes from its feed filter subject
+  (`NOETL_FEED_FILTER_SUBJECT`), and it refuses to start without one.
 - Retrieve task details via Control Plane API
 - Run workflow steps and tools (HTTP, SQL, Python, etc.)
 - Report events back via Control Plane API
-- Scale horizontally based on load
+- Scale horizontally with KEDA on EHDB feed lag (`ehdb_feed_subject_lag`)
 - Isolated execution environments
+
+Two pools run in production. The **`shared`** pool runs user playbooks. The
+**`system`** pool runs system playbooks and the orchestration drive, and is the
+only pool sharded by subject. Playbooks under `subscription/` route to a
+`subscription` pool, and registered subscriptions run on the
+`noetl-subscription-runtime` Deployment.
 
 ### EHDB Feed (L1 Command Bus)
 
@@ -136,14 +206,23 @@ then successfully read the same rows through durable fallback.
 ### Catalog & Credentials
 
 Storage for workflow definitions:
-- **Catalog**: Playbooks, versions, schemas, tool definitions
+- **Catalog**: versioned resources registered through `/api/catalog/register`.
+  There are six kinds, constrained by the `noetl.resource` table:
+  `playbook`, `credential`, `mcp`, `agent`, `memory` and `subscription`.
+  `subscription` is the only kind with its own validation; its sources are
+  `pubsub`, `nats`, `kafka` and `webhook`. PostgreSQL (`noetl.catalog`) is
+  still the read authority. The EHDB catalog log is written alongside it in
+  shadow.
 - **Credentials**: Connection configs and tokens with scoped access
 
 ### Event Bus and Telemetry
 
 Observability infrastructure:
-- Every step emits structured events (start/finish/errors, durations)
-- Events exported to analytics backends (ClickHouse, VictoriaMetrics)
+- Every step emits structured events (start/finish/errors, durations). They
+  land on EHDB's event log, which is NoETL's own operational record.
+- Metrics go to VictoriaMetrics.
+- ClickHouse is a **business-data** store that NoETL provisions and feeds, for
+  example network logs. NoETL's core events and state never depend on it.
 - Vector stores (Qdrant) for AI-assisted optimization and semantic search
 
 ### Storage/Compute Integrations
@@ -229,7 +308,7 @@ quantum-specific parts of that pipeline.
 ```
 ┌─────────────┐     ┌─────────────┐     ┌───────────────┐     ┌─────────────┐
 │   Web UI    │────▶│   Gateway   │────▶│ Control Plane │────▶│  EHDB Feed  │
-│  (GraphQL)  │     │   (Rust)    │     │   (FastAPI)   │     │(L1 cmd bus) │
+│  (GraphQL)  │     │   (Rust)    │     │    (Rust)     │     │(L1 cmd bus) │
 └─────────────┘     └─────────────┘     └───────┬───────┘     └──────┬──────┘
                                                 │                    │
 ┌─────────────┐                                 │              ┌─────▼─────┐
@@ -312,8 +391,10 @@ All execution state is persisted as events in EHDB's authoritative event log:
 
 ### Horizontal Scaling
 
-- **Workers**: Add more worker replicas for throughput
-- **Server**: Single server coordinates all executions
+- **Workers**: KEDA adds worker replicas per pool on EHDB feed lag
+- **Server**: One server (a `replicas: 1` StatefulSet) coordinates all
+  executions. A second replica would mint duplicate snowflake ids, and the
+  server has no leader election.
 - **Database**: PostgreSQL handles concurrent access to control-plane metadata
   and the current projection/read-model view; EHDB's event-log engine handles
   the authoritative event log, single-writer-per-shard with a total order
@@ -334,6 +415,7 @@ Configure worker pools for different resource types:
 
 ## See Also
 
+- [Deployment Modes](/docs/architecture/deployment_modes) - CLI, daemon and distributed, and how IaC state moves between them
 - [Design Philosophy](/docs/getting-started/design-philosophy) - Architectural principles
 - [Observability Services](/docs/reference/observability_services) - Monitoring stack
 - [Multiple Workers](/docs/development/multiple_workers) - Worker configuration

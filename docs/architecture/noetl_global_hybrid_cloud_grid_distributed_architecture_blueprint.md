@@ -1799,6 +1799,27 @@ When the user runs `noetl run --runtime local --offline foo.yaml`, the push step
 
 - A new `R-1.4` phase under § H.5 once R-1.1 PR-2b lands.  Concrete scope: ~300 LoC for the `LocalEventBuffer` writer + ~150 LoC for the `noetl push` CLI command + Feather-aware batch ingestion on the server side (Rust, R-4).  Until R-4 the server-side ingestion stays Python; the Python `batch.accepted` path gains a content-type sniff to decode Arrow file bytes when it sees `application/vnd.apache.arrow.file`.
 
+> **Status (2026-11-07): R-1.4 shipped**
+>
+> R-1.4 shipped in noetl/cli#102 (`noetl buffer`, `noetl run --event-buffer`,
+> `noetl push`) and noetl/server#559 (the Rust Arrow ingest on
+> `/api/events/batch`). Where the implementation departs from this section:
+>
+> - **One footer per file.** An Arrow IPC file has exactly one footer, so
+>   "chunk-boundary footers" (§ H.11.2) isn't possible as written. Each flush
+>   rewrites the whole file to a temp path, fsyncs it and renames it into place,
+>   so a file on disk is always complete.
+> - **Not written yet.** `commands.feather` and `payloads/` are not written.
+>   `payload_ref` is reserved for them.
+> - **Event log only.** The server ingest is off unless
+>   `NOETL_EVENTS_ARROW_INGEST=enabled`. It appends to the **EHDB event-log tier
+>   only** (`mirror_source: "local_push"`), never to `noetl.event`, and never
+>   triggers orchestration. This differs from the "one transaction" apply
+>   described in § H.11.5.
+>
+> See [Deployment Modes](./deployment_modes#the-feather-event-buffer) and
+> noetl/ops ADR-0007 (in review in noetl/ops#361).
+
 ## **H.12 Dynamically-generated playbook execution units**
 
 ### **H.12.1 The scenario**
