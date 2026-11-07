@@ -8,6 +8,26 @@ description: Manage cloud infrastructure using NoETL playbooks - a Terraform/Cro
 
 Infrastructure as Playbook (IaP) is NoETL's approach to cloud infrastructure management, combining the declarative nature of Terraform with the Kubernetes-native reconciliation patterns of Crossplane, all within the familiar NoETL playbook DSL.
 
+> **Current state model (2026-11)**
+>
+> This page describes the **original** `noetl iap` design, which keeps state in
+> a mutable DuckDB file (`.noetl/state.duckdb`) synced whole to GCS. That
+> command still ships, but the platform's IaC state model has since moved to an
+> **append-only fact log**:
+>
+> - Every resource change is a `ProviderFact`, and current state is a
+>   rebuildable fold of those facts.
+> - **Phase 0 (bootstrap).** The CLI keeps per-execution Arrow Feather files on
+>   disk, with an object-store backup.
+> - **Phase 1 (steady state).** The EHDB event log, KV, projections and
+>   ehgraph. Phase 1 is designed but not yet wired.
+>
+> The typed `kind: provider` tool and `noetl provider` (plan, drift, orphans,
+> adopt) share that model. See
+> [Deployment Modes → Infrastructure state](/docs/architecture/deployment_modes#infrastructure-state-across-the-modes)
+> and the decision records in [noetl/ops#361](https://github.com/noetl/ops/pull/361)
+> (ADR-0001 to ADR-0007, in review).
+
 ## Overview
 
 IaP enables you to:

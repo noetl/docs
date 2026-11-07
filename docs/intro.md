@@ -49,6 +49,11 @@ NoETL follows a server-worker architecture:
 - **CLI**: Runs playbooks directly (locally in-process by default), and manages
   server/worker lifecycle and catalog operations
 
+The same playbook runs in three deployment modes: in-process through the CLI
+(`noetl run -r local`), as a resident single-host daemon (`noetl subscribe`),
+or on the distributed runtime in Kubernetes. See
+[Deployment Modes](/docs/architecture/deployment_modes).
+
 For detailed architecture, see [Architecture](/docs/getting-started/architecture).
 
 ## Design Philosophy
