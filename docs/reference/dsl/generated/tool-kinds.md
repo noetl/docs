@@ -7,7 +7,7 @@ description: Every tool.kind the NoETL parser accepts, and which are behind a fl
 # Tool kinds
 
 :::info Generated
-Generated from [noetl/server@f939ad4d9f59](https://github.com/noetl/server/tree/f939ad4d9f5910b7e669cbb6b87c99742fd547bb/orchestrate-core/schema) (orchestrate-core 0.1.0). **Do not edit**: change the Rust types and regenerate. Machine-readable copies live on [noetl.ai](https://noetl.ai).
+Generated from [noetl/server@5cf0712da626](https://github.com/noetl/server/tree/5cf0712da626a28af9f73f833d48d7c6e5c13140/orchestrate-core/schema) (orchestrate-core 0.1.0). **Do not edit**: change the Rust types and regenerate. Machine-readable copies live on [noetl.ai](https://noetl.ai).
 :::
 
 Enabled under default gates. A gated kind is rejected at registration unless its flag is
