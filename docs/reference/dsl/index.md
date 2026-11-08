@@ -8,6 +8,11 @@ description: current DSL reference for NoETL playbooks (noetl.io/v2)
 
 The NoETL Domain-Specific Language (DSL) defines how playbooks are structured and executed under the **current DSL** model.
 
+## Generated reference
+
+The exact current grammar and tool kinds, generated from the code that parses playbooks:
+[Generated DSL reference](./generated/). The guides below explain the concepts.
+
 ## Start Here
 
 - [NoETL standard Step Spec (v10)](./step_spec) - Latest decisions (policies, routing, loops, spec layering)

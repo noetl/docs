@@ -1,0 +1,1 @@
+- 2026-11-07 DSL-KB P4: generated DSL reference (docs/reference/dsl/generated) from noetl/server orchestrate-core/schema + nightly/dispatch regen workflow.
