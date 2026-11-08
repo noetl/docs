@@ -43,7 +43,7 @@ Standard reminders:
                   then: { do: break }
 ```
 
-> The container tool uses the standard `script` descriptor (`uri` + `source`). See `documentation/docs/reference/script_execution_v2.md`.
+> The container tool uses the standard `script` descriptor (`uri` + `source`). See `/docs/reference/script_execution`.
 
 ---
 
@@ -64,5 +64,5 @@ Standard reminders:
 ---
 
 ## See also
-- Script loading / script jobs: `documentation/docs/reference/script_execution_v2.md`
-- Result storage (reference-first): `documentation/docs/reference/result_storage.md`
+- Script loading / script jobs: `/docs/reference/script_execution`
+- Result storage (reference-first): `/docs/reference/result_storage`

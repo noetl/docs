@@ -29,9 +29,9 @@ noetl run ./playbook.yaml -r local --dry-run
 - **One conditional keyword:** `when` (no legacy `eval`/`expr`/`case`)
 
 Standard references:
-- `documentation/docs/reference/dsl/step_spec.md`
-- `documentation/docs/reference/dsl/playbook_structure.md`
-- `documentation/docs/reference/dsl/implement_agent_instructions.md`
+- `/docs/reference/dsl/step_spec`
+- `/docs/reference/dsl/playbook_structure`
+- `/docs/reference/dsl/implement_agent_instructions`
 
 ## Deprecated legacy features (not Standard)
 
@@ -94,8 +94,8 @@ workflow:
 ## Tool support
 
 Tool availability in local mode is runtime-defined. Prefer documenting and validating against the standard tool docs:
-- `documentation/docs/reference/tools/index.md`
-- `documentation/docs/reference/tools/http.md`
-- `documentation/docs/reference/tools/postgres.md`
-- `documentation/docs/reference/tools/python.md`
-- `documentation/docs/reference/tools/duckdb.md`
+- `/docs/reference/tools/index`
+- `/docs/reference/tools/http`
+- `/docs/reference/tools/postgres`
+- `/docs/reference/tools/python`
+- `/docs/reference/tools/duckdb`

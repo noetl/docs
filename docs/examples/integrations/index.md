@@ -10,9 +10,9 @@ This section contains examples of integrating NoETL with various external APIs a
 
 :::tip Working Examples
 Complete integration playbooks are available in the repository:
-- [tests/fixtures/playbooks/api_integration/](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/api_integration) - Auth0, webhook handlers
-- [tests/fixtures/playbooks/oauth/](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/oauth) - Google Cloud, Interactive Brokers
-- [tests/fixtures/playbooks/examples/](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/examples) - HTTP, variables, weather
+- [tests/fixtures/playbooks/api_integration/](https://github.com/noetl/noetl/tree/main/tests/fixtures/playbooks/api_integration) - Auth0, webhook handlers
+- [tests/fixtures/playbooks/oauth/](https://github.com/noetl/noetl/tree/main/tests/fixtures/playbooks/oauth) - Google Cloud, Interactive Brokers
+- [tests/fixtures/playbooks/examples/](https://github.com/noetl/noetl/tree/main/tests/fixtures/playbooks/examples) - HTTP, variables, weather
 :::
 
 ## Available Integrations

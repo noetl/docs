@@ -13,8 +13,8 @@ current DSL treats retry as **task outcome policy**, not a special step-level fe
 - Tool implementations MAY still offer internal retry knobs under `task.spec`, but standard orchestration retry is policy-driven so it remains deterministic and observable.
 
 Related standard docs:
-- `documentation/docs/reference/dsl/step_spec.md`
-- `documentation/docs/reference/dsl/spec.md`
+- `/docs/reference/dsl/step_spec`
+- `/docs/reference/dsl/spec`
 
 ---
 
@@ -228,7 +228,7 @@ Retry is one control action in the same task-policy mechanism used for:
 - **pagination streams**: `do: jump` back to `fetch_page` until `do: break`
 - **polling**: `do: retry` (bounded) or `do: jump` to a poll task with explicit delay handling
 
-See `documentation/docs/reference/dsl/pagination.md` for standard pagination.
+See `/docs/reference/dsl/pagination` for standard pagination.
 
 ---
 

@@ -7,6 +7,6 @@ current DSL expresses iteration as a **step modifier**, not a step type:
 - streaming/pagination uses task policy (`do: jump` / `do: break`)
 
 ## See also
-- Loop iteration guide: `documentation/docs/reference/iterator_v3.md`
-- Pagination pattern: `documentation/docs/reference/pagination_v2.md`
-- Step spec: `documentation/docs/reference/dsl/step_spec.md`
+- Loop iteration guide: `/docs/reference/iterator`
+- Pagination pattern: `/docs/reference/pagination`
+- Step spec: `/docs/reference/dsl/step_spec`

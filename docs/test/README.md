@@ -12,9 +12,9 @@ Welcome to the comprehensive documentation for the NoETL test suite. This docume
 
 ### Test Playbooks
 - **[Playbook Test Documentation](./playbooks/README.md)** - Overview of all test scenarios
-- **[Control Flow Workbook](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/control_flow_workbook)** - Conditional branching and parallel execution
-- **[HTTP DuckDB Postgres](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/examples)** - Data pipeline integration  
-- **[Playbook Composition](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/playbook_composition)** - Sub-playbook orchestration
+- **[Control Flow Workbook](https://github.com/noetl/noetl/tree/main/tests/fixtures/playbooks/control_flow_workbook)** - Conditional branching and parallel execution
+- **[HTTP DuckDB Postgres](https://github.com/noetl/noetl/tree/main/tests/fixtures/playbooks/examples)** - Data pipeline integration  
+- **[Playbook Composition](https://github.com/noetl/noetl/tree/main/tests/fixtures/playbooks/playbook_composition)** - Sub-playbook orchestration
 
 ##  Quick Start
 

@@ -9,7 +9,7 @@ description: Building and deploying NoETL Gateway to GKE
 Complete guide for building and deploying the NoETL Gateway to Google Kubernetes Engine (GKE).
 
 :::tip Development Setup
-For local development and running the gateway from source, see the [Gateway Crate README](https://github.com/noetl/noetl/blob/master/crates/gateway/README.md).
+For local development and running the gateway from source, see the [Gateway Crate README](https://github.com/noetl/noetl/blob/main/crates/gateway/README.md).
 :::
 
 ## Table of Contents

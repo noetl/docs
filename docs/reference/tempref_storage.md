@@ -13,8 +13,8 @@ Terminology:
 - **TempRef** is a legacy name; if it exists in older components, treat it as an alias of ResultRef semantics.
 
 Authoritative reference docs:
-- `documentation/docs/reference/result_storage.md`
-- `documentation/docs/reference/dsl/runtime_results.md`
+- `/docs/reference/result_storage`
+- `/docs/reference/dsl/runtime_results`
 
 ---
 

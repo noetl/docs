@@ -15,7 +15,7 @@ NoETL includes three observability and data services for logs, metrics, traces, 
 
 1. **ClickHouse** - OLAP database for logs, metrics, and traces
 2. **Qdrant** - Vector database for embeddings and semantic search
-3. **NATS JetStream** - Messaging and key-value store
+3. **NATS JetStream** - Messaging and key-value store (a service playbooks use; it is no longer NoETL's internal command transport — see [Architecture](/docs/getting-started/architecture))
 
 ### Quick Start
 
@@ -29,9 +29,24 @@ noetl run automation/infrastructure/observability.yaml --set action=status-all
 # Health check
 noetl run automation/infrastructure/observability.yaml --set action=health-all
 
+# Restart all
+noetl run automation/infrastructure/observability.yaml --set action=restart-all
+
 # Deactivate all
 noetl run automation/infrastructure/observability.yaml --set action=deactivate-all
 ```
+
+:::note NodePort vs host port
+The port tables below give **nodePorts**. The host port you connect to depends
+on which kind config you booted. `ci/kind/config.yaml` (the default) remaps most
+of them — NATS client `30422` → **`32422`**, monitoring `30822` → **`32822`**,
+Grafana `30300` → **`33000`** — while `ci/kind/config-minimal.yaml` maps several
+identically. ClickHouse (`30123`, `30900`) and Qdrant (`30633`, `30634`) are the
+same number in both.
+
+The `localhost:<port>` examples on this page use the nodePort. Under the default
+config, substitute the host port above.
+:::
 
 ## ClickHouse
 

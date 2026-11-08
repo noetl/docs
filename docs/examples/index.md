@@ -10,7 +10,7 @@ This section provides practical examples demonstrating NoETL patterns and integr
 
 :::info Source of Truth
 All working, tested playbooks live in the repository at:
-**[tests/fixtures/playbooks/](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks)**
+**[tests/fixtures/playbooks/](https://github.com/noetl/noetl/tree/main/tests/fixtures/playbooks)**
 
 The examples documented here reference those tested implementations.
 :::
@@ -39,7 +39,6 @@ workflow:
   - step: greet
     tool:
       kind: python
-      libs: {}
       args:
         message: "{{ workload.message }}"
       code: |
@@ -57,7 +56,7 @@ workflow:
 noetl run tests/fixtures/playbooks/hello_world/hello_world.yaml -v
 
 # Distributed execution (requires registration)
-noetl register playbook tests/fixtures/playbooks/hello_world/hello_world.yaml
+noetl register playbook --file tests/fixtures/playbooks/hello_world/hello_world.yaml
 noetl run tests/fixtures/playbooks/hello_world -r distributed
 ```
 
@@ -108,7 +107,7 @@ The following directories contain complete, tested playbooks:
 noetl run tests/fixtures/playbooks/my_playbook.yaml --set key=value -v
 
 # Distributed execution (catalog path - requires registration first)
-noetl register playbook tests/fixtures/playbooks/my_playbook.yaml
+noetl register playbook --file tests/fixtures/playbooks/my_playbook.yaml
 noetl run catalog/path/to/playbook -r distributed --set key=value
 ```
 

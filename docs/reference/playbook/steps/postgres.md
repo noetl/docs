@@ -21,5 +21,5 @@ current DSL has no `tool: postgres` step type. Use a Postgres **tool task** (`ki
 ```
 
 ## See also
-- standard Postgres tool: `documentation/docs/reference/tools/postgres.md`
-- Retry semantics: `documentation/docs/reference/retry_mechanism.md`
+- standard Postgres tool: `/docs/reference/tools/postgres`
+- Retry semantics: `/docs/reference/retry_mechanism`

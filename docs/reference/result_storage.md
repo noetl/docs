@@ -14,8 +14,8 @@ This document **merges and supersedes** the older result/TempRef docs and update
 - Storage backends: **NATS KV**, **S3-compatible object storage**, **Google Cloud Storage**, **Postgres**.
 
 See also:
-- current DSL runtime results model: `documentation/docs/reference/dsl/runtime_results.md`
-- Legacy v2 doc (pre-policy DSL): `documentation/docs/reference/result_storage_v2.md`
+- current DSL runtime results model: `/docs/reference/dsl/runtime_results`
+- Legacy v2 doc (pre-policy DSL): `/docs/reference/result_storage`
 
 ---
 

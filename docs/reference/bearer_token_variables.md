@@ -23,7 +23,7 @@ Prefer `auth:` references so the runtime can inject credentials into tools witho
 - `iter.*` — mutable iteration-scoped state (non-secret)
 - `args.*` — token payload from `next.arcs[].args`
 
-See `documentation/docs/reference/variables_v2.md` and `documentation/docs/reference/dsl/step_spec.md`.
+See `/docs/reference/variables` and `/docs/reference/dsl/step_spec`.
 
 ---
 
@@ -35,8 +35,8 @@ Declare credentials in root `keychain`, then reference them from HTTP tasks:
 - or template read-only `keychain.*` into headers when necessary (ensure redaction)
 
 See:
-- `documentation/docs/reference/auth_and_keychain_reference.md`
-- `documentation/docs/reference/tools/http.md`
+- `/docs/reference/auth_and_keychain_reference`
+- `/docs/reference/tools/http`
 
 ---
 

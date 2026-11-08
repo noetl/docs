@@ -3,6 +3,6 @@
 Prefer the standard tools pages for up-to-date shapes and examples.
 
 ## See also
-- Transfer tool: `documentation/docs/reference/tools/transfer.md`
-- Snowflake tool: `documentation/docs/reference/tools/snowflake.md`
-- Postgres tool: `documentation/docs/reference/tools/postgres.md`
+- Transfer tool: `/docs/reference/tools/transfer`
+- Snowflake tool: `/docs/reference/tools/snowflake`
+- Postgres tool: `/docs/reference/tools/postgres`

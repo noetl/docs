@@ -182,7 +182,7 @@ Pagination and polling are modeled as **pipeline control flow**:
 - keep counters/cursors in `iter.*`
 - use a `paginate` decision task that `jump`s back to `fetch_page` or `break`s
 
-For a full standard example, see `documentation/docs/reference/dsl/pagination.md`.
+For a full standard example, see `/docs/reference/dsl/pagination`.
 
 ---
 

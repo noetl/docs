@@ -27,4 +27,4 @@ Example (shape only; tool fields are runtime-defined):
 ```
 
 ## See also
-- Step spec: `documentation/docs/reference/dsl/step_spec.md`
+- Step spec: `/docs/reference/dsl/step_spec`

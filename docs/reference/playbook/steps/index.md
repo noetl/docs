@@ -9,12 +9,12 @@ Steps are built from:
 - `next` (router: `next.spec` + `next.arcs[]`)
 
 This folder is now a set of pointers to the current DSL pages:
-- HTTP: `documentation/docs/reference/tools/http.md`
-- Python: `documentation/docs/reference/tools/python.md`
-- Postgres: `documentation/docs/reference/tools/postgres.md`
-- DuckDB: `documentation/docs/reference/tools/duckdb.md`
-- Snowflake: `documentation/docs/reference/tools/snowflake.md`
-- Loops: `documentation/docs/reference/iterator_v3.md`
-- Retry: `documentation/docs/reference/retry_mechanism.md`
-- Storage: `documentation/docs/reference/result_storage.md`
-- Step spec: `documentation/docs/reference/dsl/step_spec.md`
+- HTTP: `/docs/reference/tools/http`
+- Python: `/docs/reference/tools/python`
+- Postgres: `/docs/reference/tools/postgres`
+- DuckDB: `/docs/reference/tools/duckdb`
+- Snowflake: `/docs/reference/tools/snowflake`
+- Loops: `/docs/reference/iterator`
+- Retry: `/docs/reference/retry_mechanism`
+- Storage: `/docs/reference/result_storage`
+- Step spec: `/docs/reference/dsl/step_spec`

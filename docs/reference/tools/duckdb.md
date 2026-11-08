@@ -41,7 +41,7 @@ DuckDB accepts SQL via:
 - base64: `command_b64` / `commands_b64` / `query_b64`
 - external script descriptor: `script: { uri, source: { type, ... } }`
 
-See `documentation/docs/reference/script_execution_v2.md` for `script` descriptor shape.
+See `/docs/reference/script_execution` for `script` descriptor shape.
 
 ---
 
@@ -54,5 +54,5 @@ For large exports, consider writing Parquet/CSV directly to object storage and r
 ---
 
 ## See also
-- Result storage (reference-first): `documentation/docs/reference/result_storage.md`
-- Unified auth / keychain: `documentation/docs/reference/auth_and_keychain_reference.md`
+- Result storage (reference-first): `/docs/reference/result_storage`
+- Unified auth / keychain: `/docs/reference/auth_and_keychain_reference`

@@ -48,10 +48,10 @@ Snowflake accepts SQL via:
 ## Transfers
 
 For bulk movement between Snowflake and Postgres, prefer `kind: transfer`:
-- `documentation/docs/reference/tools/transfer.md`
+- `/docs/reference/tools/transfer`
 
 ---
 
 ## See also
-- Auth & keychain: `documentation/docs/reference/auth_and_keychain_reference.md`
-- Retry semantics: `documentation/docs/reference/retry_mechanism.md`
+- Auth & keychain: `/docs/reference/auth_and_keychain_reference`
+- Retry semantics: `/docs/reference/retry_mechanism`

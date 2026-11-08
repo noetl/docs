@@ -178,25 +178,53 @@ data:
 
 The following credentials must be registered in the NoETL catalog for auth playbooks:
 
+Credentials are registered **from a JSON file** — there is no inline
+`--data` form. Write the file, then register it.
+
 ### PostgreSQL Credential (`pg_auth`)
+
+`credentials/pg_auth.json`:
+
+```json
+{
+  "name": "pg_auth",
+  "type": "postgres",
+  "data": {
+    "db_host": "postgres.postgres.svc.cluster.local",
+    "db_port": "5432",
+    "db_user": "noetl",
+    "db_password": "<password>",
+    "db_name": "noetl"
+  }
+}
+```
+
 ```bash
-noetl credential create --name pg_auth --type postgres --data '{
-  "db_host": "postgres.postgres.svc.cluster.local",
-  "db_port": "5432",
-  "db_user": "noetl",
-  "db_password": "<password>",
-  "db_name": "noetl"
-}'
+noetl register credential --file credentials/pg_auth.json
 ```
 
 ### NATS Credential (`nats_credential`)
-```bash
-noetl credential create --name nats_credential --type nats --data '{
-  "nats_url": "nats://noetl:noetl@nats.nats.svc.cluster.local:4222",
-  "nats_user": "noetl",
-  "nats_password": "noetl"
-}'
+
+`credentials/nats_credential.json`:
+
+```json
+{
+  "name": "nats_credential",
+  "type": "nats",
+  "data": {
+    "nats_url": "nats://noetl:noetl@nats.nats.svc.cluster.local:4222",
+    "nats_user": "noetl",
+    "nats_password": "noetl"
+  }
+}
 ```
+
+```bash
+noetl register credential --file credentials/nats_credential.json
+```
+
+A whole directory can be registered at once with
+`noetl register credential --directory <dir>` (scans recursively).
 
 ---
 

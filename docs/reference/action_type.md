@@ -1,6 +1,6 @@
 # NoETL Tool Tasks Guide 
 
-This page aligns “task/action” documentation to **current DSL** (see `documentation/docs/reference/dsl/step_spec.md`).
+This page aligns “task/action” documentation to **current DSL** (see `/docs/reference/dsl/step_spec`).
 
 In current DSL:
 - A step executes an ordered **pipeline** of tool tasks under `step.tool`.
@@ -77,18 +77,18 @@ In current DSL:
 ## Tool kinds
 
 See:
-- `documentation/docs/reference/tools/index.md`
-- `documentation/docs/reference/tools/http.md`
-- `documentation/docs/reference/tools/postgres.md`
-- `documentation/docs/reference/tools/python.md`
-- `documentation/docs/reference/tools/duckdb.md`
-- `documentation/docs/reference/tools/snowflake.md`
-- `documentation/docs/reference/tools/container.md`
-- `documentation/docs/reference/tools/gcs.md`
-- `documentation/docs/reference/tools/nats.md`
-- `documentation/docs/reference/tools/transfer.md`
-- `documentation/docs/reference/tools/ducklake.md`
-- `documentation/docs/reference/tools/artifact_tool.md`
+- `/docs/reference/tools/index`
+- `/docs/reference/tools/http`
+- `/docs/reference/tools/postgres`
+- `/docs/reference/tools/python`
+- `/docs/reference/tools/duckdb`
+- `/docs/reference/tools/snowflake`
+- `/docs/reference/tools/container`
+- `/docs/reference/tools/gcs`
+- `/docs/reference/tools/nats`
+- `/docs/reference/tools/transfer`
+- `/docs/reference/tools/ducklake`
+- `/docs/reference/tools/artifact_tool`
 
 ---
 

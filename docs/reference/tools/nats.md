@@ -65,4 +65,4 @@ Operation inputs are tool-specific (bucket/key/value/name/subject/etc).
 ---
 
 ## See also
-- Auth & keychain: `documentation/docs/reference/auth_and_keychain_reference.md`
+- Auth & keychain: `/docs/reference/auth_and_keychain_reference`

@@ -58,5 +58,5 @@ Use it when you need:
 ---
 
 ## See also
-- DuckDB tool: `documentation/docs/reference/tools/duckdb.md`
-- Retry semantics: `documentation/docs/reference/retry_mechanism.md`
+- DuckDB tool: `/docs/reference/tools/duckdb`
+- Retry semantics: `/docs/reference/retry_mechanism`
