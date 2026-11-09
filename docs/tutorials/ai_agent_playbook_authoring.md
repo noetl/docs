@@ -9,7 +9,7 @@ description: Provision NoETL, point an AI agent at the playbook schema, and get 
 A working guide for engineers who want Copilot — or any AI agent — to generate
 NoETL playbooks that actually run.
 
-:::danger The one thing to know before you start
+:::danger[The one thing to know before you start]
 **Schema-valid is not the same as runnable.** NoETL's JSON Schema is
 deliberately permissive: it documents the shape rather than constraining it. It
 will happily validate a playbook that issues **zero commands** and stalls.
@@ -337,7 +337,7 @@ metadata:
   version: "1.0"      # <- cheapest line in the file
 ```
 
-:::note Status
+:::note[Status]
 This symptom is recorded from a live debugging session. Setting the field is
 free and fixes it. The internal mechanism has **not** been traced to a specific
 code path — the catalog assigns its own version sequence independently, so the

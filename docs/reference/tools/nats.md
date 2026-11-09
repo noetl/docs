@@ -9,7 +9,7 @@ description: Interact with NATS JetStream and K/V Store as pipeline tasks
 The `nats` tool provides access to NATS JetStream and Key/Value store
 operations for caching, messaging, and lightweight state.
 
-:::warning Object Store operations are deprecated
+:::warning[Object Store operations are deprecated]
 `operation: object_put` / `object_get` targeted the NATS JetStream
 Object Store tier, which was removed from TempStore in phase 0 of the
 [RisingWave alignment](../../features/noetl_storage_and_streaming_alignment.md).

@@ -16,7 +16,7 @@ It speaks the [**Agent2Agent (A2A) protocol**](https://a2a-protocol.org/latest/s
 so another system can discover an agent and ask it for work over a standard
 surface.
 
-:::info Status — MVP, flag-gated, not deployed
+:::info[Status — MVP, flag-gated, not deployed]
 Three milestones are merged on `main`: **M1** (persistence), **M2** (A2A
 transport), **M9** (operability). Together these are the project's own
 "MVP cut" — the smallest slice where the thing is *real*: answers survive a
@@ -103,7 +103,7 @@ Mesh events persist to a real EHDB `L0Engine` in their own dataset, with
 idempotent appends and per-agent indexed prefix folds. Restart → re-fold →
 identical digest.
 
-:::warning The unsealed tail is inherited, not fixed
+:::warning[The unsealed tail is inherited, not fixed]
 Two failure modes, and only one is free:
 
 | failure | recovery | needs `checkpoint()`? |

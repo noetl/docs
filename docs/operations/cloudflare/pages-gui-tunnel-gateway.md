@@ -56,7 +56,7 @@ callback URL, logout URL, and allowed web-origin configuration explicit per
 domain. Do not use a wildcard unless the deployment is intentionally
 multi-tenant and the auth policy is designed for that.
 
-:::caution Adding a new domain? Pass the full CORS list, not just the new one
+:::caution[Adding a new domain? Pass the full CORS list, not just the new one]
 
 When deploying via the `noetl_gke_fresh_stack.yaml` playbook in `repos/ops`,
 the `gateway_cors_allowed_domains` workload variable is a single string.

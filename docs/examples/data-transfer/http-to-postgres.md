@@ -8,7 +8,7 @@ description: Transfer data from HTTP APIs to PostgreSQL databases
 
 This guide demonstrates various patterns for transferring data from HTTP APIs to PostgreSQL databases.
 
-:::tip Working Examples
+:::tip[Working Examples]
 Complete, tested data transfer playbooks are available in the repository:
 - [tests/fixtures/playbooks/data_transfer/](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/data_transfer)
 :::

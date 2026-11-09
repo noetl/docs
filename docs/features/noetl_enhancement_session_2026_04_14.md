@@ -6,7 +6,7 @@ description: Full record of the architectural analysis and planning session cove
 
 # NoETL Enhancement Session — April 14 2026
 
-:::warning Partially superseded
+:::warning[Partially superseded]
 Sections 4 ("Schema Analysis" — trigger-maintained `execution.state`) and 8 Phase 1 / P1.2 ("`noetl.execution.state` loop progress via trigger") are **superseded by [noetl_async_sharded_architecture.md](./noetl_async_sharded_architecture.md)**. The row-level trigger `trg_execution_state_upsert` is removed; projections are computed by an async `ProjectionWorker` per shard.
 
 Still authoritative from this session: P0.1 atomic command dedup (shipped), P0.2 atomic `loop.done` via unique index (shipped), P0.3 `loop.started` event (shipped), P0.4 reaper (shipped), Phase 2 storage tier work (object storage/PVC — shipped), and the §7 worker communication decisions (NATS/HTTP split, no worker-to-worker, no WebSocket).

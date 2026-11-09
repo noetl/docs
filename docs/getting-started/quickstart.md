@@ -113,7 +113,7 @@ noetl run boot --set kind_config=ci/kind/config-minimal.yaml
 
 **Services available after boot:**
 
-:::note Host ports assume the default kind config
+:::note[Host ports assume the default kind config]
 These are host ports under `ci/kind/config.yaml`, which is what `noetl run boot`
 uses by default. The alternative `ci/kind/config-minimal.yaml` maps several
 ports **identically** to their nodePort (NATS client and monitoring stay on

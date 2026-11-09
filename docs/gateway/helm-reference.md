@@ -8,7 +8,7 @@ description: Gateway Helm chart configuration and values reference
 
 Complete reference for the NoETL Gateway Helm chart configuration.
 
-:::info Chart Source
+:::info[Chart Source]
 The Helm chart is located at [`automation/helm/gateway/`](https://github.com/noetl/noetl/tree/master/automation/helm/gateway).
 :::
 

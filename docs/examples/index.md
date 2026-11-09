@@ -8,7 +8,7 @@ description: Practical examples to get started with NoETL
 
 This section provides practical examples demonstrating NoETL patterns and integrations.
 
-:::info Source of Truth
+:::info[Source of Truth]
 All working, tested playbooks live in the repository at:
 **[tests/fixtures/playbooks/](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks)**
 

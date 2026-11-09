@@ -8,7 +8,7 @@ description: Configuring Auth0 authentication for the NoETL Gateway
 
 Complete guide for configuring Auth0 authentication with the NoETL Gateway.
 
-:::info Related Files
+:::info[Related Files]
 - UI Config: [`tests/fixtures/gateway_ui/config.js`](https://github.com/noetl/noetl/blob/master/tests/fixtures/gateway_ui/config.js)
 - Auth Playbooks: [`tests/fixtures/playbooks/api_integration/auth0/`](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/api_integration/auth0)
 :::
