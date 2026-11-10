@@ -54,6 +54,10 @@ The same playbook runs in three deployment modes: in-process through the CLI
 or on the distributed runtime in Kubernetes. See
 [Deployment Modes](/docs/architecture/deployment_modes).
 
+Playbooks can be served to outside clients over MCP and as agents, and
+separate NoETL instances can register, discover each other and hand off work.
+See [Interop: MCP, Agents and Instances](/docs/architecture/interop).
+
 For detailed architecture, see [Architecture](/docs/getting-started/architecture).
 
 ## Design Philosophy

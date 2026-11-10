@@ -24,6 +24,7 @@ const sidebars: SidebarsConfig = {
         'getting-started/installation',
         'getting-started/architecture',
         'architecture/deployment_modes',
+        'architecture/interop',
         'getting-started/message-learning',
         'getting-started/design-philosophy',
         'getting-started/semantic-pipeline',
