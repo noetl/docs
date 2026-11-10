@@ -6,6 +6,20 @@ sidebar_position: 4
 
 # MCP End-to-End on GKE
 
+:::warning[Legacy runbook: step 7 uses a removed endpoint]
+Step 7 calls `POST /api/mcp/mcp/kubernetes/lifecycle/deploy`. That
+lifecycle dispatcher belonged to the Python server, and the Rust noetl-server
+(v3.x, current 3.156.2) does not serve it. On the Rust server,
+`/api/mcp/{path}` is an MCP endpoint, mounted only with
+`NOETL_MCP_SERVER=true`; see
+[Playbook-as-MCP-Server](../../architecture/playbook_as_mcp_server.md).
+
+To deploy, run the lifecycle playbook
+(`automation/agents/kubernetes/lifecycle/deploy`) directly and supply its
+`mcp_resource` workload yourself. That path has not been re-validated end to
+end on the Rust server. The other steps are unaffected.
+:::
+
 Deploy the same NoETL + MCP architecture you ran locally
 ([MCP End-to-End on Local Kind](./end-to-end-local-kind.md)) onto a
 Google Kubernetes Engine cluster.
@@ -283,6 +297,8 @@ server below when you want Kubernetes API-server views from inside
 the target cluster's network.
 
 ## Step 7 — Deploy the in-cluster Kubernetes MCP server via lifecycle.deploy
+
+> **Legacy:** the Rust noetl-server does not serve this endpoint. See the note at the top of this page.
 
 Same dispatch path as local kind:
 
