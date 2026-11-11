@@ -771,6 +771,81 @@ jobs:
 - **Master Test**: `tests/fixtures/playbooks/regression_test/master_regression_test.yaml`
 - **Documentation**: `tests/fixtures/playbooks/regression_test/README.md`
 
+## Verifying a fix that depends on a race or a restart
+
+Two patterns earned the hard way while shipping the chain-store rework
+(ai-meta#362). Both are about the difference between a test that *passes* and a
+test that *discriminates*.
+
+### Force the condition; do not wait for it
+
+A fix whose defect only appears under some runtime condition must be verified by
+**constructing** that condition, not by driving load and hoping it occurs.
+
+The chain-store defect appears when a server restart empties an in-memory
+per-execution head map, so the next event for a mid-flight execution is stamped as a
+second chain root. The obvious test deletes a pod under load. That test is weak: it
+only exhibits the defect if an execution happens to be emitting across the exact
+window, and in-flight executions frequently **stall** after a restart rather than
+continuing (ai-meta#227), so the condition often never arises at all.
+
+A restart's only effect on that code path is an empty map — the map is process-local
+with no disk backing. So the test constructs a fresh map instead, which reproduces
+the condition exactly and deterministically:
+
+| arm | stamped `prev` | roots per execution |
+| :-- | :-- | --: |
+| **RED** — no hydration, restart mid-emit | `None` | **2** |
+| **GREEN** — link-tip hydration | the real tip | **1** |
+
+⚠ Why this matters beyond convenience: the hydration fix had already shipped once and
+**never fired**. Production recorded `head=0` across 4,270 hydration decisions, because
+the condition it existed for never arose on its own. A test that waits for a condition
+inherits that problem; a test that forces it does not.
+
+Two further arms make the pair discriminating rather than merely green:
+
+- link to the tip **even when the tip is not `max(event_id)`** — without this, the
+  RED/GREEN pair passes on a `max(event_id)` implementation, which is the bug;
+- a **failed** lookup is counted and does not become a root — `Failed` and `Empty`
+  mean opposite things, and collapsing them stamps a root whenever the database
+  hiccups.
+
+### Volume is not duration
+
+**Size a measurement window by the period of the thing being measured, not by how many
+observations fit inside it.**
+
+A denominator answers *how much did I see*. It says nothing about *for how long*, and
+for an intermittent defect the second question is the one that decides whether a clean
+result means anything.
+
+The chain-store re-ramp was first reported green on **772 comparisons with 0 failures
+— 100.00%**, over a window of about ten minutes. The defect fires roughly **once an
+hour**. The same deployment read **13 divergences in 839 engagements** an hour later.
+772 was a comfortable number measuring the wrong axis.
+
+In practice:
+
+- **Estimate the inter-arrival first** from whatever evidence exists, then size the
+  window at several multiples of it. The verdict that finally held spanned **8h 30m —
+  about eight cycles** — with 287 engagements and 0 divergence.
+- **Publish the elapsed window next to the denominator.** "772 comparisons" is not a
+  result; "772 comparisons over 10 minutes against a ~1/hour defect" is, and it
+  refutes itself on sight.
+- **Bound the claim.** 0 in 287 excludes a 6.3% rate at p ≈ 1.4 × 10⁻⁸ and a 1.55%
+  rate at p ≈ 1.3%; the 95% upper bound is ~1.0%. That is a statement; "zero
+  divergences" alone is not.
+- **A clean window shorter than the period is a non-result, not a pass.** Say so.
+
+⚠ And the companion trap on the same gate: **a check that counts only failures reads
+perfectly green when the subject refuses everything.** The chain source refuses a
+forked execution by design, so zero divergence is also what total non-engagement looks
+like. Gate on the failure count **and** the coverage it is drawn from.
+
+The durable form of both lessons lives in
+`agents/rules/representation-drift.md` in the ai-meta repository.
+
 ## See Also
 
 - [DSL Specification](/docs/reference/dsl/spec)

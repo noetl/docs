@@ -130,6 +130,59 @@ The cutover must preserve, not weaken, these:
   synchronous path and the materializer (already landed, 2d-2) — so the
   materialized log is **byte-identical** to what the synchronous path
   would have written. This is the property the shadow phase verifies.
+- **The materializer stamps the chain link.** Under publish-only it is the sole
+  writer of `noetl.event`, so it owns the one-root invariant described in
+  [Event WAL and Derivable Result Storage](./event_wal_and_derivable_storage.md).
+  ⚠ It did not: `prev_event_id` was absent from its INSERT column list, so every
+  row it wrote landed as a chain **root**. Fixed 2026-09-30 (server v3.118.0,
+  ai-meta#362). The intermediate row struct now carries the field, so omitting it
+  is visible in a type rather than invisible in a column list.
+
+### ⚠⚠ A permanent materialization failure must be PARKED, not retried
+
+Shipped 2026-09-30 (server **v3.119.1**, ai-meta#363).
+
+Publish-only makes the materializer the **only** thing standing between
+"published" and "durable". That changes the cost of its failure modes:
+
+- The producer has already been told `ok`. It holds event ids it believes are
+  durable, and it has no signal of its own if they never land.
+- A **transient** failure (deadlock, connection loss) must retry — that is what
+  the at-least-once contract is for.
+- A **permanent** failure must not. An event whose `catalog_id` has no
+  `noetl.catalog` row can never be inserted: the foreign key fails identically on
+  every attempt, forever. Observed in a dev cluster still retrying **more than an
+  hour** after publication. This is the poison-message class already on record as
+  ai-meta#249, in a different writer.
+
+Permanent failures are now parked in `noetl.event_dead_letter` with their reason,
+and the handler returns success-with-zero-materialized — because returning 500 is
+what makes the caller retry, and retrying is the defect.
+
+⚠ **The classifier defaults to TRANSIENT.** Only `23503` (foreign key), `23502`
+(not null), `22P02` (invalid text), `22001` (right truncation) are parked;
+everything else retries. Getting this wrong in the permanent direction silently
+drops an event that *would* have succeeded, and that is worse than a retry loop —
+a retry loop is loud, a wrongly-parked event is silent. `23505` (unique violation)
+is deliberately excluded: the INSERT already carries `ON CONFLICT DO NOTHING`, so
+a duplicate is a normal outcome, not a failure.
+
+⚠ If **parking itself** fails, that surfaces. Swallowing it would lose the batch
+with no record anywhere.
+
+Parking is counted (`noetl_materialize_outcome_total{parked|transient_failure}`,
+both pinned at 0) so a dead-lettered event is **visible** rather than merely absent
+from `noetl.event`. Absence is exactly what the poison loop looked like.
+
+⚠ **Corrected diagnosis, recorded because the wrong version is the tempting one.**
+This was first filed as *"`POST /api/events/batch` returns `status:ok` while
+persisting nothing"* — i.e. a lying response. That is wrong. The handler uses `?`
+on both the insert and the commit, so a single request cannot return both an `ok`
+body and a 500; and under publish-only the `ok` is **correct** — it means
+*published*. The original reading inferred a lying response from two
+true-but-unrelated observations (an `ok` body, and foreign-key 500s in the same
+window) without checking which writer produced the 500s. The real defect is the
+retry loop above.
 
 ## Staged rollout
 

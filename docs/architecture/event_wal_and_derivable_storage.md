@@ -92,7 +92,13 @@ Three problems, one model.
   go through the log and the object-store tier (or the colocated shared-
   memory cache for same-node acceleration, which already exists with
   lease expiry).
-- **NATS JetStream = WAL.** A publish that waits for the stream ack is
+- ⚠ **Status note (2026-09-30):** the diagram above says *NATS JetStream*.
+  **NATS has been deleted** — the bus is EHDB end-to-end (ai-meta#194, T5) and the
+  event-log tier is `primary`-serving through the cmdbus-writer. The WAL *role*
+  described here is unchanged and every durability argument below still holds; only
+  the transport's name has. Read "JetStream" as "the EHDB command/event bus"
+  throughout this document.
+- **The WAL.** A publish that waits for the stream ack is
   durable and replicated. Resume-from-offset is well-defined: anything
   past the last ack is replayed.
 - **Projector pool** drains the log into `projection_snapshot` (the read
@@ -116,6 +122,117 @@ thin compiled publish on the hot path, system-pool playbooks for the
 heavy async drain/materialise/project work. Playbooks that later need
 native speed compile to WASM and hot-reload via catalog version bump (the
 ADR's Phase 4) — the catalog is the managed, replaceable plug-in library.
+
+## Event order is defined by the prev-link, never by `event_id`
+
+**Shipped 2026-09-30** — ehdb **v0.4.5** (`order_by_links`) + server **v3.118.0**.
+Tracked as ai-meta#362.
+
+### The defect this replaces
+
+`event_id` is a snowflake minted **before** the insert. Commit order is therefore
+*not* id order: an event minted at T1 can commit at T3, and a reader whose snapshot
+falls in between sees a *later*-minted event and not the earlier one. A subsequent
+read sees both, with the earlier id **in the middle**.
+
+Anything that reconstructs the chain by sorting on `event_id` is therefore
+reconstructing a different chain at different times. Measured on production: a
+partition held, at position 72, the event the log now holds at position 73 — exactly
+one missing **interior** row. The comparator reported it as a content conflict, and it
+recurred at roughly **one execution per hour**.
+
+### The model
+
+```
+    read the execution's rows        ORDER BY event_id — only because a SQL read
+              |                      must return them in SOME order.  That order
+              |                      is NOT the chain.
+              v
+    order_by_links()                 index the set -> find the single root ->
+              |                      walk successors.  Two event_ids are never
+              |                      compared.
+              v
+    one chain, or an explicit refusal
+```
+
+An interior insert is then simply a link, and the ordering is stable regardless of
+when each row committed.
+
+### The invariant
+
+**Exactly one NULL-`prev_event_id` event per `execution_id`.** That event is the
+genesis; every other event links to its predecessor.
+
+⚠ This must be measured **per execution**, and the reason is worth stating because the
+aggregate reading is actively misleading. A NULL prev is correct by design — one per
+execution — so a large absolute count of NULLs says nothing about health. An early
+aggregate measurement showed `prev_event_id` NULL on 643,420 of 645,677 rows and was
+read as "the column is unusable". Measured per execution, the same corpus is one dead
+pre-feature era (533 executions where nothing stamped a link at all, including one
+with 70,977 false roots) plus a healthy modern era at 61 of 63 executions. **The
+defect is more than one root, never the count of roots.**
+
+Published as `noetl_chain_root_invariant{one_root|multi_root|no_root}` plus
+`GET /api/internal/chain/invariant`. The gauge is written by a **background sampler**,
+not only by the endpoint: a metric that moves only when a human calls an endpoint sits
+at zero, which is indistinguishable from a healthy system. It carries
+`noetl_chain_invariant_sampled_at_seconds`, pinned at 0 = *never sampled*, so a dead
+sampler cannot read as a clean result.
+
+### Keeping the invariant: the head is the link tip
+
+The writer stamps `prev_event_id` from an in-memory per-execution head map. That map
+is process-local with no disk backing, so a restart empties it — and a mid-flight
+execution's next event was then stamped as a **second root**, which makes the partition
+unbuildable.
+
+Hydration recovers the head from the database on a miss. ⚠ It must select the **link
+tip** — *the event nothing links to* — and **not** `max(event_id)`, which re-imports
+the assumption above. On the measured corpus the two agree on 63 of 65 executions and
+disagree on exactly the 2 that are already broken; they also disagree whenever an
+interior insert is in flight.
+
+When more than one tip exists the chain is already forked. Hydration still returns a
+head (the highest-id tip) rather than `None`, because stamping `NULL` on ambiguity adds
+*another* root and makes the invariant strictly worse. It is reported under its own
+outcome so a repair is never mistaken for a healthy hydration.
+
+Every writer of `noetl.event` must stamp the link. `events_materialize` did not — the
+column was absent from its INSERT column list, so every row it wrote became a root.
+`project_events` deliberately does **not** re-stamp: it is a replication path whose
+envelope already carries the link, and rewriting it there would make the projection
+disagree with the source it projects. It counts unlinked envelopes instead, so a second
+root is attributable rather than guessed at.
+
+### Refusal is a first-class outcome
+
+A set of events that does not form one chain is **refused**, and each reason is distinct
+because each needs a different response: `multiple_roots`, `no_root`, `fork`,
+`dangling_prev`, `unreachable`. Collapsing them into a single "cannot answer" is what
+left two earlier divergence classes unexplained for a full session.
+
+A refusal falls through to Postgres, which remains authoritative.
+
+⚠ `dangling_prev` is expected at a low rate and is benign: a predecessor minted ~13 ms
+earlier that has not committed yet from the reader's snapshot. It is the same
+commit-order-is-not-id-order mechanism in the opposite direction. It self-heals on the
+next read. Production measured 2 in 289 attempts over 8.5 hours, both executions
+COMPLETED.
+
+### ⚠⚠ What this removes
+
+An earlier design (ai-meta#357) could *serve* a post-restart execution carrying several
+NULL-prev rows, by recomputing the edge from log order. That worked — and it was the
+same trusting of id-order described above. It was never recovery; it was a guess that
+usually looked right.
+
+A forked execution is now refused. The store therefore covers **fewer** executions
+until the write path stops producing forks: on the measured corpus, 2 of 63 recent
+executions plus the whole legacy era.
+
+⚠ Which changes how this path must be monitored: **a source that refuses everything
+also reports zero divergence.** Gate on the divergence count *and* the coverage it is
+drawn from, never on divergence alone.
 
 ## The load-bearing decision: where the durability barrier sits
 
