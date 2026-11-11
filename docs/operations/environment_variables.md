@@ -7,7 +7,7 @@ title: Environment Variables
 
 The runtime env-var reference for NoETL's deployed components.
 
-:::info Where the authoritative list lives
+:::info[Where the authoritative list lives]
 Each deployed binary keeps its **deployment-specification** page on its own
 repo wiki, and that page is the source of truth for its environment: every
 variable with its default, whether it is required, and *why* it exists. Those
@@ -50,7 +50,7 @@ The Python server and Python worker are retired, and so is the separate
 
 All of these live in [noetl/ops](https://github.com/noetl/ops).
 
-:::warning The manifests are not a complete record
+:::warning[The manifests are not a complete record]
 The prod deployment manifests omit a large number of variables that the live
 Deployments actually carry, so reading a manifest does not tell you what a pod
 is running. Verify against the cluster — see

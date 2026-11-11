@@ -25,7 +25,7 @@ Cloudflare provides:
 
 ## Current Production Configuration
 
-:::info NoETL Gateway (mestumre.dev)
+:::info[NoETL Gateway (mestumre.dev)]
 | Setting | Value |
 |---------|-------|
 | Domain | `mestumre.dev` |
@@ -114,7 +114,7 @@ API endpoints and OPTIONS preflight requests must not be cached. Create a Cache 
    - **Then**: Bypass cache
 4. Click **Deploy**
 
-:::warning Important for CORS
+:::warning[Important for CORS]
 This rule is **critical** for CORS to work. Without it, Cloudflare may cache OPTIONS preflight responses without the required CORS headers, causing authentication to fail.
 :::
 

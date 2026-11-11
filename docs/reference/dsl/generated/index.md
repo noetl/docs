@@ -6,7 +6,7 @@ description: The NoETL playbook grammar and tool kinds, generated from the code 
 
 # Generated DSL reference
 
-:::info Generated
+:::info[Generated]
 Generated from [noetl/server@5cf0712da626](https://github.com/noetl/server/tree/5cf0712da626a28af9f73f833d48d7c6e5c13140/orchestrate-core/schema) (orchestrate-core 0.1.0). **Do not edit**: change the Rust types and regenerate. Machine-readable copies live on [noetl.ai](https://noetl.ai).
 :::
 

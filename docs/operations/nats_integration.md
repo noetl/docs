@@ -5,7 +5,7 @@ title: NATS JetStream Integration
 
 # NATS JetStream Integration
 
-:::warning NATS is no longer an internal transport
+:::warning[NATS is no longer an internal transport]
 Command notifications moved to the **EHDB feed** (noetl/ai-meta#212). NATS no
 longer carries commands or events between the server and workers, and there is
 no NATS deployment in production.

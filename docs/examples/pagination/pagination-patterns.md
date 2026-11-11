@@ -8,7 +8,7 @@ description: HTTP pagination patterns for fetching large datasets
 
 NoETL supports multiple HTTP pagination patterns for efficiently fetching large datasets from APIs.
 
-:::tip Working Examples
+:::tip[Working Examples]
 Complete, tested pagination playbooks are available in the repository:
 - [tests/fixtures/playbooks/pagination/](https://github.com/noetl/noetl/tree/master/tests/fixtures/playbooks/pagination)
 :::

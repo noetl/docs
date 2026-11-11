@@ -8,7 +8,7 @@ description: NoETL Gateway - API gateway for authentication and GraphQL proxy
 
 The NoETL Gateway is a Rust-based API gateway that provides authentication, authorization, GraphQL compatibility, and authenticated REST proxy access to the NoETL platform.
 
-:::info Source Code
+:::info[Source Code]
 For development documentation, local setup, and code details, see the [Gateway Crate README](https://github.com/noetl/noetl/blob/master/crates/gateway/README.md).
 :::
 

@@ -90,7 +90,7 @@ function defSection(name, d) {
 }
 
 const banner = (src) =>
-  `:::info Generated\nGenerated from [noetl/server@${src.sha.slice(0, 12)}](https://github.com/noetl/server/tree/${src.sha}/orchestrate-core/schema) ` +
+  `:::info[Generated]\nGenerated from [noetl/server@${src.sha.slice(0, 12)}](https://github.com/noetl/server/tree/${src.sha}/orchestrate-core/schema) ` +
   `(orchestrate-core ${src.core}). **Do not edit**: change the Rust types and regenerate. ` +
   `Machine-readable copies live on [noetl.ai](https://noetl.ai).\n:::\n`;
 
