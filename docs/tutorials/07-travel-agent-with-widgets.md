@@ -337,9 +337,16 @@ Vertex AI is intentionally routed through
 pattern. The travel agent dispatches; the MCP playbook owns GCP auth:
 Workload Identity, metadata server, env-var token, and
 service-account JWT fallback. One auth implementation serves two
-callers: `travel --provider vertex-ai ...` and external MCP clients
-speaking JSON-RPC to
-`/api/mcp/playbook/automation/agents/mcp/vertex-ai/jsonrpc`.
+callers: `travel --provider vertex-ai ...` and external MCP clients.
+
+For external clients, the playbook must opt in with `metadata.expose.mcp`,
+including a hand-written `input_schema`. The client then calls `tools/call`
+on the gateway's `/noetl/mcp`. See
+[Playbook-as-MCP-Server](/docs/architecture/playbook_as_mcp_server).
+
+The per-playbook route this tutorial used to cite,
+`/api/mcp/playbook/automation/agents/mcp/vertex-ai/jsonrpc`, belonged to
+the Python server and does not exist in the current Rust server.
 
 The step shape is the same NoETL agent hop used for Amadeus:
 

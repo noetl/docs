@@ -133,11 +133,14 @@ Three surfaces:
    ```
 
 3. **From an external MCP client** (Cursor, Claude Desktop), via the
-   [playbook-as-MCP-server](./playbook_as_mcp_server.md) endpoint:
-
-   ```
-   POST /api/mcp/playbook/automation/agents/troubleshoot/diagnose_execution/jsonrpc
-   ```
+   [playbook-as-MCP-server](./playbook_as_mcp_server.md) endpoint. The
+   playbook has to opt in with `metadata.expose.mcp`, including a
+   hand-written `input_schema`. The client then calls `tools/call` on the
+   gateway's `POST /noetl/mcp`, or the server's `POST /api/mcp`. Both are
+   off unless `GATEWAY_MCP_PROXY=true` and `NOETL_MCP_SERVER=true` are set.
+   The older per-playbook route,
+   `POST /api/mcp/playbook/{path}/jsonrpc`, belonged to the Python server
+   and does not exist in the Rust server.
 
 ## Failure modes the agent classifies
 

@@ -175,14 +175,23 @@ noetl run bootstrap --verbose
 
 ## Supported Tool Types
 
-The local runtime supports the following tool kinds:
+The local runtime supports the following tool kinds (CLI 6.0.0):
 
 | Tool Kind | Description | Use Case |
 |-----------|-------------|----------|
 | `shell` | Execute shell commands | Build scripts, file operations |
 | `http` | Make HTTP requests | API calls, webhooks |
-| `playbook` | Call sub-playbooks | Workflow composition |
+| `playbook` | Call sub-playbooks, optionally returning the child's result | Workflow composition |
 | `rhai` | Embedded scripting | Complex logic, polling loops |
+| `duckdb` | DuckDB queries | Local analytics |
+| `auth` | Credential and token steps | Authenticating later steps |
+| `sink` | Write a step's result to a sink | Persisting output |
+| `provider` | Cloud provider operations (plan and apply), using the same tool as the worker | Infrastructure as Playbook |
+| `agent` | A Claude tool-use loop whose tools are playbooks | AI agent steps |
+| `noop` | Does nothing, deliberately | Placeholders, routing |
+
+Any other kind makes the whole playbook fail at load. See
+[Unsupported Tool Handling](#limitations).
 
 ### Shell Commands
 
@@ -368,6 +377,34 @@ workflow:
 - Parent passes `args` map to child playbook
 - Child receives args as `workload.*` variables
 - Example: `args: {image_tag: "v2.5"}` → `{{ workload.image_tag }}`
+
+**Returning the child's result** (CLI 5.6.0 and later): by default a
+`kind: playbook` step has no result. To use what the child produced, set
+`return_result: true`:
+
+```yaml
+  - step: lookup
+    tool:
+      kind: playbook
+      path: ./lookup.yaml
+      args: { id: "{{ workload.id }}" }
+      return_result: true     # the step's result is the child's result
+      result_step: fetch      # optional: a specific child step
+    next:
+      - step: use_it
+
+  - step: use_it
+    tool:
+      kind: shell
+      cmds:
+        - echo "{{ lookup.result }}"
+```
+
+- Without `result_step`, the result is the child's final result: that of the
+  last child step that produced one.
+- If `result_step` names a step the child never ran, the step fails with an
+  error that lists the child steps that did produce results.
+- The field names and the default are the same as on the distributed runtime.
 
 ### Rhai Embedded Scripting
 
@@ -1038,25 +1075,38 @@ noetl run automation/tasks.yaml \
 
 Current local execution does NOT support:
 
-1. **Database Tools**: postgres, duckdb, snowflake (requires database connections)
+1. **Database Tools**: postgres, snowflake and other server-side database tools (`duckdb` is supported)
 2. **Python Tool**: Execution of embedded Python code
 3. **Iterator Tool**: Loop constructs
-4. **Event Persistence**: No event log or execution history
+4. **Event Persistence**: No event log. `--event-buffer` writes a local Arrow
+   Feather buffer that `noetl push` can upload later (see
+   [Deployment Modes](/docs/architecture/deployment_modes))
 5. **Credential Vault**: No credential resolution (use environment variables)
 6. **NATS Integration**: No message queue coordination
 7. **Observability**: No metrics/traces (only stdout)
 
-**Unsupported Tool Handling**: When a playbook uses tools not supported in local mode (postgres, python, duckdb, iterator, etc.), noetl CLI will display a warning message and skip the step:
+**Unsupported Tool Handling** (CLI 6.0.0 and later): a playbook that uses any
+tool kind the local runtime cannot execute is refused **at load**, before any
+step runs.
+- The run exits non-zero.
+- The check covers sub-playbooks and agent tool playbooks too.
+- The error names every offending step and its kind:
 
 ```
-⚠️  Tool not supported in local execution mode
-   Supported tools: shell, http, playbook
-   For other tools (postgres, duckdb, python, iterator, etc.), use distributed execution
+Playbook 'my_playbook' uses tool kinds the local runtime cannot run:
+  step `load_rows`: kind `postgres`
+  step `score`: kind `python`
+Local tool kinds: shell, http, playbook, duckdb, auth, sink, rhai, provider, agent, noop.
+Run it on a cluster instead: noetl run my_playbook.yaml --runtime distributed
 ```
 
-The workflow will continue to the next step. To test unsupported tools, use the full distributed execution environment with server/worker infrastructure.
+Before 6.0.0 the CLI printed a warning, skipped the step and still reported
+the run as successful. There is no switch to restore that behaviour. A kind
+name is matched exactly, so a mis-cased kind such as `Shell` is also
+refused.
 
-For database operations, Python code execution, and other advanced features, use the full distributed execution environment.
+For database operations, Python code execution, and other advanced features,
+use the distributed runtime.
 
 ## Best Practices
 
@@ -1397,34 +1447,13 @@ noetl run automation/examples/conditional_flow.yaml \
 ✅ Playbook execution completed successfully
 ```
 
-### 6. Unsupported Tools Example
+### 6. Unsupported Tools
 
-**File**: [`automation/examples/unsupported_tools.yaml`](https://github.com/noetl/noetl/blob/master/automation/examples/unsupported_tools.yaml)
-
-Demonstrates how noetl CLI handles tools not supported in local mode:
-
-```bash
-noetl run automation/examples/unsupported_tools.yaml --verbose
-```
-
-**What it does**:
-- Attempts to use postgres, python, and duckdb tools
-- Shows warning messages for unsupported tools
-- Continues to next step (shell) which is supported
-
-**Expected output**:
-```
-🔹 Step: try_postgres
-⚠️  Tool not supported in local execution mode
-   Supported tools: shell, http, playbook
-   For other tools (postgres, duckdb, python, iterator, etc.), use distributed execution
-🔹 Step: try_python
-⚠️  Tool not supported in local execution mode
-   ...
-🔹 Step: use_shell
-   Shell tool works in local mode!
-✅ Playbook execution completed successfully
-```
+A playbook that mixes a local kind (`shell`) with kinds the local runtime cannot
+run (`postgres`, `python`) no longer runs part-way. With CLI 6.0.0 and later,
+`noetl run -r local` refuses it before the first step and lists every
+offending step. See [Unsupported Tool Handling](#limitations) for the message.
+Run such a playbook with `--runtime distributed`.
 
 ## Running Examples
 

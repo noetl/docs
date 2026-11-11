@@ -62,9 +62,16 @@ noetl run playbooks/hello.yaml -r local --set name=world
   `auto` (the default). An explicit flag wins, then the active context's
   `runtime`, then `local`. Every run prints the runtime it picked, and why, to
   stderr.
-- **Local tools.** The local runtime runs a subset of tool kinds. That subset
-  includes `shell`, `http`, `playbook`, `duckdb`, `auth` and `sink`.
-  Credentials come from the local store (`noetl credential`).
+- **Local tools.** The local runtime runs a subset of tool kinds: `shell`,
+  `http`, `playbook`, `duckdb`, `auth`, `sink`, `rhai`, `provider`, `agent`
+  and `noop`. Credentials come from the local store (`noetl credential`).
+- **Unsupported kinds fail at load (CLI 6.0.0).** If a playbook uses any
+  other kind, it is refused before the first step runs, with the offending
+  steps listed. Earlier versions skipped those steps and still reported
+  success.
+- **Sub-playbook results.** `kind: playbook` with `return_result: true`
+  (and optionally `result_step`) makes the child's result the step's result,
+  the same as on the distributed runtime.
 - **Optional event buffer.** With `--event-buffer`, the run records its events
   as an Apache Arrow **Feather V2** file. This is off by default. See
   [The Feather event buffer](#the-feather-event-buffer).
@@ -261,7 +268,9 @@ What is still missing before a stack can run with
    a kubectl-capable pool.
 2. A KV HTTP surface on the server. The KV engine exists, but there is no
    `/api/` route.
-3. The ehgraph topology writer.
+3. An ehgraph writer for IaC resource topology. The topology writer that
+   shipped in server 3.156 (`NOETL_EHGRAPH_TOPOLOGY_WRITER`) projects
+   registered NoETL *instances* only, not IaC resources.
 4. Both import gates opened on the target cluster: server
    `NOETL_EVENTS_ARROW_INGEST=enabled` and worker
    `NOETL_EHDB_EVENTLOG_MIRROR_SOURCE=server`.
@@ -285,6 +294,17 @@ Moving up is additive. The playbook doesn't change. `noetl subscribe
 --dispatch server` points a daemon's triggers at a cluster, and `noetl push`
 moves a CLI run's history onto the event log.
 
+**Interop between modes.** Separate NoETL instances can also register with a
+control plane, discover each other, and hand off playbook runs, all over
+outbound connections:
+- each instance has an ML-DSA-87 identity;
+- `noetl instance` is the CLI side;
+- the server side is `/api/instances/*`, behind `NOETL_INSTANCE_REGISTRY`,
+  which is off by default.
+
+Playbooks can also be served to outside clients over MCP and as agents. See
+[Interop: MCP, Agents and Instances](/docs/architecture/interop).
+
 ## Sources
 
 The claims on this page were checked against code on 2026-11-07:
@@ -298,9 +318,8 @@ noetl/ops prod manifests.
   Terraform/Crossplane), ADR-0002 (two-phase state), ADR-0003
   (desired/observed/drift), ADR-0004 and ADR-0005 (ClickHouse is business data
   only), ADR-0006 (Terraform/Crossplane mapping) and ADR-0007 (Phase 0 is the
-  Feather buffer), plus the spec `noetl-iac-log-analytics.md`. These are in
-  review in [noetl/ops#361](https://github.com/noetl/ops/pull/361) and will be
-  under `docs/decisions/` once it merges.
+  Feather buffer), in [noetl/ops `docs/decisions/`](https://github.com/noetl/ops/tree/main/docs/decisions),
+  plus the spec [`noetl-iac-log-analytics.md`](https://github.com/noetl/ops/blob/main/docs/specs/noetl-iac-log-analytics.md).
 - **ehgraph:** [Embedding](https://github.com/noetl/ehgraph/blob/main/docs/wiki/Embedding.md)
   (the embedded and standalone modes) and
   [Roadmap](https://github.com/noetl/ehgraph/blob/main/docs/wiki/Roadmap.md)

@@ -17,6 +17,30 @@ see [MCP End-to-End on Local Kind](../operations/mcp/end-to-end-local-kind.md);
 for the GKE variant, see
 [MCP End-to-End on GKE](../operations/mcp/end-to-end-gke.md).
 
+:::warning[Lifecycle and discover endpoints were removed]
+The Rust noetl-server (v3.x, current 3.156.2) does not serve these Python-server
+routes:
+- `POST /api/mcp/{path}/lifecycle/{verb}`
+- `POST /api/mcp/{path}/discover`
+
+On the Rust server, `/api/mcp/{path}` is an MCP endpoint. It serves a
+`kind: Mcp` resource that sets `spec.serve: true` as an MCP server built from
+playbooks, and only when `NOETL_MCP_SERVER=true`. See
+[Playbook-as-MCP-Server](./playbook_as_mcp_server.md).
+
+The lifecycle playbooks themselves are still ordinary playbooks, but nothing
+dispatches them by verb any more. A caller runs one directly, for example with
+`POST /api/execute`, and has to supply the `mcp_resource` workload the
+dispatcher used to fill in.
+
+These still exist on the Rust server:
+- `kind: Mcp` catalog resources;
+- `GET /api/catalog/{path}/ui_schema`;
+- the `check_playbook_access` gate (`POST /api/auth/check-playbook-access`).
+
+The Phase 1 sections below are kept as a record of the earlier design.
+:::
+
 ## Why this design
 
 A working MCP integration needs three things working together:
@@ -63,18 +87,18 @@ flowchart TB
   Catalog --> Playbook
   Mcp -.references.-> Playbook
   Catalog --> RunDialog
-  RunDialog -- POST /api/mcp/.../lifecycle/{verb} --> Auth
+  RunDialog -- run lifecycle playbook (dispatcher removed) --> Auth
   Auth -- allowed --> Deploy
   Auth -- allowed --> Status
   Deploy -- helm upgrade --> Cluster[(Kubernetes cluster)]
   Status -- kubectl get --> Cluster
 ```
 
-Each phase is implemented and merged:
+Each phase was implemented and merged, on the earlier Python server for Phases 1 and 2:
 
 | Phase | Implementation | Released in |
 |---|---|---|
-| 1 — `Mcp` resource lifecycle endpoint | `/api/mcp/{path}/lifecycle/{verb}` + `_ui_schema` | noetl ≥ 2.26 |
+| 1 — `Mcp` resource lifecycle endpoint | `/api/mcp/{path}/lifecycle/{verb}` + `_ui_schema` | noetl ≥ 2.26 (Python). **Removed** in the Rust server; `ui_schema` remains |
 | 2 — server-side `check_playbook_access` | `noetl/server/api/auth/check_access.py` | noetl ≥ 2.27 |
 | 3 — Kubernetes MCP lifecycle agent fleet | `automation/agents/kubernetes/lifecycle/*` | ops main |
 | 4 — friendly run dialog + Mcp tile renderer | `gui/src/components/PlaybookRunDialog.tsx` | gui ≥ 1.3 |
@@ -134,11 +158,14 @@ cluster; the NoETL worker obtains a Google Cloud access token through
 Workload Identity or an explicit execution workload override, calls
 the managed endpoint, and records the response as a normal execution.
 
-The server exposes:
+The Python server exposed the following routes. The Rust server keeps only
+the last one:
 
-- `POST /api/mcp/{path}/lifecycle/{verb}` — dispatch a lifecycle agent
-- `POST /api/mcp/{path}/discover` — refresh the tools list
-- `GET /api/catalog/{path}/ui_schema` — render a workload form for any catalog entry
+- `POST /api/mcp/{path}/lifecycle/{verb}` (dispatch a lifecycle agent):
+  **removed**
+- `POST /api/mcp/{path}/discover` (refresh the tools list): **removed**
+- `GET /api/catalog/{path}/ui_schema` (render a workload form for any
+  catalog entry): still served
 
 ## Phase 2 — auth-as-playbook, server-side
 

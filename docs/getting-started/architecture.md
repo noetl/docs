@@ -141,6 +141,53 @@ need a Lease election and are on the roadmap, not built. See
 [Embedding](https://github.com/noetl/ehgraph/blob/main/docs/wiki/Embedding.md)
 and [Roadmap](https://github.com/noetl/ehgraph/blob/main/docs/wiki/Roadmap.md).
 
+**Query interface.** Alongside its fixed tools (`graph.upsert`,
+`graph.deactivate`, `graph.query`, `graph.neighbors`, `graph.path`, and so on),
+which stay the stable contract for writers, ehgraph accepts a subset of
+**openCypher** (aligned with GQL) for reads and writes:
+
+| Interface | Route | Notes |
+|---|---|---|
+| MCP tool `graph.cypher` | `POST /mcp`, `tools/call` | Same envelope as the other tools |
+| HTTP | `POST /v1/cypher` | Same body as the MCP tool |
+| Neo4j Query API v2 | `POST /db/{namespace}/query/v2`, explicit transactions under `.../query/v2/tx` | Works with Query API clients |
+| Bolt 5.0 / 4.4 | `[bolt] listen = "..."` in the standalone server's config | Off unless configured. Official Neo4j drivers over `bolt://` (no TLS or `neo4j://` routing yet) |
+
+How these reach the graph depends on the mode:
+- **Embedded.** noetl-server mounts the HTTP routes under
+  `/ehgraph/noetl-cluster`, so the Query API is at
+  `/ehgraph/noetl-cluster/db/{namespace}/query/v2`. The server does **not**
+  open a Bolt listener.
+- **Standalone.** A standalone `ehgraph-server` opens Bolt only when its
+  config has a `[bolt]` section.
+
+**Transactions.** Writes are atomic and serializable.
+- **Multi-statement transactions** are available as `graph.tx.begin`, `run`,
+  `commit` and `rollback`, through the Query API's `/tx` routes, and through
+  Bolt `BEGIN`/`COMMIT`. They give snapshot reads plus read-your-writes, and
+  commit as one graph version or not at all.
+- **Concurrency is optimistic.** The first committer wins, and a conflicting
+  commit fails with `VERSION_CONFLICT` (409).
+- **Conditional commits.** A write can pass `expect` (element or graph
+  versions it requires) and is applied only if they still hold.
+
+The subgraph fix in the same release makes `graph.subgraph` keep a seed's
+depth when another seed also reaches it.
+
+noetl-server 3.156.2 embeds ehgraph `f200516`, which includes all of this.
+The on-disk store format is unchanged, so a server rollback still opens the
+graph.
+
+**Supported subset.** The supported Cypher subset, the gap table and the
+openCypher TCK results are in the ehgraph
+[Cypher](https://github.com/noetl/ehgraph/blob/main/docs/wiki/Cypher.md)
+page. On TCK 2024.3, ehgraph passes 58.8% of all scenarios and 84.1% of
+in-model scenarios; most remaining failures create unlabeled nodes.
+Transaction semantics are in
+[Transactions](https://github.com/noetl/ehgraph/blob/main/docs/wiki/Transactions.md).
+For the instance graph that noetl-server writes, see
+[Interop](/docs/architecture/interop#instance-registration-and-discovery).
+
 ### Worker Pools
 
 Stateless background executors:
