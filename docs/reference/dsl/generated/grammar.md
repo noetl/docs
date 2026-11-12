@@ -7,7 +7,7 @@ description: Every NoETL playbook construct and field, generated from the parser
 # Grammar
 
 :::info[Generated]
-Generated from [noetl/server@5cf0712da626](https://github.com/noetl/server/tree/5cf0712da626a28af9f73f833d48d7c6e5c13140/orchestrate-core/schema) (orchestrate-core 0.1.0). **Do not edit**: change the Rust types and regenerate. Machine-readable copies live on [noetl.ai](https://noetl.ai).
+Generated from [noetl/server@62137e65756e](https://github.com/noetl/server/tree/62137e65756e4617a67861fe53105b3f58665046/orchestrate-core/schema) (orchestrate-core 0.1.0). **Do not edit**: change the Rust types and regenerate. Machine-readable copies live on [noetl.ai](https://noetl.ai).
 :::
 
 ## Playbook
