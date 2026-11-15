@@ -7,7 +7,7 @@ description: The NoETL playbook grammar and tool kinds, generated from the code 
 # Generated DSL reference
 
 :::info[Generated]
-Generated from [noetl/server@5cf0712da626](https://github.com/noetl/server/tree/5cf0712da626a28af9f73f833d48d7c6e5c13140/orchestrate-core/schema) (orchestrate-core 0.1.0). **Do not edit**: change the Rust types and regenerate. Machine-readable copies live on [noetl.ai](https://noetl.ai).
+Generated from [noetl/server@8df52b927378](https://github.com/noetl/server/tree/8df52b9273780dfa154e3cd27b6d42d28476e758/orchestrate-core/schema) (orchestrate-core 0.1.0). **Do not edit**: change the Rust types and regenerate. Machine-readable copies live on [noetl.ai](https://noetl.ai).
 :::
 
 These pages are generated from `noetl-orchestrate-core`, the Rust types the NoETL server parses
@@ -19,8 +19,8 @@ pages are the exact, current grammar.
 | apiVersion | `noetl.io/v2` |
 | Document kind | `Playbook` |
 | orchestrate-core | `0.1.0` |
-| Schema digest | `sha256:de6519f1f025dcb0e4743e321cff30e8ac4800d38acaaecf8249c00a13ab9ad6` |
-| Source | [noetl/server@5cf0712da626](https://github.com/noetl/server/commit/5cf0712da626a28af9f73f833d48d7c6e5c13140) |
+| Schema digest | `sha256:7c841140c76037ec82f64e6a0055743d037831b4d704b8e21492aa66f4eb58ef` |
+| Source | [noetl/server@8df52b927378](https://github.com/noetl/server/commit/8df52b9273780dfa154e3cd27b6d42d28476e758) |
 
 - [Grammar](./grammar): every playbook construct and its fields.
 - [Tool kinds](./tool-kinds): every `tool.kind` and whether it is enabled by default.
